@@ -7,8 +7,8 @@ export default function BodyChart({ records }: { records: BodyRecord[] }) {
       <h3>📈 변화 추이</h3>
       <ul>
         {records.map(r => (
-          <li key={r.record_date}>
-            {r.record_date} / {r.weight}kg / {r.body_fat_percentage}%
+          <li key={r.recordDate}>
+            {r.recordDate} / {r.weight}kg / {r.bodyFatPercentage}%
           </li>
         ))}
       </ul>

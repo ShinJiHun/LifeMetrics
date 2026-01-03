@@ -1,0 +1,325 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* ===============================
+   공통 변수
+=============================== */
+:root {
+    --left-axis-offset: 64px;
+}
+
+/* ===============================
+   전체 페이지
+=============================== */
+.body-page {
+    padding: 12px 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+
+    height: 100%;
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ===============================
+   상단 헤더 (타이틀 + 날짜)
+=============================== */
+.summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 700;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 날짜 네비게이터 (헤더용) */
+.header-date {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-date button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+}
+
+.header-date button:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.header-date .date-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* ===============================
+   좌 / 우 분할 레이아웃
+=============================== */
+.body-split-layout {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr;
+    gap: 20px;
+
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ===============================
+   좌측 컬럼
+=============================== */
+.body-left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+}
+
+/* ===============================
+   3 x 2 카드 그리드
+=============================== */
+.metric-grid-3x2 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+/* ===============================
+   카드
+=============================== */
+.metric-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 8px 10px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 66px;
+}
+
+.metric-card.active {
+    border: 2px solid #2563eb;
+    background: #f0f6ff;
+}
+
+.metric-title {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.metric-delta {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.metric-delta.plus {
+    color: #ef4444;
+}
+
+.metric-delta.minus {
+    color: #10b981;
+}
+
+/* ===============================
+   차트 섹션
+=============================== */
+.chart-section {
+    min-height: 250px;
+    margin-top: -6px;
+}
+
+/* ===============================
+   AI 모델 선택 (라디오)
+=============================== */
+.ai-radio-group {
+    display: flex;
+    gap: 10px;
+
+    margin-top: 45px;
+    margin-bottom: -15px;
+
+    padding-left: calc(var(--left-axis-offset) - 53px);
+    align-items: center;
+}
+
+.ai-radio-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 4px 10px;
+    height: 28px;
+
+    font-size: 12px;
+    font-weight: 500;
+
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+
+    cursor: pointer;
+    user-select: none;
+}
+
+.ai-radio-item input {
+    accent-color: #2563eb;
+}
+
+/* ===============================
+   AI 분석 텍스트
+=============================== */
+.summary-text-box {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    border-left: 4px solid #2563eb;
+
+    padding: 8px 10px;
+    margin-left: calc(var(--left-axis-offset) - 53px);
+    margin-top: 8px;
+
+    font-size: 13px;
+    line-height: 1.5;
+    color: #374151;
+
+    max-height: 96px;
+    overflow-y: auto;
+}
+
+/* ===============================
+   우측 컬럼 (체형 시각화)
+=============================== */
+.body-right {
+    display: flex;
+    flex-direction: column;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 12px;
+    background: #fafafa;
+    justify-content: center;
+}
+
+/* HumanModelView */
+.human-model-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 모델 캔버스 */
+.model-canvas-wrapper {
+    flex: 1;
+    min-height: 420px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.model-canvas-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+    margin-bottom: 0;
+}
+
+/* 체형 설명 */
+.body-type-desc {
+    margin-top: 0;
+    padding: 10px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 13px;
+    color: #374151;
+    background: #ffffff;
+}
+
+.body-type-desc h4 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    margin-top: 0;
+}
+
+.body-type-desc ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.summary-top-grid {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr; /* 좌/우 컬럼과 정확히 동일 */
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.section-title-left {
+    text-align: left;
+}
+
+.section-title-right {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.column-header-grid {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr; /* body-split-layout과 반드시 동일 */
+    align-items: center;
+
+    margin-bottom: 12px;
+}
+
+.column-title {
+    font-size: 20px;
+    font-weight: 700;
+    text-align: left;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.column-date {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.column-date button {
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.body-right .section-title {
+    text-align: center;   /* ⭐ 핵심 */
+}

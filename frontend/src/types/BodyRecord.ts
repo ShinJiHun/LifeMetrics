@@ -1,13 +1,13 @@
+// types/BodyRecord.ts
 export interface BodyRecord {
-  record_date: string;
+  recordDate: string;
 
   weight: number;
-  weight_ma: number | null;
-  weight_delta: number | null;
+  skeletalMuscleMass: number;
+  bodyFatPercentage: number;
+  bodyFatMass: number;
+  bmi: number;
+  visceralFatLevel: number;
 
-  body_fat_percentage: number;
-  body_fat_ma: number | null;
-  body_fat_delta: number | null;
-
-  ecw_tbw_ratio: number;
+  isMeasured: boolean;
 }

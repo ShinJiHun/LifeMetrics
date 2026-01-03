@@ -1,0 +1,33 @@
+# application-local.yml
+server:
+  port: 8080
+
+spring:
+  datasource:
+#    url: jdbc:mariadb://34.172.162.148:3306/riding_db
+    url: jdbc:mariadb://34.172.162.148:3306/riding_db
+    username: tho881
+    password: REDACTED_DB_PW
+    driver-class-name: org.mariadb.jdbc.Driver
+
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MariaDBDialect
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql.BasicBinder: trace

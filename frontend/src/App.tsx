@@ -1,26 +1,29 @@
-import { Routes, Route } from "react-router-dom";
-import Layout from "./components/Layout";
+// src/App.tsx
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import BodyRecordPage from "./pages/BodyRecordPage";
-import HealthRecordPage from "./pages/HealthRecordPage";
-import RidingRecordPage from "./pages/RidingRecordPage";
-import ExerciseBodyPage from "./pages/ExerciseBodyPage";
+import Layout from "@/components/Layout";
+import BodyRecordPage from "@/pages/BodyRecordPage";
+import HealthRecordPage from "@/pages/HealthRecordPage";
+import ExerciseLogPage from "@/pages/ExerciseLogPage";
 
 export default function App() {
-  return (
-    <Routes>
-      <Route element={<Layout />}>
-        {/* 기본 진입 */}
-        <Route index element={<BodyRecordPage />} />
+    return (
+        <Routes>
+            {/* 🔹 사이드바 포함 영역 */}
+            <Route element={<Layout />}>
+                <Route path="/" element={<BodyRecordPage />} />
+                <Route
+                    path="/records/health"
+                    element={<HealthRecordPage />}
+                />
+                <Route
+                    path="/records/health/exercise"
+                    element={<ExerciseLogPage />}
+                />
+            </Route>
 
-        {/* 기록 */}
-        <Route path="/records/body" element={<BodyRecordPage />} />
-        <Route path="/records/health" element={<HealthRecordPage />} />
-        <Route path="/records/riding" element={<RidingRecordPage />} />
-
-        {/* 운동 */}
-        <Route path="/exercise/items" element={<ExerciseBodyPage />} />
-      </Route>
-    </Routes>
-  );
+            {/* fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+    );
 }

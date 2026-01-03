@@ -1,44 +1,23 @@
 import { useEffect, useState } from "react";
-import type { BodyRecord } from "../types/BodyRecord";
+import { fetchBodyRecords } from "@/api/body";
+import type { BodySummaryRecord } from "@/types/BodySummaryRecord";
 
-export function useBodyRecords() {
-  const [records, setRecords] = useState<BodyRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useBodyRecords(userId = 1) {
+    const [records, setRecords] = useState<BodySummaryRecord[]>([]);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchRecords() {
-      setLoading(true);
+    useEffect(() => {
+        async function load() {
+            setLoading(true);
+            const data = await fetchBodyRecords(userId);
 
-      // 🔹 mock (나중에 FastAPI로 교체)
-      const mockData: BodyRecord[] = [
-        {
-          record_date: "2025-01-05",
-          weight: 78.2,
-          weight_ma: 78.9,
-          weight_delta: -0.7,
-          body_fat_percentage: 21.5,
-          body_fat_ma: 22.1,
-          body_fat_delta: -0.6,
-          ecw_tbw_ratio: 0.382,
-        },
-        {
-          record_date: "2024-12-20",
-          weight: 79.5,
-          weight_ma: 79.8,
-          weight_delta: 0.3,
-          body_fat_percentage: 22.5,
-          body_fat_ma: 22.8,
-          body_fat_delta: 0.4,
-          ecw_tbw_ratio: 0.386,
-        },
-      ];
+            // ✅ 이미 완성된 SummaryRecord
+            setRecords(data.records as BodySummaryRecord[]);
+            setLoading(false);
+        }
 
-      setRecords(mockData);
-      setLoading(false);
-    }
+        load();
+    }, [userId]);
 
-    fetchRecords();
-  }, []);
-
-  return { records, loading };
+    return { records, loading };
 }
