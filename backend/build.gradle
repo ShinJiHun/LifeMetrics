@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '4.0.1'
+    id 'org.springframework.boot' version '3.4.1'  // ← 변경
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -25,19 +25,30 @@ repositories {
 }
 
 dependencies {
-    implementation "org.mariadb.jdbc:mariadb-java-client:3.4.1"
+
+    // ✅ Web (REST API)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // ✅ JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+
+    // ✅ MariaDB
+    implementation 'org.mariadb.jdbc:mariadb-java-client:3.4.1'
+
+    // ✅ Lombok
     compileOnly 'org.projectlombok:lombok'
-    developmentOnly 'org.springframework.boot:spring-boot-devtools'
     annotationProcessor 'org.projectlombok:lombok'
-    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // ✅ Dev
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // ✅ Test
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'com.h2database:h2'
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
 }
-

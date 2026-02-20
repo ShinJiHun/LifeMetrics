@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/LifeMetrics.iml" filepath="$PROJECT_DIR$/LifeMetrics.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/backend.main.iml" filepath="$PROJECT_DIR$/.idea/modules/backend.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.lifemetrics.backend.main.iml" filepath="$PROJECT_DIR$/.idea/modules/com.lifemetrics.backend.main.iml" />
     </modules>
   </component>
 </project>

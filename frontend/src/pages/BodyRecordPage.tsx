@@ -5,14 +5,21 @@ import BodyMetricCards from "@/components/BodyMetricCards";
 import BodyMetricChart from "@/components/BodyMetricChart";
 import HumanModelView from "@/components/Human/HumanModelView";
 
+import SecretLottoPanel from "@/components/SecretLottoPanel";
+import { useSecretToggle } from "@/hooks/useSecretToggle";
+
 import type { MetricKey } from "@/types/MetricKey";
 import type { BodySummaryRecord } from "@/types/BodySummaryRecord";
-import type { AiProvider } from "@/types/AiProvider";
+import { AiProvider, AI_PROVIDER_LABEL } from "@/types/AiProvider";
 
 import "@/styles/body-record.css";
 
 export default function BodyRecordPage() {
     const { records } = useBodyRecords();
+
+    /* 🕵️‍♂️ SECRET LOTTO */
+    const showSecret = true;
+    const [openSecret, setOpenSecret] = useState(false);
 
     /* 1️⃣ 날짜 기준 정렬 */
     const sortedRecords = useMemo<BodySummaryRecord[]>(() => {
@@ -30,7 +37,7 @@ export default function BodyRecordPage() {
     /* 3️⃣ 날짜 인덱스 */
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    /* 4️⃣ AI 모델 */
+    /* 4️⃣ AI Provider */
     const [selectedProvider, setSelectedProvider] =
         useState<AiProvider>("openai");
 
@@ -47,22 +54,12 @@ export default function BodyRecordPage() {
     const goNext = () =>
         setCurrentIndex(i => Math.min(sortedRecords.length - 1, i + 1));
 
-    const AI_PROVIDER_LABEL = import.meta.env.VITE_AI_PROVIDER_LABEL ?? {
-        openai: "OpenAI",
-        geminai: "Gemeni",
-        claude: "Claude"
-    };
-
     return (
         <div className="body-page">
-            {/* 🔝 컬럼별 헤더 */}
+            {/* 🔝 헤더 */}
             <div className="column-header-grid">
-                {/* 좌측 헤더 */}
-                <h2 className="column-title">
-                    📊 신체 변화 요약
-                </h2>
+                <h2 className="column-title">📊 신체 변화 요약</h2>
 
-                {/* 우측 헤더 */}
                 <div className="column-date">
                     <button onClick={goPrev} disabled={currentIndex === 0}>◀</button>
                     <span>{current.recordDate}</span>
@@ -89,17 +86,17 @@ export default function BodyRecordPage() {
                         title={selectedMetric}
                     />
 
+                    {/* 🤖 AI 선택 */}
                     <div className="ai-radio-group">
-                        {Object.entries(AI_PROVIDER_LABEL).map(([key, label]) => (
-                            <label key={key} className="ai-radio-item">
+                        {(Object.keys(AI_PROVIDER_LABEL) as AiProvider[]).map(provider => (
+                            <label key={provider} className="ai-radio-item">
                                 <input
                                     type="radio"
                                     name="ai-provider"
-                                    value={key}
-                                    checked={selectedProvider === key}
-                                    onChange={() => setSelectedProvider(key as AiProvider)}
+                                    checked={selectedProvider === provider}
+                                    onChange={() => setSelectedProvider(provider)}
                                 />
-                                <span>{label}</span>
+                                <span>{AI_PROVIDER_LABEL[provider]}</span>
                             </label>
                         ))}
                     </div>
@@ -116,7 +113,6 @@ export default function BodyRecordPage() {
                             <strong>{current.visceralFatLevel ?? "측정 없음"}</strong> 입니다.
                         </p>
 
-
                         {!current.isMeasured && (
                             <p className="estimate-note">
                                 ※ 치수 정보는 추정값을 기반으로 시각화되었습니다.
@@ -127,9 +123,23 @@ export default function BodyRecordPage() {
 
                 <div className="body-right">
                     <h3 className="section-title">체형 시각화</h3>
-                    <HumanModelView summary={current}/>
+                    {false && <HumanModelView summary={current} />}
                 </div>
             </div>
+
+            <div
+                onClick={() => setOpenSecret(o => !o)}
+                style={{
+                    position: "fixed",
+                    bottom: 0,
+                    right: 0,
+                    width: 18,
+                    height: 18,
+                    opacity: 0,
+                    zIndex: 9999,
+                    cursor: "pointer",
+                }}
+            />
         </div>
     );
 }

@@ -4,18 +4,31 @@ server:
 
 spring:
   datasource:
-#    url: jdbc:mariadb://34.172.162.148:3306/riding_db
-    url: jdbc:mariadb://34.172.162.148:3306/riding_db
-    username: tho881
-    password: REDACTED_DB_PW
-    driver-class-name: org.mariadb.jdbc.Driver
+    # ✅ Riding DB (Primary)
+    riding:
+      jdbc-url: jdbc:mariadb://34.172.162.148:3306/riding_db
+      username: tho881
+      password: REDACTED_DB_PW
+      driver-class-name: org.mariadb.jdbc.Driver
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
 
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+    # ✅ Lotto DB (Secondary)
+    lotto:
+      jdbc-url: jdbc:mariadb://34.172.162.148:3306/lotto_db
+      username: tho881
+      password: REDACTED_DB_PW
+      driver-class-name: org.mariadb.jdbc.Driver
+      hikari:
+        maximum-pool-size: 5
+        minimum-idle: 1
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
 
   jpa:
     hibernate:
