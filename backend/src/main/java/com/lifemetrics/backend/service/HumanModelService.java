@@ -4,7 +4,7 @@ import com.lifemetrics.backend.domain.BodyType;
 import com.lifemetrics.backend.dto.HumanModelResponse;
 import com.lifemetrics.backend.entity.UserInbodyRecord;
 import com.lifemetrics.backend.repository.UserInbodyRecordRepository;
-import com.lifemetrics.backend.resolver.BodyTypeResolver;
+import com.lifemetrics.backend.repository.resolver.BodyTypeResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

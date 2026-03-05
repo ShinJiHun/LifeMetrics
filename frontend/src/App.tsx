@@ -1,28 +1,27 @@
-// src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "@/components/Layout";
 import BodyRecordPage from "@/pages/BodyRecordPage";
-import HealthRecordPage from "@/pages/HealthRecordPage";
-import ExerciseLogPage from "@/pages/ExerciseLogPage";
+import ExerciseItemPage from "@/pages/ExerciseItemPage";
+import ExerciseLogPage from "@/pages/ExerciseInputPage";
+import ExerciseHistoryPage from "@/pages/ExerciseHistoryPage";
+import RidingRecordPage from "@/pages/RidingRecordPage";
+
+import "@/styles/global.css";
 
 export default function App() {
     return (
         <Routes>
-            {/* 🔹 사이드바 포함 영역 */}
             <Route element={<Layout />}>
                 <Route path="/" element={<BodyRecordPage />} />
-                <Route
-                    path="/records/health"
-                    element={<HealthRecordPage />}
-                />
-                <Route
-                    path="/records/health/exercise"
-                    element={<ExerciseLogPage />}
-                />
+                <Route path="/records/body" element={<BodyRecordPage />} />
+                <Route path="/records/health" element={<Navigate to="/records/health/log" replace />} />
+                <Route path="/records/health/items" element={<ExerciseItemPage />} />
+                <Route path="/records/health/log" element={<ExerciseLogPage />} />
+                <Route path="/records/health/history" element={<ExerciseHistoryPage />} />
+                <Route path="/records/riding" element={<RidingRecordPage />} />
             </Route>
 
-            {/* fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

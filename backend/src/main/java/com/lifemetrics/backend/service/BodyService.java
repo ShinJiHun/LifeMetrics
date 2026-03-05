@@ -5,9 +5,14 @@ import com.lifemetrics.backend.dto.BodyRecordsResponse;
 import com.lifemetrics.backend.entity.UserInbodyRecord;
 import com.lifemetrics.backend.repository.UserInbodyRecordRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.file.*;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -15,17 +20,17 @@ public class BodyService {
 
     private final UserInbodyRecordRepository inbodyRepo;
 
-    public BodyRecordsResponse getBodyRecords(Long userId) {
+    @Value("${inbody.upload.path:/mnt/200gb/NAS/inbody/}")
+    private String uploadPath;
 
-        List<UserInbodyRecord> records =
-                inbodyRepo.findByUserIdOrderByRecordDate(userId);
+    public BodyRecordsResponse getBodyRecords(Long userId) {
+        List<UserInbodyRecord> records = inbodyRepo.findByUserIdOrderByRecordDate(userId);
 
         if (records.isEmpty()) {
             return new BodyRecordsResponse(List.of(), null);
         }
 
         List<BodyRecordResponse> responses = new java.util.ArrayList<>();
-
         for (int i = 0; i < records.size(); i++) {
             UserInbodyRecord curr = records.get(i);
             UserInbodyRecord prev = (i > 0) ? records.get(i - 1) : null;
@@ -34,8 +39,28 @@ public class BodyService {
         }
 
         BodyRecordResponse latest = responses.get(responses.size() - 1);
-
         return new BodyRecordsResponse(responses, latest);
+    }
+
+    public ResponseEntity<Map<String, Object>> uploadInbodyImage(MultipartFile file) {
+        try {
+            String fileName = file.getOriginalFilename();
+            Path filePath = Paths.get(uploadPath, fileName);
+
+            Files.createDirectories(filePath.getParent());
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "업로드 완료. 처리 중입니다.",
+                    "fileName", fileName
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "message", "업로드 실패: " + e.getMessage()
+            ));
+        }
     }
 
     private BodyRecordResponse toResponse(
@@ -49,8 +74,6 @@ public class BodyService {
         dto.setSkeletalMuscleMass(curr.getSkeletalMuscleMass());
         dto.setBodyFatMass(curr.getBodyFatMass());
         dto.setBodyFatPercentage(curr.getBodyFatPercentage());
-
-        // ✅ 반드시 추가
         dto.setBmi(curr.getBmi());
         dto.setVisceralFatLevel(curr.getVisceralFatLevel());
         dto.setIsMeasured(curr.getIsMeasured());

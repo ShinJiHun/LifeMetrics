@@ -1,0 +1,550 @@
+/* exercise-history.css */
+
+.exercise-history-page {
+    padding: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.exercise-history-page h2 {
+    margin-bottom: 1.5rem;
+}
+
+/* 월 선택 */
+.month-selector {
+    margin-bottom: 1.5rem;
+}
+
+.month-selector select {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+}
+
+/* 월간 요약 */
+.monthly-summary {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.summary-item {
+    flex: 1;
+    text-align: center;
+}
+
+.summary-label {
+    display: block;
+    font-size: 0.85rem;
+    opacity: 0.9;
+    margin-bottom: 0.25rem;
+}
+
+.summary-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* 로딩 & 빈 상태 */
+.loading,
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+.empty-state p {
+    font-size: 1.1rem;
+}
+
+/* 세션 목록 */
+.session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* 세션 카드 */
+.session-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+    position: relative; /* ★ 사이드 패널의 기준점 */
+}
+
+.session-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.session-card.expanded {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    overflow: visible; /* ★ 펼쳐졌을 때 바깥 패널 보이게 */
+}
+
+/* 세션 헤더 */
+.session-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.session-header:hover {
+    background: #f8f9fa;
+}
+
+.session-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.date-text {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.pt-badge {
+    background: #ffd700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.session-summary {
+    display: flex;
+    gap: 1rem;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.expand-icon {
+    color: #999;
+    font-size: 0.8rem;
+}
+
+/* 세션 상세 - 항상 풀 사이즈 단일 컬럼 */
+.session-detail {
+    display: block;
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid #eee;
+}
+
+/* 운동 로그 카드 */
+.log-card {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.log-card:hover {
+    background: #f0f1f3;
+}
+
+.log-card--selected {
+    border: 1px solid #667eea;
+    background: #f5f7ff !important;
+    box-shadow: 0 0 0 1px rgba(102, 126, 234, 0.2);
+}
+
+.log-header {
+    margin-bottom: 0.75rem;
+}
+
+.log-header h4 {
+    margin: 0.25rem 0;
+    font-size: 1.1rem;
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.exercise-en {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+/* 메모 & 휴식 */
+.log-memo,
+.log-rest {
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+/* 세트 테이블 */
+.log-card .sets-table {
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.log-card .sets-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 2fr 2fr;
+    padding: 0.5rem 0.75rem;
+    background: #eee;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #666;
+}
+
+.log-card .set-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 2fr 2fr;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9rem;
+}
+
+.log-card .set-row:last-child {
+    border-bottom: none;
+}
+
+.log-card .set-row .volume {
+    color: #667eea;
+    font-weight: 500;
+}
+
+/* 운동별 총 볼륨 */
+.log-total {
+    margin-top: 0.75rem;
+    text-align: right;
+    font-weight: 600;
+    color: #333;
+}
+
+/* 세션 칼로리 바 (접힌 상태) */
+.session-calorie-bar {
+    display: flex;
+    gap: 16px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: #888;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* 세션 통계 카드 */
+.session-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 12px 0;
+    margin-bottom: 12px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 4px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.stat-icon { font-size: 18px; margin-bottom: 2px; }
+.stat-value { font-size: 18px; font-weight: 700; color: #333; }
+.stat-label { font-size: 11px; color: #999; }
+
+/* AI 분석 카드 */
+.analysis-card {
+    background: linear-gradient(135deg, #f0f4ff, #f8f0ff);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid #e0e4f0;
+}
+
+.analysis-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.analysis-icon { font-size: 20px; }
+.analysis-title { font-weight: 600; color: #333; flex: 1; }
+.analysis-score { font-size: 20px; font-weight: 700; }
+
+.analysis-summary {
+    font-size: 15px;
+    color: #444;
+    margin-bottom: 10px;
+    line-height: 1.5;
+}
+
+.analysis-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.analysis-badge {
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background: #f8f8f8;
+    color: #666;
+}
+
+.analysis-section { margin-top: 8px; }
+.section-label { font-size: 13px; font-weight: 600; color: #555; }
+
+.analysis-item {
+    font-size: 13px;
+    color: #555;
+    margin: 4px 0;
+    padding-left: 8px;
+    border-left: 2px solid #ddd;
+    line-height: 1.4;
+}
+
+.analysis-item.good { border-left-color: #10b981; }
+.analysis-item.tip { border-left-color: #f59e0b; }
+
+
+/* ============================================================
+   히트맵 + 근육 태그 스타일
+   ============================================================ */
+
+.session-heatmap {
+    margin-bottom: 16px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.heatmap-canvas-wrapper {
+    position: relative;
+    width: 100%;
+    height: 280px;
+    touch-action: none;
+}
+
+.heatmap-canvas-wrapper canvas {
+    border-radius: 12px 12px 0 0;
+}
+
+.heatmap-focus-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 12px;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.heatmap-focus-badge button {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 12px;
+    padding: 2px 10px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.heatmap-focus-badge button:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.heatmap-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 10px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.muscle-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid;
+    transition: all 0.2s;
+}
+
+.muscle-tag .muscle-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.muscle-tag.primary .muscle-dot { opacity: 1; }
+.muscle-tag.secondary .muscle-dot { opacity: 0.4; }
+
+.muscle-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 6px 0 8px;
+}
+
+.muscle-tag-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid;
+}
+
+.muscle-tag-inline .muscle-role {
+    font-size: 9px;
+    opacity: 0.6;
+    font-weight: 400;
+}
+
+
+/* ============================================================
+   AI 분석 사이드 패널 레이아웃
+   - 모바일/태블릿: 카드 내부 하단에 표시
+   - PC (1200px+): session-card 기준 absolute로 카드 우측 바깥
+   ============================================================ */
+
+/* 모바일용: 카드 내부 하단 */
+.session-detail-side-mobile {
+    margin-top: 12px;
+}
+
+/* PC용: 기본 숨김 */
+.analysis-side-panel {
+    display: none;
+}
+
+@media (min-width: 1200px) {
+    /* 모바일용 숨김 */
+    .session-detail-side-mobile {
+        display: none !important;
+    }
+
+    /*
+     * session-card.expanded에 position:relative + overflow:visible 이미 설정됨
+     * 패널은 카드 기준 absolute로 우측 바깥에 배치
+     */
+    .analysis-side-panel {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: calc(100% + 20px); /* 카드 우측 바깥 + 20px 간격 */
+        width: 320px;
+        z-index: 10;
+    }
+
+    /* 스크롤 따라가는 sticky 카드 */
+    .analysis-side-panel .analysis-card {
+        position: sticky;
+        top: 100px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        scrollbar-width: thin;
+    }
+
+    .analysis-side-panel .analysis-card::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .analysis-side-panel .analysis-card::-webkit-scrollbar-thumb {
+        background: #ddd;
+        border-radius: 2px;
+    }
+}
+
+
+/* ============================================================
+   반응형
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .monthly-summary {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .summary-item {
+        display: flex;
+        justify-content: space-between;
+        text-align: left;
+    }
+
+    .session-summary {
+        display: none;
+    }
+
+    .session-header {
+        padding: 0.75rem 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .heatmap-canvas-wrapper {
+        height: 360px;
+    }
+}
+
+@media (max-width: 480px) {
+    .heatmap-canvas-wrapper {
+        height: 240px;
+    }
+
+    .heatmap-legend {
+        padding: 8px 10px;
+        gap: 4px;
+    }
+
+    .muscle-tag {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    .session-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

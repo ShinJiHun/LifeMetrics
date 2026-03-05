@@ -3,8 +3,8 @@ import type { BodySummaryRecord } from "@/types/BodySummaryRecord";
 
 export function calcHumanScale(summary: BodySummaryRecord) {
     const weight = summary.weight ?? 80;
-    const fat = summary.body_fat_percentage ?? 25;
-    const muscle = summary.skeletal_muscle_mass ?? 30;
+    const fat = summary.bodyFatPercentage ?? 25;        // ✅ 수정
+    const muscle = summary.skeletalMuscleMass ?? 30;   // ✅ 수정
 
     // 몸통 크기 (체중 + 근육)
     const body =

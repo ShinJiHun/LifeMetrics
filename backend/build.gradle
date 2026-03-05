@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.4.1'  // ← 변경
+    id 'org.springframework.boot' version '3.4.3' // 안정적인 3.4.x 버전으로 수정 권장
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -25,30 +25,29 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 
-    // ✅ Web (REST API)
     implementation 'org.springframework.boot:spring-boot-starter-web'
-
-    // ✅ JPA
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-
-    // ✅ MariaDB
     implementation 'org.mariadb.jdbc:mariadb-java-client:3.4.1'
 
-    // ✅ Lombok
+    // Lombok 설정
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
-    // ✅ Dev
+    // JSON 및 유틸리티
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+
+    // 개발 도구 및 테스트
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-
-    // ✅ Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'com.h2database:h2'
-
+    testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') {
-    useJUnitPlatform()
+bootJar {
+    archiveBaseName = 'lifemetrics'
+    archiveVersion = ''
 }

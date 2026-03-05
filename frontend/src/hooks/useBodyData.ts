@@ -7,8 +7,7 @@ export function useBodyData() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch("http://34.172.162.148:8000/api/body/stats")
-      .then((res) => res.json())
+    fetch("/api/body/stats")      .then((res) => res.json())
       .then((json: BodyApiResponse) => {
         setData(json);
         setLoading(false);

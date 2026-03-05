@@ -10,7 +10,11 @@
   "dependencies": {
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@types/mapbox-gl": "^3.4.1",
+    "axios": "^1.13.2",
+    "mapbox-gl": "^3.18.1",
     "react": "^19.2.3",
+    "react-body-highlighter": "^2.0.5",
     "react-dom": "^19.2.3",
     "react-router-dom": "^7.11.0",
     "recharts": "^3.6.0",

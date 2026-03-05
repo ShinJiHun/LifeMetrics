@@ -4,31 +4,17 @@ server:
 
 spring:
   datasource:
-    # ✅ Riding DB (Primary)
-    riding:
-      jdbc-url: jdbc:mariadb://34.172.162.148:3306/riding_db
-      username: tho881
-      password: REDACTED_DB_PW
-      driver-class-name: org.mariadb.jdbc.Driver
-      hikari:
-        maximum-pool-size: 10
-        minimum-idle: 2
-        connection-timeout: 30000
-        idle-timeout: 600000
-        max-lifetime: 1800000
+    url: jdbc:mariadb://34.172.162.148:3306/riding_db
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.mariadb.jdbc.Driver
 
-    # ✅ Lotto DB (Secondary)
-    lotto:
-      jdbc-url: jdbc:mariadb://34.172.162.148:3306/lotto_db
-      username: tho881
-      password: REDACTED_DB_PW
-      driver-class-name: org.mariadb.jdbc.Driver
-      hikari:
-        maximum-pool-size: 5
-        minimum-idle: 1
-        connection-timeout: 30000
-        idle-timeout: 600000
-        max-lifetime: 1800000
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -40,7 +26,43 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.MariaDBDialect
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 963024529670-769djp6j8pv6hn2eetaci3nveaq7f10p.apps.googleusercontent.com
+            client-secret: ${GOOGLE_CLIENT_SECRET} # 끝에 's' 제거
+            scope:
+              - https://www.googleapis.com/auth/fitness.nutrition.read
+              - https://www.googleapis.com/auth/fitness.body.read
+              - email
+              - profile
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo # 끝에 'o' 추가
+
 logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql.BasicBinder: trace
+
+# 로컬에서는 임시 폴더 사용
+inbody:
+  upload:
+    path: /tmp/inbody/raw/
+
+anthropic:
+  api-key: ${ANTHROPIC_API_KEY}
+
+# google 설정은 최좌측(Root)에서 시작해야 합니다.
+google:
+  fitness:
+    api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate

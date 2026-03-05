@@ -1,0 +1,493 @@
+.exercise-input-page {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.exercise-input-page h2 {
+    margin-bottom: 24px;
+}
+
+.exercise-layout {
+    display: grid;
+    grid-template-columns: 1fr minmax(300px, 25%);
+    gap: 24px;
+}
+
+/* 부위 탭 */
+.category-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.category-tab {
+    padding: 8px 16px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.category-tab.active {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+}
+
+/* 장비 필터 */
+.equipment-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.equipment-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.equipment-btn.active {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
+
+/* 검색 */
+.search-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+/* 종목 그리드 */
+.item-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.item-card {
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.item-card:hover {
+    border-color: #4f46e5;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
+}
+
+.item-card.selected {
+    border-color: #4f46e5;
+    background: #f5f3ff;
+}
+
+.item-card .item-category,
+.item-card .item-equipment {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    margin-right: 6px;
+    margin-bottom: 8px;
+}
+
+.item-card .item-category {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.item-card .item-equipment {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.item-card h4 {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+}
+
+.item-card p {
+    margin: 0;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* 오른쪽 입력 영역 */
+.exercise-input-area {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 12px;
+    height: fit-content;
+    position: sticky;
+    top: 24px;
+}
+
+.empty-message {
+    color: #9ca3af;
+    text-align: center;
+    padding: 40px 0;
+}
+
+.selected-exercises {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.exercise-card {
+    background: white;
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.exercise-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.exercise-header h4 {
+    margin: 0;
+    font-size: 15px;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.remove-btn:hover {
+    color: #ef4444;
+}
+
+/* 세트 테이블 */
+.sets-table {
+    margin-bottom: 12px;
+}
+
+.sets-header {
+    display: grid;
+    grid-template-columns: 40px 1fr 1fr;
+    gap: 6px;
+    padding: 8px 0;
+    font-size: 12px;
+    color: #6b7280;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.set-row {
+    display: grid;
+    grid-template-columns: 40px 1fr 1fr;
+    gap: 6px;
+    padding: 8px 0;
+    align-items: center;
+}
+
+.set-number {
+    font-weight: 600;
+    color: #4f46e5;
+    text-align: center;
+}
+
+.set-row input {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 14px;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.add-set-btn {
+    width: 100%;
+    padding: 8px;
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    background: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.add-set-btn:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+}
+
+.save-btn {
+    width: 100%;
+    padding: 14px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+.save-btn:hover {
+    background: #4338ca;
+}
+
+/* 패널 헤더 (모바일용 토글) */
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.toggle-btn {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.panel-content {
+    margin-top: 16px;
+}
+
+/* 태블릿 이하 */
+@media (max-width: 1024px) {
+    .exercise-layout {
+        grid-template-columns: 1fr;
+        padding-bottom: 80px;
+    }
+
+    .exercise-input-area {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        border-radius: 16px 16px 0 0;
+        max-height: 60vh;
+        overflow-y: auto;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+        z-index: 100;
+        transition: max-height 0.3s ease;
+    }
+
+    .exercise-input-area.collapsed {
+        max-height: 60px;
+        overflow: hidden;
+    }
+
+    .toggle-btn {
+        display: block;
+    }
+
+    .panel-header {
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .exercise-input-area.collapsed .panel-header {
+        border-bottom: none;
+    }
+}
+
+/* 모바일 */
+@media (max-width: 640px) {
+    .exercise-input-page {
+        padding: 16px;
+        padding-bottom: 100px;
+    }
+
+    .category-tabs,
+    .equipment-filter {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 8px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .item-grid {
+        grid-template-columns: 1fr;
+        max-height: none;
+    }
+
+    .item-card {
+        padding: 12px;
+    }
+
+    .exercise-input-area {
+        max-height: 55vh;
+        padding: 12px 16px;
+    }
+
+    .exercise-input-area.collapsed {
+        max-height: 56px;
+    }
+
+    .exercise-card {
+        padding: 12px;
+    }
+
+    .save-btn {
+        padding: 12px;
+        font-size: 14px;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 280px;
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        background: white;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* 배경 어둡게 */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 199;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+}
+
+/* PT 토글 */
+.pt-toggle {
+    margin-bottom: 1rem;
+}
+
+.pt-toggle .toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #f0f0f0;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pt-toggle .toggle-label.active {
+    background: #ffd700;
+    color: #333;
+}
+
+.pt-toggle .toggle-label input {
+    display: none;
+}
+
+.pt-toggle .toggle-text {
+    font-weight: 500;
+}
+
+/* 운동 옵션 (휴식 시간, 메모) */
+.exercise-options {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+}
+
+.exercise-options .option-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.exercise-options .option-row:last-child {
+    margin-bottom: 0;
+}
+
+.exercise-options label {
+    font-size: 0.85rem;
+    min-width: 50px;
+}
+
+.exercise-options .rest-input {
+    width: 60px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.exercise-options .memo-row {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.exercise-options .memo-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 0.25rem;
+}
+
+/* 세트 삭제 버튼 */
+.remove-set-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.remove-set-btn:hover {
+    opacity: 1;
+}

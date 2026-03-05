@@ -1,0 +1,67 @@
+/* muscle-image-map.css */
+
+.muscle-image-map {
+    margin: 12px 0;
+}
+
+.muscle-image-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 8px 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.muscle-image-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.muscle-image-scroll::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+.muscle-image-card {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.muscle-image-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.muscle-image-card.primary {
+    border: 2px solid #ef4444;
+}
+
+.muscle-image-card.secondary {
+    border: 2px solid #94a3b8;
+    opacity: 0.85;
+}
+
+.muscle-image-card img {
+    width: auto;
+    object-fit: contain;
+}
+
+.muscle-image-label {
+    padding: 4px 12px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.muscle-image-card.primary .muscle-image-label {
+    color: #ef4444;
+}
