@@ -2,8 +2,8 @@ package com.lifemetrics.backend.config;
 
 import jakarta.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -15,24 +15,33 @@ import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 
 import javax.sql.DataSource;
+import java.util.Properties;
 
 @Configuration
 @EnableJpaRepositories(
-    basePackages = "com.lifemetrics.backend",
-    excludeFilters = @ComponentScan.Filter(  // ✅ 변경
-        type = FilterType.REGEX,
-        pattern = "com\\.lifemetrics\\.backend\\.lotto\\..*"
-    ),
-    entityManagerFactoryRef = "ridingEntityManagerFactory",
-    transactionManagerRef = "ridingTransactionManager"
+        basePackages = "com.lifemetrics.backend",
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.REGEX,
+                pattern = "com\\.lifemetrics\\.backend\\.lotto\\..*"
+        ),
+        entityManagerFactoryRef = "ridingEntityManagerFactory",
+        transactionManagerRef = "ridingTransactionManager"
 )
 public class RidingDataSourceConfig {
 
     @Primary
     @Bean
-    @ConfigurationProperties("spring.datasource.riding")
-    public DataSource ridingDataSource() {
-        return DataSourceBuilder.create().build();
+    @ConfigurationProperties("spring.datasource")
+    public DataSourceProperties ridingDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Primary
+    @Bean
+    public DataSource ridingDataSource(
+            @Qualifier("ridingDataSourceProperties") DataSourceProperties properties
+    ) {
+        return properties.initializeDataSourceBuilder().build();
     }
 
     @Primary
@@ -44,6 +53,18 @@ public class RidingDataSourceConfig {
         emf.setDataSource(dataSource);
         emf.setPackagesToScan("com.lifemetrics.backend");
         emf.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+
+        var properties = new Properties();
+        properties.setProperty(
+                "hibernate.physical_naming_strategy",
+                "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"
+        );
+        properties.setProperty(
+                "hibernate.dialect",
+                "org.hibernate.dialect.MariaDBDialect"
+        );
+        emf.setJpaProperties(properties);
+
         return emf;
     }
 

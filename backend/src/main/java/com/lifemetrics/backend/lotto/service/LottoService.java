@@ -7,14 +7,15 @@ import com.lifemetrics.backend.lotto.dto.LottoRecommendDto;
 import com.lifemetrics.backend.lotto.repository.LottoNumberRepository;
 import com.lifemetrics.backend.lotto.repository.LottoRecommendRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "lotto.datasource.enabled", havingValue = "true")
 public class LottoService {
-
     private final LottoNumberRepository numberRepo;
     private final LottoRecommendRepository recommendRepo;
 

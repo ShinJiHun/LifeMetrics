@@ -19,6 +19,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     open-in-view: false
     show-sql: true
     properties:
@@ -66,3 +68,8 @@ anthropic:
 google:
   fitness:
     api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
+
+# application-local.yml 하단에 추가
+lotto:
+  datasource:
+    enabled: false
