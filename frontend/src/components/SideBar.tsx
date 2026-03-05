@@ -25,7 +25,14 @@ const MENU_ITEMS: MenuItem[] = [
             { label: "운동 기록 보기", path: "/records/health/history" },
         ],
     },
-    { label: "라이딩 기록", path: "/records/riding" },
+    {
+        label: "라이딩 정보",
+        path: "/records/riding",
+        subMenus: [
+            { label: "라이딩 기록", path: "/records/riding/" },
+            { label: "라이딩 계획", path: "/records/riding/plan" },
+        ],
+    },
 ];
 
 export default function Sidebar() {
