@@ -1,4 +1,4 @@
-import { BodyRecord } from "./BodyRecord";
+import type { BodyRecord } from "./BodyRecord";
 
 export interface BodyProfile {
   gender: string | null;

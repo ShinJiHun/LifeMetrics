@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BodyApiResponse } from "../types/BodyApiResponse";
+import type { BodyApiResponse } from "../types/BodyApiResponse";
 
 export function useBodyData() {
   const [data, setData] = useState<BodyApiResponse | null>(null);

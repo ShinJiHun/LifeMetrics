@@ -149,7 +149,6 @@ export default function BodyRecordPage() {
                     <BodyMetricChart
                         data={sortedRecords}
                         metricKey={selectedMetric}
-                        title={selectedMetric}
                         onDateClick={handleDateClick}
                     />
 
@@ -163,7 +162,7 @@ export default function BodyRecordPage() {
                                     checked={selectedProvider === key}
                                     onChange={() => setSelectedProvider(key as AiProvider)}
                                 />
-                                <span>{label}</span>
+                                <span>{label as string}</span>
                             </label>
                         ))}
                     </div>

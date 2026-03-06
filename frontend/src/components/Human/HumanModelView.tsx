@@ -1,8 +1,8 @@
 // src/components/Human/HumanModelView.tsx
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+// import { Canvas } from "@react-three/fiber";
+// import { OrbitControls } from "@react-three/drei";
 
-import { HumanModel } from "./HumanModel";
+// import { HumanModel } from "./HumanModel";
 import { resolveBodyType } from "./resolveBodyType";
 
 import type { BodySummaryRecord } from "@/types/BodySummaryRecord";
@@ -19,23 +19,23 @@ export default function HumanModelView({ summary }: HumanModelViewProps) {
 
     return (
         <div className="human-model-view">
-            {/* 🔼 모델 영역 */}
-            <div className="model-canvas-wrapper">
-                <Canvas camera={{ position: [0, 1.6, 4.5], fov: 35 }}>
-                    <ambientLight intensity={0.5} />
-                    <directionalLight position={[3, 5, 5]} intensity={1} />
+            {/*/!* 🔼 모델 영역 *!/*/}
+            {/*<div className="model-canvas-wrapper">*/}
+            {/*    <Canvas camera={{ position: [0, 1.6, 4.5], fov: 35 }}>*/}
+            {/*        <ambientLight intensity={0.5} />*/}
+            {/*        <directionalLight position={[3, 5, 5]} intensity={1} />*/}
 
-                    <HumanModel bodyType={bodyType} />
+            {/*        <HumanModel bodyType={bodyType} />*/}
 
-                    <OrbitControls
-                        enablePan={false}
-                        enableZoom={false}
-                        minPolarAngle={Math.PI / 2}
-                        maxPolarAngle={Math.PI / 2}
-                        target={[0, 1.2, 0]}
-                    />
-                </Canvas>
-            </div>
+            {/*        <OrbitControls*/}
+            {/*            enablePan={false}*/}
+            {/*            enableZoom={false}*/}
+            {/*            minPolarAngle={Math.PI / 2}*/}
+            {/*            maxPolarAngle={Math.PI / 2}*/}
+            {/*            target={[0, 1.2, 0]}*/}
+            {/*        />*/}
+            {/*    </Canvas>*/}
+            {/*</div>*/}
 
             {/* 🔽 설명 영역 */}
             <div className="body-type-desc">

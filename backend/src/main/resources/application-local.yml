@@ -4,17 +4,18 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mariadb://34.172.162.148:3306/riding_db
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.mariadb.jdbc.Driver
+    riding :
+      url: jdbc:mariadb://34.172.162.148:3306/riding_db
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.mariadb.jdbc.Driver
 
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
 
   jpa:
     hibernate:

@@ -18,37 +18,25 @@ import javax.sql.DataSource;
 import java.util.Properties;
 
 @Configuration
-@EnableJpaRepositories(
-        basePackages = "com.lifemetrics.backend",
-        excludeFilters = @ComponentScan.Filter(
-                type = FilterType.REGEX,
-                pattern = "com\\.lifemetrics\\.backend\\.lotto\\..*"
-        ),
-        entityManagerFactoryRef = "ridingEntityManagerFactory",
-        transactionManagerRef = "ridingTransactionManager"
-)
+@EnableJpaRepositories(basePackages = "com.lifemetrics.backend", excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.lifemetrics\\.backend\\.lotto\\..*" ), entityManagerFactoryRef = "ridingEntityManagerFactory", transactionManagerRef = "ridingTransactionManager")
 public class RidingDataSourceConfig {
 
     @Primary
     @Bean
-    @ConfigurationProperties("spring.datasource")
+    @ConfigurationProperties("spring.datasource.riding")
     public DataSourceProperties ridingDataSourceProperties() {
         return new DataSourceProperties();
     }
 
     @Primary
     @Bean
-    public DataSource ridingDataSource(
-            @Qualifier("ridingDataSourceProperties") DataSourceProperties properties
-    ) {
+    public DataSource ridingDataSource(@Qualifier("ridingDataSourceProperties") DataSourceProperties properties) {
         return properties.initializeDataSourceBuilder().build();
     }
 
     @Primary
     @Bean
-    public LocalContainerEntityManagerFactoryBean ridingEntityManagerFactory(
-            @Qualifier("ridingDataSource") DataSource dataSource
-    ) {
+    public LocalContainerEntityManagerFactoryBean ridingEntityManagerFactory(@Qualifier("ridingDataSource") DataSource dataSource) {
         var emf = new LocalContainerEntityManagerFactoryBean();
         emf.setDataSource(dataSource);
         emf.setPackagesToScan("com.lifemetrics.backend");
@@ -59,10 +47,7 @@ public class RidingDataSourceConfig {
                 "hibernate.physical_naming_strategy",
                 "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy"
         );
-        properties.setProperty(
-                "hibernate.dialect",
-                "org.hibernate.dialect.MariaDBDialect"
-        );
+        properties.setProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
         emf.setJpaProperties(properties);
 
         return emf;
@@ -70,9 +55,7 @@ public class RidingDataSourceConfig {
 
     @Primary
     @Bean
-    public JpaTransactionManager ridingTransactionManager(
-            @Qualifier("ridingEntityManagerFactory") EntityManagerFactory emf
-    ) {
+    public JpaTransactionManager ridingTransactionManager(@Qualifier("ridingEntityManagerFactory") EntityManagerFactory emf) {
         return new JpaTransactionManager(emf);
     }
 }

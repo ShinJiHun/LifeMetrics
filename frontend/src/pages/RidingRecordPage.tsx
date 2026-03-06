@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { fetchActivities, Activity } from "@/api/activity";
+import { fetchActivities } from "@/api/activity";
+import type { Activity } from "@/api/activity";
 import ActivityMap from "@/components/ActivityMap";
 import "@/styles/riding-record.css";
 

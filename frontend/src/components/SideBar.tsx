@@ -1,129 +1,40 @@
-// src/components/Sidebar.tsx
-import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
-import "@/styles/sidebar.css";
+import { NavLink } from "react-router-dom";
 
-interface SubMenu {
-    label: string;
-    path: string;
-}
+const linkStyle = ({ isActive }: { isActive: boolean }) => ({
+  padding: "10px 14px",
+  textDecoration: "none",
+  color: isActive ? "#2563eb" : "#111",
+  fontWeight: isActive ? "bold" : "normal",
+});
 
-interface MenuItem {
-    label: string;
-    path: string;
-    subMenus?: SubMenu[];
-}
+export default function SideBar() {
+  return (
+    <aside
+      style={{
+        width: 220,
+        borderRight: "1px solid #e5e7eb",
+        padding: 16,
+      }}
+    >
+      <h3>📊 기록</h3>
+      <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <NavLink to="/records/body" style={linkStyle}>
+          🧍 신체 기록
+        </NavLink>
+        <NavLink to="/records/health" style={linkStyle}>
+          🏋️ 헬스 기록
+        </NavLink>
+        <NavLink to="/records/riding" style={linkStyle}>
+          🚴 라이딩 기록
+        </NavLink>
+      </nav>
 
-const MENU_ITEMS: MenuItem[] = [
-    { label: "신체 기록", path: "/records/body" },
-    {
-        label: "헬스 기록",
-        path: "/records/health",
-        subMenus: [
-            { label: "종목 입력", path: "/records/health/items" },
-            { label: "운동 기록 입력", path: "/records/health/log" },
-            { label: "운동 기록 보기", path: "/records/health/history" },
-        ],
-    },
-    {
-        label: "라이딩 정보",
-        path: "/records/riding",
-        subMenus: [
-            { label: "라이딩 기록", path: "/records/riding/" },
-            { label: "라이딩 계획", path: "/records/riding/plan" },
-        ],
-    },
-];
-
-export default function Sidebar() {
-    const location = useLocation();
-    const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-    const [isOpen, setIsOpen] = useState(false);
-
-    const isSubMenuActive = (item: MenuItem) => {
-        return item.subMenus?.some((sub) => location.pathname === sub.path);
-    };
-
-    const handleMenuClick = (item: MenuItem) => {
-        if (item.subMenus) {
-            setExpandedMenu(expandedMenu === item.path ? null : item.path);
-        }
-    };
-
-    const isExpanded = (item: MenuItem) => {
-        return expandedMenu === item.path || isSubMenuActive(item);
-    };
-
-    const toggleMenu = () => setIsOpen(!isOpen);
-    const closeMenu = () => setIsOpen(false);
-
-    return (
-        <>
-            {/* 햄버거 버튼 */}
-            <button className={`menu-toggle ${isOpen ? "open" : ""}`} onClick={toggleMenu}>
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-
-            {/* 오버레이 */}
-            <div
-                className={`sidebar-overlay ${isOpen ? "visible" : ""}`}
-                onClick={closeMenu}
-            />
-
-            {/* 사이드바 */}
-            <aside className={`sidebar ${isOpen ? "open" : ""}`}>
-                <div className="sidebar-logo">
-                    <h1>Health</h1>
-                </div>
-
-                <nav className="sidebar-nav">
-                    <ul className="menu-list">
-                        {MENU_ITEMS.map((item) => (
-                            <li key={item.path} className="menu-item">
-                                {item.subMenus ? (
-                                    <div
-                                        className={`menu-link has-submenu ${isExpanded(item) ? "expanded" : ""}`}
-                                        onClick={() => handleMenuClick(item)}
-                                    >
-                                        <span>{item.label}</span>
-                                        <span className="arrow">{isExpanded(item) ? "▼" : "▶"}</span>
-                                    </div>
-                                ) : (
-                                    <NavLink
-                                        to={item.path}
-                                        className={({ isActive }) =>
-                                            `menu-link ${isActive ? "active" : ""}`
-                                        }
-                                        onClick={closeMenu}
-                                    >
-                                        {item.label}
-                                    </NavLink>
-                                )}
-
-                                {item.subMenus && isExpanded(item) && (
-                                    <ul className="submenu-list">
-                                        {item.subMenus.map((sub) => (
-                                            <li key={sub.path}>
-                                                <NavLink
-                                                    to={sub.path}
-                                                    className={({ isActive }) =>
-                                                        `submenu-link ${isActive ? "active" : ""}`
-                                                    }
-                                                    onClick={closeMenu}
-                                                >
-                                                    {sub.label}
-                                                </NavLink>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
-            </aside>
-        </>
-    );
+      <h3 style={{ marginTop: 24 }}>🏃 운동</h3>
+      <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <NavLink to="/exercise/items" style={linkStyle}>
+          ➕ 운동 종목 관리
+        </NavLink>
+      </nav>
+    </aside>
+  );
 }

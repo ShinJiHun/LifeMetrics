@@ -1,5 +1,5 @@
 import { useGLTF } from "@react-three/drei";
-import { BodyType } from "./human.types";
+import type { BodyType } from "./human.types";
 
 // src/components/Human/modelMap.ts
 

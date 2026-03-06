@@ -2,9 +2,8 @@
 // 2D SVG 근육 히트맵 - react-body-highlighter 기반
 // 3D Canvas 대신 가볍고 안정적인 SVG 인체 모델
 import { useMemo, useState } from "react";
-import Model from "react-body-highlighter";
 import type { MuscleActivation } from "./MuscleHeatmapModel";
-import { MUSCLE_ID_TO_KEY, DEFAULT_ACTIVATION } from "./MuscleHeatmapModel";
+import Model from "react-body-highlighter";  // 이 줄 있는지 확인
 
 // ============================================================
 // MuscleActivation → react-body-highlighter data 매핑
@@ -63,33 +62,6 @@ function toIntensity(value: number): number {
     return 3;
 }
 
-// 근육 그룹별 색상
-const MUSCLE_COLORS: Record<string, string> = {
-    // 가슴
-    chest: "#ef4444",
-    // 등
-    trapezius: "#3b82f6",
-    "upper-back": "#3b82f6",
-    "lower-back": "#2563eb",
-    // 어깨
-    "front-deltoids": "#f59e0b",
-    "back-deltoids": "#f59e0b",
-    // 팔
-    biceps: "#8b5cf6",
-    triceps: "#7c3aed",
-    forearm: "#6d28d9",
-    // 복근
-    abs: "#06b6d4",
-    obliques: "#0891b2",
-    // 하체
-    quadriceps: "#10b981",
-    hamstring: "#059669",
-    gluteal: "#047857",
-    abductors: "#047857",
-    calves: "#34d399",
-    adductor: "#10b981",
-};
-
 interface MuscleHeatmap2DProps {
     activation: MuscleActivation;
     height?: number;
@@ -120,7 +92,7 @@ export default function MuscleHeatmap2D({
             .filter(([, info]) => info.side === viewSide || info.side === "both")
             .map(([slug, info]) => ({
                 name: slug,
-                muscles: [slug],
+                muscles: [slug] as any,
                 frequency: toIntensity(info.value),
             }));
     }, [activation, viewSide]);
@@ -150,16 +122,16 @@ export default function MuscleHeatmap2D({
             <div className="heatmap-body-wrapper">
                 {hasActivation ? (
                     <Model
-                        data={bodyData}
-                        style={{ width: "auto", height: `${height}px`, margin: "0 auto" }}
-                        type={viewSide}
+                        data={bodyData as any}
+                        style={{width: "auto", height: `${height}px`, margin: "0 auto"}}
+                        type={viewSide as any}
                     />
                 ) : (
                     <div className="heatmap-empty">
                         <Model
                             data={[]}
-                            style={{ width: "auto", height: `${height}px`, margin: "0 auto", opacity: 0.4 }}
-                            type={viewSide}
+                            style={{width: "auto", height: `${height}px`, margin: "0 auto", opacity: 0.4}}
+                            type={viewSide as any}
                         />
                         <p className="heatmap-empty-text">근육 데이터 없음</p>
                     </div>

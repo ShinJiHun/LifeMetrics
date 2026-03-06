@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";  // useRef 제거
 import {
     LineChart,
     Line,
@@ -13,7 +13,6 @@ import type { MetricKey } from "@/types/MetricKey";
 interface Props {
     data: any[];
     metricKey: MetricKey;
-    title: string;
     onDateClick?: (recordDate: string) => void;
 }
 
@@ -44,12 +43,7 @@ const titleMap: Record<MetricKey, string> = {
     visceralFatLevel: "내장지방",
 };
 
-export default function BodyMetricChart({
-                                            data,
-                                            metricKey,
-                                            title,
-                                            onDateClick,
-                                        }: Props) {
+export default function BodyMetricChart({ data, metricKey, onDateClick }: Props) {
     const chartData = data
         .filter((d) => d[metricKey] != null)
         .map((d) => ({
@@ -108,7 +102,7 @@ export default function BodyMetricChart({
         setZoomData(chartData);
     };
 
-    const handleDotClick = (e: any, payload: any) => {
+    const handleDotClick = (_: unknown, payload: any) => {
         if (onDateClick && payload?.payload?.date) {
             onDateClick(payload.payload.date);
         }

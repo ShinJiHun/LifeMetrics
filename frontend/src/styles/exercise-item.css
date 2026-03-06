@@ -160,7 +160,7 @@
 
 .item-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(4, 1fr);  /* auto-fill → 4열 고정 */
     gap: 10px;
 }
 
@@ -339,4 +339,18 @@
     font-size: 14px;
     line-height: 1.5;
     margin: 0;
+}
+
+
+.gif-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #6b7280;
+}
+
+.gif-placeholder span {
+    font-size: 48px;
 }

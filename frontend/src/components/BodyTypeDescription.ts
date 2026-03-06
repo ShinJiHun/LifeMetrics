@@ -1,4 +1,4 @@
-import { BodyType } from "./Human/human.types";
+import type { BodyType } from "./Human/human.types";
 
 export interface BodyTypeDescription {
     title: string;        // UI 제목

@@ -37,8 +37,8 @@ interface ExerciseSet {
 interface SelectedExercise {
     item: ExerciseItem;
     sets: ExerciseSet[];
-    restTime: string;  // 휴식 시간 (초)
-    memo: string;      // 메모
+    restTime: string;
+    memo: string;
 }
 
 export default function ExerciseInputPage() {
@@ -46,24 +46,20 @@ export default function ExerciseInputPage() {
     const [items, setItems] = useState<ExerciseItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
     const [selectedEquipment, setSelectedEquipment] = useState<string>("all");
-    const [selectedExercises, setSelectedExercises] = useState<SelectedExercise[]>([]);
+    const [selectedExercise, setSelectedExercise] = useState<SelectedExercise | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [isPanelExpanded, setIsPanelExpanded] = useState(true);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [isPT, setIsPT] = useState(false);  // PT 여부
+    const [isPT, setIsPT] = useState(false);
 
-    // 카테고리 로드
     useEffect(() => {
         fetch(`${API_BASE}/api/exercise/categories`)
             .then((res) => res.json())
-            .then((data) => {
-                setCategories(data);
-            })
+            .then(setCategories)
             .catch((err) => console.error("카테고리 로드 실패:", err));
     }, []);
 
-    // 운동 종목 로드
     useEffect(() => {
         setLoading(true);
         const url = selectedCategory
@@ -72,17 +68,10 @@ export default function ExerciseInputPage() {
 
         fetch(url)
             .then((res) => res.json())
-            .then((data) => {
-                setItems(data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                console.error("운동 종목 로드 실패:", err);
-                setLoading(false);
-            });
+            .then((data) => { setItems(data); setLoading(false); })
+            .catch((err) => { console.error("운동 종목 로드 실패:", err); setLoading(false); });
     }, [selectedCategory]);
 
-    // 종목 필터링
     const filteredItems = items.filter((item) => {
         const matchEquipment = selectedEquipment === "all" || item.equipmentType === selectedEquipment;
         const matchSearch =
@@ -92,139 +81,89 @@ export default function ExerciseInputPage() {
         return matchEquipment && matchSearch;
     });
 
-    // 종목 선택
     const handleSelectItem = (item: ExerciseItem) => {
-        const exists = selectedExercises.find((e) => e.item.id === item.id);
-        if (exists) return;
-
-        setSelectedExercises([
-            ...selectedExercises,
-            {
-                item,
-                sets: [{ setNumber: 1, weight: "", reps: "" }],
-                restTime: "60",  // 기본 휴식 시간 60초
-                memo: "",
-            },
-        ]);
+        setSelectedExercise({
+            item,
+            sets: [{ setNumber: 1, weight: "", reps: "" }],
+            restTime: "60",
+            memo: "",
+        });
         setIsPanelExpanded(true);
     };
 
-    // 세트 추가
-    const addSet = (exerciseId: number) => {
-        setSelectedExercises((prev) =>
-            prev.map((e) =>
-                e.item.id === exerciseId
-                    ? {
-                        ...e,
-                        sets: [...e.sets, { setNumber: e.sets.length + 1, weight: "", reps: "" }],
-                    }
-                    : e
-            )
-        );
+    const addSet = () => {
+        if (!selectedExercise) return;
+        setSelectedExercise({
+            ...selectedExercise,
+            sets: [...selectedExercise.sets, {
+                setNumber: selectedExercise.sets.length + 1,
+                weight: "",
+                reps: "",
+            }],
+        });
     };
 
-    // 세트 삭제
-    const removeSet = (exerciseId: number, setIndex: number) => {
-        setSelectedExercises((prev) =>
-            prev.map((e) =>
-                e.item.id === exerciseId
-                    ? {
-                        ...e,
-                        sets: e.sets
-                            .filter((_, i) => i !== setIndex)
-                            .map((s, i) => ({ ...s, setNumber: i + 1 })),
-                    }
-                    : e
-            )
-        );
+    const removeSet = (setIndex: number) => {
+        if (!selectedExercise) return;
+        setSelectedExercise({
+            ...selectedExercise,
+            sets: selectedExercise.sets
+                .filter((_, i) => i !== setIndex)
+                .map((s, i) => ({ ...s, setNumber: i + 1 })),
+        });
     };
 
-    // 세트 값 변경
-    const updateSet = (exerciseId: number, setIndex: number, field: "weight" | "reps", value: string) => {
-        setSelectedExercises((prev) =>
-            prev.map((e) =>
-                e.item.id === exerciseId
-                    ? {
-                        ...e,
-                        sets: e.sets.map((s, i) => (i === setIndex ? { ...s, [field]: value } : s)),
-                    }
-                    : e
-            )
-        );
+    const updateSet = (setIndex: number, field: "weight" | "reps", value: string) => {
+        if (!selectedExercise) return;
+        setSelectedExercise({
+            ...selectedExercise,
+            sets: selectedExercise.sets.map((s, i) =>
+                i === setIndex ? { ...s, [field]: value } : s
+            ),
+        });
     };
 
-    // 휴식 시간 변경
-    const updateRestTime = (exerciseId: number, value: string) => {
-        setSelectedExercises((prev) =>
-            prev.map((e) =>
-                e.item.id === exerciseId ? { ...e, restTime: value } : e
-            )
-        );
-    };
-
-    // 메모 변경
-    const updateMemo = (exerciseId: number, value: string) => {
-        setSelectedExercises((prev) =>
-            prev.map((e) =>
-                e.item.id === exerciseId ? { ...e, memo: value } : e
-            )
-        );
-    };
-
-    // 운동 삭제
-    const removeExercise = (exerciseId: number) => {
-        setSelectedExercises((prev) => prev.filter((e) => e.item.id !== exerciseId));
-    };
-
-    // 저장
     const handleSave = async () => {
-        if (selectedExercises.length === 0) {
+        if (!selectedExercise) {
             alert("운동을 선택해주세요!");
             return;
         }
 
-        // 빈 세트 체크
-        for (const exercise of selectedExercises) {
-            for (const set of exercise.sets) {
-                if (!set.weight || !set.reps) {
-                    alert(`${exercise.item.nameKo}의 모든 세트에 무게와 횟수를 입력해주세요!`);
-                    return;
-                }
+        for (const set of selectedExercise.sets) {
+            if (!set.weight || !set.reps) {
+                alert(`모든 세트에 무게와 횟수를 입력해주세요!`);
+                return;
             }
         }
 
         setSaving(true);
-
         try {
             const today = new Date().toISOString().split("T")[0];
-
             const payload = {
                 sessionDate: today,
-                userId: 1, // TODO: 실제 유저 ID로 변경
-                isPT: isPT,
-                exercises: selectedExercises.map((e) => ({
-                    exerciseItemId: e.item.id,
-                    restTimeSec: parseInt(e.restTime) || 60,
-                    memo: e.memo,
-                    sets: e.sets.map((s) => ({
+                userId: 1,
+                isPT,
+                exercises: [{
+                    exerciseItemId: selectedExercise.item.id,
+                    restTimeSec: parseInt(selectedExercise.restTime) || 60,
+                    memo: selectedExercise.memo,
+                    sets: selectedExercise.sets.map((s) => ({
                         setNumber: s.setNumber,
                         weight: parseFloat(s.weight),
                         reps: parseInt(s.reps),
                     })),
-                })),
+                }],
             };
 
             const response = await fetch(`${API_BASE}/api/exercise/log`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
             if (response.ok) {
                 alert("운동 기록이 저장되었습니다! 💪");
-                setSelectedExercises([]);
+                setSelectedExercise(null);
                 setIsPT(false);
             } else {
                 throw new Error("저장 실패");
@@ -237,11 +176,8 @@ export default function ExerciseInputPage() {
         }
     };
 
-    const totalSets = selectedExercises.reduce((sum, e) => sum + e.sets.length, 0);
-
-    const getCategoryName = (categoryId: number) => {
-        return categories.find((c) => c.id === categoryId)?.name || "";
-    };
+    const getCategoryName = (categoryId: number) =>
+        categories.find((c) => c.id === categoryId)?.name || "";
 
     const getEquipmentName = (equipmentType: string) => {
         const map: Record<string, string> = {
@@ -259,7 +195,6 @@ export default function ExerciseInputPage() {
         <div className="exercise-input-page">
             <h2>🏋️ 운동 기록 입력</h2>
 
-            {/* PT 토글 */}
             <div className="pt-toggle">
                 <label className={`toggle-label ${isPT ? "active" : ""}`}>
                     <input
@@ -274,7 +209,6 @@ export default function ExerciseInputPage() {
             <div className="exercise-layout">
                 {/* 왼쪽: 종목 선택 */}
                 <div className="exercise-selector">
-                    {/* 부위 탭 */}
                     <div className="category-tabs">
                         <button
                             className={`category-tab ${selectedCategory === null ? "active" : ""}`}
@@ -293,7 +227,6 @@ export default function ExerciseInputPage() {
                         ))}
                     </div>
 
-                    {/* 장비 필터 */}
                     <div className="equipment-filter">
                         {EQUIPMENT_TYPES.map((eq) => (
                             <button
@@ -306,7 +239,6 @@ export default function ExerciseInputPage() {
                         ))}
                     </div>
 
-                    {/* 검색 */}
                     <input
                         type="text"
                         placeholder="운동 검색..."
@@ -315,7 +247,6 @@ export default function ExerciseInputPage() {
                         className="search-input"
                     />
 
-                    {/* 종목 목록 */}
                     {loading ? (
                         <div className="loading">로딩 중...</div>
                     ) : (
@@ -323,7 +254,7 @@ export default function ExerciseInputPage() {
                             {filteredItems.map((item) => (
                                 <div
                                     key={item.id}
-                                    className={`item-card ${selectedExercises.find((e) => e.item.id === item.id) ? "selected" : ""}`}
+                                    className={`item-card ${selectedExercise?.item.id === item.id ? "selected" : ""}`}
                                     onClick={() => handleSelectItem(item)}
                                 >
                                     <div className="item-tags">
@@ -339,13 +270,27 @@ export default function ExerciseInputPage() {
                     )}
                 </div>
 
-                {/* 오른쪽: 선택된 운동 & 세트 입력 */}
+                {/* 오른쪽: GIF + 세트 입력 */}
                 <div className={`exercise-input-area ${isPanelExpanded ? "expanded" : "collapsed"}`}>
-                    {/* 모바일 토글 헤더 */}
+
+                    <div className="exercise-gif-preview">
+                        {selectedExercise?.item.mediaUrl ? (
+                            <img
+                                src={`/gif/${selectedExercise.item.mediaUrl}`}
+                                alt={selectedExercise.item.nameKo}
+                            />
+                        ) : (
+                            <div className="gif-placeholder">
+                                <span>🏋️</span>
+                                <p>GIF 없음</p>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="panel-header" onClick={() => setIsPanelExpanded(!isPanelExpanded)}>
                         <h3>
-                            📝 오늘의 운동{" "}
-                            {selectedExercises.length > 0 && `(${selectedExercises.length}종목, ${totalSets}세트)`}
+                            📝 오늘의 운동
+                            {selectedExercise && ` (${selectedExercise.sets.length}세트)`}
                             {isPT && " 🏆PT"}
                         </h3>
                         <button className="toggle-btn">{isPanelExpanded ? "▼" : "▲"}</button>
@@ -353,90 +298,90 @@ export default function ExerciseInputPage() {
 
                     {isPanelExpanded && (
                         <div className="panel-content">
-                            {selectedExercises.length === 0 ? (
+                            {!selectedExercise ? (
                                 <p className="empty-message">왼쪽에서 운동을 선택하세요</p>
                             ) : (
                                 <div className="selected-exercises">
-                                    {selectedExercises.map((exercise) => (
-                                        <div key={exercise.item.id} className="exercise-card">
-                                            <div className="exercise-header">
-                                                <h4>{exercise.item.nameKo}</h4>
-                                                <button
-                                                    className="remove-btn"
-                                                    onClick={() => removeExercise(exercise.item.id)}
-                                                >
-                                                    ✕
-                                                </button>
-                                            </div>
-
-                                            {/* 휴식 시간 & 메모 */}
-                                            <div className="exercise-options">
-                                                <div className="option-row">
-                                                    <label>⏱️ 휴식</label>
-                                                    <input
-                                                        type="number"
-                                                        placeholder="60"
-                                                        value={exercise.restTime}
-                                                        onChange={(e) => updateRestTime(exercise.item.id, e.target.value)}
-                                                        className="rest-input"
-                                                    />
-                                                    <span>초</span>
-                                                </div>
-                                                <div className="option-row memo-row">
-                                                    <label>📝 메모</label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="메모 입력..."
-                                                        value={exercise.memo}
-                                                        onChange={(e) => updateMemo(exercise.item.id, e.target.value)}
-                                                        className="memo-input"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="sets-table">
-                                                <div className="sets-header">
-                                                    <span>세트</span>
-                                                    <span>무게 (kg)</span>
-                                                    <span>횟수</span>
-                                                    <span></span>
-                                                </div>
-                                                {exercise.sets.map((set, idx) => (
-                                                    <div key={idx} className="set-row">
-                                                        <span className="set-number">{set.setNumber}</span>
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            value={set.weight}
-                                                            onChange={(e) =>
-                                                                updateSet(exercise.item.id, idx, "weight", e.target.value)
-                                                            }
-                                                        />
-                                                        <input
-                                                            type="number"
-                                                            placeholder="0"
-                                                            value={set.reps}
-                                                            onChange={(e) =>
-                                                                updateSet(exercise.item.id, idx, "reps", e.target.value)
-                                                            }
-                                                        />
-                                                        {exercise.sets.length > 1 && (
-                                                            <button
-                                                                className="remove-set-btn"
-                                                                onClick={() => removeSet(exercise.item.id, idx)}
-                                                            >
-                                                                🗑
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-
-                                            <button className="add-set-btn" onClick={() => addSet(exercise.item.id)}>
-                                                + 세트 추가
+                                    <div className="exercise-card">
+                                        <div className="exercise-header">
+                                            <h4>{selectedExercise.item.nameKo}</h4>
+                                            <button
+                                                className="remove-btn"
+                                                onClick={() => setSelectedExercise(null)}
+                                            >
+                                                ✕
                                             </button>
                                         </div>
-                                    ))}
+
+                                        <div className="exercise-options">
+                                            <div className="option-row">
+                                                <label>⏱️ 휴식</label>
+                                                <input
+                                                    type="number"
+                                                    placeholder="60"
+                                                    value={selectedExercise.restTime}
+                                                    onChange={(e) =>
+                                                        setSelectedExercise({
+                                                            ...selectedExercise,
+                                                            restTime: e.target.value
+                                                        })
+                                                    }
+                                                    className="rest-input"
+                                                />
+                                                <span>초</span>
+                                            </div>
+                                            <div className="option-row memo-row">
+                                                <label>📝 메모</label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="메모 입력..."
+                                                    value={selectedExercise.memo}
+                                                    onChange={(e) =>
+                                                        setSelectedExercise({...selectedExercise, memo: e.target.value})
+                                                    }
+                                                    className="memo-input"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sets-table">
+                                            <div className="sets-header">
+                                                <span>세트</span>
+                                                <span>무게 (kg)</span>
+                                                <span>횟수</span>
+                                                <span></span>
+                                            </div>
+                                            {selectedExercise.sets.map((set, idx) => (
+                                                <div key={idx} className="set-row">
+                                                    <span className="set-number">{set.setNumber}</span>
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        value={set.weight}
+                                                        onChange={(e) => updateSet(idx, "weight", e.target.value)}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        value={set.reps}
+                                                        onChange={(e) => updateSet(idx, "reps", e.target.value)}
+                                                    />
+                                                    {selectedExercise.sets.length > 1 && (
+                                                        <button
+                                                            className="remove-set-btn"
+                                                            onClick={() => removeSet(idx)}
+                                                        >
+                                                            🗑
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <button className="add-set-btn" onClick={addSet}>
+                                            + 세트 추가
+                                        </button>
+                                    </div>
 
                                     <button className="save-btn" onClick={handleSave} disabled={saving}>
                                         {saving ? "저장 중..." : "💾 저장하기"}
