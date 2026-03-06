@@ -6,6 +6,7 @@ import ExerciseItemPage from "@/pages/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ExerciseHistoryPage";
 import RidingRecordPage from "@/pages/RidingRecordPage";
+import BrevePlanPage from "@/pages/BrevePlanPage";
 
 import "@/styles/global.css";
 
@@ -20,6 +21,8 @@ export default function App() {
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />
                 <Route path="/records/health/history" element={<ExerciseHistoryPage />} />
                 <Route path="/records/riding" element={<RidingRecordPage />} />
+                <Route path="/plan/brevet" element={<BrevePlanPage />} />
+                <Route path="/plan/touring" element={<div style={{padding:24}}>🏕️ 투어링 계획 (준비중)</div>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

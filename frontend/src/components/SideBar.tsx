@@ -29,10 +29,13 @@ export default function SideBar() {
         </NavLink>
       </nav>
 
-      <h3 style={{ marginTop: 24 }}>🏃 운동</h3>
-      <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <NavLink to="/exercise/items" style={linkStyle}>
-          ➕ 운동 종목 관리
+      <h3 style={{marginTop: 24}}>🗺️ 계획</h3>
+      <nav style={{display: "flex", flexDirection: "column", gap: 6}}>
+        <NavLink to="/plan/brevet" style={linkStyle}>
+          🏅 랜도너스 계획
+        </NavLink>
+        <NavLink to="/plan/touring" style={linkStyle}>
+          🏕️ 투어링 계획
         </NavLink>
       </nav>
     </aside>
