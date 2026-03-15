@@ -14,6 +14,11 @@ export interface Activity {
     totalDescent: number;
     gearName: string;
     polyline?: string;
+    avgHeartRate?: number;
+    maxHeartRate?: number;
+    avgPower?: number;
+    avgCadence?: number;
+    calories?: number;
 }
 
 export async function fetchActivities(userId = 1): Promise<Activity[]> {

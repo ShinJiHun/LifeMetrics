@@ -26,4 +26,9 @@ public class ActivitySummaryDto {
     private Double endLat;
     private Double endLon;
     private String polyline;  // 추가!
+    private Double avgHeartRate;
+    private Double maxHeartRate;
+    private Double avgPower;
+    private Double avgCadence;
+    private Integer calories;
 }

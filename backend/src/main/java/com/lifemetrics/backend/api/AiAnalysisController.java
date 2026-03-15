@@ -1,6 +1,8 @@
 package com.lifemetrics.backend.api;
 
 import com.lifemetrics.backend.dto.ActivityAnalysisResponse;
+import com.lifemetrics.backend.dto.BrevetAnalysisRequest;
+import com.lifemetrics.backend.dto.BrevetAnalysisResponse;
 import com.lifemetrics.backend.dto.ExerciseAnalysisResponse;
 import com.lifemetrics.backend.service.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
@@ -94,5 +96,11 @@ public class AiAnalysisController {
             @RequestParam(defaultValue = "1") Long userId,
             @RequestParam String month) {
         return analysisService.analyzeMonthlyExercise(userId, month);
+    }
+
+    @PostMapping("/brevet")
+    public BrevetAnalysisResponse analyzeBrevetPlan(
+            @RequestBody BrevetAnalysisRequest request) {
+        return analysisService.analyzeBrevetPlan(request);
     }
 }

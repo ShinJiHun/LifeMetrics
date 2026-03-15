@@ -1,169 +1,314 @@
+/* ── 페이지 기본 ─────────────────────────────────────────── */
 .riding-page {
     padding: 24px;
-    max-width: 700px;
-    margin: 0 auto;
+    max-width: 1400px;
 }
-
 .riding-page h2 {
-    margin-bottom: 24px;
+    margin: 0 0 20px;
+    font-size: 22px;
+    font-weight: 800;
+}
+.riding-page.loading,
+.riding-page.error {
+    padding: 40px;
+    color: #64748b;
 }
 
-.riding-page.loading {
-    text-align: center;
-    padding: 100px 24px;
-    color: #6b7280;
+/* ── 2단 레이아웃 ─────────────────────────────────────────── */
+.riding-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
 }
 
-/* 피드 */
 .activity-feed {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 16px;
 }
 
-/* 카드 */
+/* ── 카드 ────────────────────────────────────────────────── */
 .activity-card {
-    background: white;
-    border-radius: 12px;
+    background: #fff;
     border: 1px solid #e5e7eb;
+    border-radius: 16px;
     overflow: hidden;
-    transition: box-shadow 0.2s;
+    cursor: pointer;
+    transition: box-shadow 0.15s, border-color 0.15s;
 }
-
 .activity-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.activity-card.selected {
+    border: 2px solid #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
 }
 
-/* 헤더 */
 .activity-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 14px 16px 10px;
 }
-
 .activity-date {
+    font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: #1e293b;
 }
-
-.source-badge {
-    padding: 4px 10px;
-    border-radius: 12px;
+.activity-gear {
     font-size: 12px;
-    font-weight: 500;
+    color: #94a3b8;
 }
 
-.source-badge.garmin {
-    background: #e0f2fe;
-    color: #0369a1;
-}
-
-.source-badge.strava {
-    background: #fef3c7;
-    color: #d97706;
-}
-
-/* 지도 */
 .activity-map {
     width: 100%;
-    height: 200px;
-    background: #f3f4f6;
+    height: 160px;
+    background: #f1f5f9;
 }
-
 .map-placeholder {
-    width: 100%;
-    height: 100%;
+    height: 160px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #9ca3af;
-    font-size: 14px;
+    color: #94a3b8;
+    font-size: 13px;
+    background: #f8fafc;
 }
 
-/* 주요 지표 */
+/* 상단 4개 주요 지표 */
 .activity-stats-main {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    padding: 20px 12px;
-    border-bottom: 1px solid #f3f4f6;
-    text-align: center;
-}
-
-.activity-stats-main .stat-item {
-    display: flex;
-    flex-direction: column;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #f1f5f9;
     gap: 4px;
 }
-
-.activity-stats-main .stat-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: #111827;
+.stat-item.large {
+    text-align: center;
+}
+.stat-item.large .stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+}
+.stat-item.large .stat-label {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
 }
 
-.activity-stats-main .stat-label {
-    font-size: 12px;
-    color: #6b7280;
-}
-
-/* 상세 지표 */
-.activity-stats-detail {
-    padding: 16px;
-}
-
-.stat-row {
+/* 하단 2열 세부 지표 */
+.activity-stats-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    padding: 10px 16px 14px;
+    gap: 6px;
+}
+.stat-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #f8fafc;
+    border-radius: 8px;
+}
+.stat-cell .stat-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+}
+.stat-cell .stat-label {
+    font-size: 11px;
+    color: #94a3b8;
+    flex: 1;
+}
+.stat-cell .stat-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+/* ── 우측 분석 패널 ──────────────────────────────────────── */
+.analysis-panel {
+    width: 360px;
+    flex-shrink: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+}
+
+.analysis-panel-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* 빈 상태 */
+.analysis-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 0;
+    color: #94a3b8;
+    text-align: center;
+    gap: 12px;
+}
+.analysis-empty-icon {
+    font-size: 40px;
+    opacity: 0.4;
+}
+.analysis-empty-state p {
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* 선택된 라이딩 요약 */
+.analysis-selected-info {
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.analysis-selected-date {
+    font-size: 12px;
+    color: #64748b;
+}
+.analysis-selected-dist {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 2px;
+}
+
+/* 스탯 그리드 */
+.analysis-stats-grid-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.analysis-stat-card {
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.analysis-stat-icon { font-size: 13px; }
+.analysis-stat-label { font-size: 11px; color: #94a3b8; }
+.analysis-stat-val { font-size: 14px; font-weight: 700; color: #1e293b; }
+
+/* AI 분석 섹션 */
+.analysis-ai-section {
+    border-top: 1px solid #f1f5f9;
+    padding-top: 14px;
+}
+.analysis-ai-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 10px;
+}
+.analysis-loading {
+    color: #94a3b8;
+    font-size: 13px;
+    text-align: center;
+    padding: 16px 0;
+}
+.analysis-empty {
+    text-align: center;
+    padding: 16px 0;
+    color: #64748b;
+    font-size: 13px;
+}
+.analysis-btn {
+    margin-top: 10px;
+    padding: 10px;
+    background: linear-gradient(135deg, #2563eb, #6366f1);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+}
+.analysis-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.analysis-btn.reanalyze {
+    background: #f1f5f9;
+    color: #64748b;
+    margin-top: 14px;
+    font-size: 12px;
+}
+
+/* 분석 결과 */
+.analysis-score-row {
+    display: flex;
+    align-items: center;
     gap: 12px;
     margin-bottom: 12px;
 }
-
-.stat-row:last-child {
-    margin-bottom: 0;
-}
-
-.activity-stats-detail .stat-item {
+.analysis-score {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb, #6366f1);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: #f9fafb;
-    border-radius: 8px;
+    justify-content: center;
+    flex-shrink: 0;
 }
-
-.stat-icon {
-    font-size: 16px;
-}
-
-.activity-stats-detail .stat-label {
-    flex: 1;
+.analysis-summary {
     font-size: 13px;
-    color: #6b7280;
-}
-
-.activity-stats-detail .stat-value {
-    font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: #1e293b;
+    line-height: 1.4;
 }
-
-/* 모바일 */
-@media (max-width: 640px) {
-    .riding-page {
-        padding: 16px;
-    }
-
-    .activity-stats-main .stat-value {
-        font-size: 20px;
-    }
-
-    .stat-row {
-        grid-template-columns: 1fr;
-    }
-
-    .activity-map {
-        height: 160px;
-    }
+.analysis-intensity-badge {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
 }
+.analysis-weather-impact {
+    background: #f0f9ff;
+    border-left: 3px solid #38bdf8;
+    padding: 8px 10px;
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    color: #0369a1;
+    margin-bottom: 10px;
+}
+.analysis-section { margin-bottom: 10px; }
+.analysis-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 4px;
+}
+.analysis-item {
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 1px 0;
+}
+.analysis-item.highlight { color: #15803d; }
+.analysis-item.suggestion { color: #b45309; }

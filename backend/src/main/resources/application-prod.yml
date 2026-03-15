@@ -1,20 +1,21 @@
 # application-local.yml
 server:
   port: 8080
+  forward-headers-strategy: native
 
 spring:
   datasource:
-    url: jdbc:mariadb://34.172.162.148:3306/riding_db
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-    driver-class-name: org.mariadb.jdbc.Driver
-
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+    riding:
+      url: jdbc:mariadb://172.17.0.1:3306/riding_db
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.mariadb.jdbc.Driver
+      hikari:
+        maximum-pool-size: 10
+        minimum-idle: 2
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -36,8 +37,9 @@ spring:
       client:
         registration:
           google:
-            client-id: 963024529670-769djp6j8pv6hn2eetaci3nveaq7f10p.apps.googleusercontent.com
+            client-id: 415261907040-90umvp9luqjtbvs5tft2jps2h126iq2h.apps.googleusercontent.com
             client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "http://ride.tho881.me/login/oauth2/code/google"
             scope:
               - https://www.googleapis.com/auth/fitness.nutrition.read
               - https://www.googleapis.com/auth/fitness.body.read
@@ -47,7 +49,7 @@ spring:
           google:
             authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
             token-uri: https://oauth2.googleapis.com/token
-            user-info-uri: https://www.googleapis.com/oauth2/v3/userinf
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
 
 logging:
   level:

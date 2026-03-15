@@ -126,7 +126,12 @@ public class ActivityService {
                 .startLon(core.getStartLon())
                 .endLat(core.getEndLat())
                 .endLon(core.getEndLon())
-                .polyline(core.getPolyline())  // 추가!
+                .polyline(core.getPolyline())
+                .avgHeartRate(core.getAvgHeartRate())
+                .maxHeartRate(core.getMaxHeartRate())
+                .avgPower(core.getAvgPower())
+                .avgCadence(core.getAvgCadence())
+                .calories(core.getCalories())
                 .build();
     }
 

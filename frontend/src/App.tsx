@@ -16,7 +16,8 @@ export default function App() {
             <Route element={<Layout />}>
                 <Route path="/" element={<BodyRecordPage />} />
                 <Route path="/records/body" element={<BodyRecordPage />} />
-                <Route path="/records/health" element={<Navigate to="/records/health/log" replace />} />
+                <Route path="/records/health" element={<Navigate to="/records/health/history" replace />} />
+                {/*<Route path="/records/health" element={<Navigate to="/records/health/log" replace />} />*/}
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />
                 <Route path="/records/health/history" element={<ExerciseHistoryPage />} />

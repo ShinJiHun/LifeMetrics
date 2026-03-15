@@ -3,15 +3,15 @@ package com.lifemetrics.backend.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lifemetrics.backend.dto.ActivityAnalysisResponse;
-import com.lifemetrics.backend.dto.ExerciseAnalysisResponse;
-import com.lifemetrics.backend.dto.ExerciseHistoryResponse;
+import com.lifemetrics.backend.dto.*;
 import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.entity.ActivityWeatherPoint;
+import com.lifemetrics.backend.entity.DeviceInfo;
 import com.lifemetrics.backend.repository.AiAnalysisRepository;
 import com.lifemetrics.backend.entity.ActivityCore;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.ActivityWeatherPointRepository;
+import com.lifemetrics.backend.repository.DeviceInfoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -33,6 +33,7 @@ public class AiAnalysisService {
     private final ActivityCoreRepository activityRepo;
     private final ActivityWeatherPointRepository weatherPointRepo;
     private final ExerciseLogService exerciseLogService;
+    private final DeviceInfoRepository deviceInfoRepo;  // ★ 추가
     private final ObjectMapper objectMapper;
 
     @Value("${anthropic.api-key:}")
@@ -55,11 +56,10 @@ public class AiAnalysisService {
         ActivityCore activity = activityRepo.findById(activityId)
                 .orElseThrow(() -> new RuntimeException("Activity not found: " + activityId));
 
-        // 구간별 날씨 조회
         List<ActivityWeatherPoint> weatherPoints = weatherPointRepo
                 .findByActivityCoreIdOrderBySeq(activityId);
 
-        String prompt = buildActivityPrompt(activity, weatherPoints);
+        String prompt = buildActivityPrompt(activity, weatherPoints, userId);  // ★ userId 전달
         String analysisJson = callClaudeApi(prompt);
 
         AiAnalysis analysis = new AiAnalysis();
@@ -89,7 +89,7 @@ public class AiAnalysisService {
                 List<ActivityWeatherPoint> weatherPoints = weatherPointRepo
                         .findByActivityCoreIdOrderBySeq(activity.getId());
 
-                String prompt = buildActivityPrompt(activity, weatherPoints);
+                String prompt = buildActivityPrompt(activity, weatherPoints, userId);  // ★ userId 전달
                 String analysisJson = callClaudeApi(prompt);
 
                 AiAnalysis analysis = new AiAnalysis();
@@ -223,10 +223,29 @@ public class AiAnalysisService {
     }
 
     // ================================================================
+    // 브레베 분석
+    // ================================================================
+
+    public BrevetAnalysisResponse analyzeBrevetPlan(BrevetAnalysisRequest req) {
+        String prompt = buildBrevetPrompt(req);
+        String analysisJson = callClaudeApi(prompt);
+
+        AiAnalysis analysis = new AiAnalysis();
+        analysis.setUserId(req.getUserId());
+        analysis.setAnalysisType("brevet_plan");
+        analysis.setTargetId(0L);
+        analysis.setTargetPeriod(req.getEventDate());
+        analysis.setAnalysisData(analysisJson);
+        analysisRepo.save(analysis);
+
+        return toBrevetResponse(analysis, req.getEventName(), req.getEventDate());
+    }
+
+    // ================================================================
     // 프롬프트 빌더
     // ================================================================
 
-    private String buildActivityPrompt(ActivityCore a, List<ActivityWeatherPoint> weatherPoints) {
+    private String buildActivityPrompt(ActivityCore a, List<ActivityWeatherPoint> weatherPoints, Long userId) {
         StringBuilder sb = new StringBuilder();
         sb.append("다음 사이클링 활동 데이터를 분석해주세요.\n\n");
 
@@ -239,7 +258,7 @@ public class AiAnalysisService {
                 - 획득 고도: %.0f m
                 - 평균 심박: %.0f bpm
                 - 최고 심박: %.0f bpm
-                - 평균 파워: %.0f W
+                - 평균 파워: %.0f W (가상 추정값)
                 - 칼로리: %.0f kcal
                 
                 """,
@@ -251,24 +270,25 @@ public class AiAnalysisService {
                 safeDouble(a.getAvgHeartRate()),
                 safeDouble(a.getMaxHeartRate()),
                 safeDouble(a.getAvgPower()),
-                safeInt(a.getCalories())
+                (double) safeInt(a.getCalories())
         ));
 
-        // 구간별 날씨 데이터 추가
+        // ★ 기기 컨텍스트 추가
+        sb.append(buildDeviceContext(userId));
+
+        // 구간별 날씨 데이터
         if (!weatherPoints.isEmpty()) {
             sb.append("[구간별 날씨 (30분 간격)]\n");
             for (ActivityWeatherPoint wp : weatherPoints) {
                 String time = wp.getPointTime() != null ? wp.getPointTime().format(TIME_FMT) : "?";
                 String desc = wp.getWeatherDesc() != null ? wp.getWeatherDesc() : "";
                 String windDir = windDegToDirection(wp.getWindDeg());
-
-                sb.append(String.format("  %s - %.1f°C, 습도%d%%, %s %.1fm/s(%s), %s\n",
+                sb.append(String.format("  %s - %.1f°C, 습도%d%%, %s %.1fm/s, %s\n",
                         time,
                         wp.getTemperature() != null ? wp.getTemperature() : 0,
                         wp.getHumidity() != null ? wp.getHumidity().intValue() : 0,
                         windDir,
                         wp.getWindSpeed() != null ? wp.getWindSpeed() : 0,
-                        windDir,
                         desc
                 ));
             }
@@ -286,23 +306,66 @@ public class AiAnalysisService {
                   "score": 85
                 }
                 
-                분석 시 날씨 영향도 반영해주세요:
-                - 맞바람/뒷바람이 속도/파워에 미치는 영향
-                - 기온 변화에 따른 체력 소모
-                - 비/흐림 등 기상 조건의 영향
-                - 고온/저온 환경에서의 퍼포먼스
+                분석 시 보유 기기/센서 현황을 반드시 반영하세요:
+                - 심박계 없으면: 심박 데이터 없음을 명시하고 속도/고도 기반으로 강도 추정
+                - 파워미터 없으면: 파워는 가상 추정값임을 명시
+                - 날씨 영향(맞바람/뒷바람, 기온, 강수)도 반영
                 """);
 
         return sb.toString();
+    }
+
+    // ★ 기기 컨텍스트 생성
+    private String buildDeviceContext(Long userId) {
+        List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId);
+        if (devices.isEmpty()) return "";
+
+        StringBuilder sb = new StringBuilder("[보유 기기]\n");
+
+        boolean hasHr = false;
+        boolean hasPower = false;
+        boolean hasSpeed = false;
+        boolean hasCadence = false;
+
+        for (DeviceInfo d : devices) {
+            String type = d.getDeviceType() != null ? d.getDeviceType() : "";
+            String label = d.getUserLabel() != null ? d.getUserLabel()
+                    : d.getManufacturer() + " " + d.getModel();
+            sb.append(String.format("  - %s (%s)\n", label, deviceTypeKo(type)));
+
+            switch (type) {
+                case "HEART_RATE"     -> hasHr = true;
+                case "POWER_METER"    -> hasPower = true;
+                case "SPEED_SENSOR"   -> hasSpeed = true;
+                case "CADENCE_SENSOR" -> hasCadence = true;
+            }
+        }
+
+        sb.append("[센서 보유 현황]\n");
+        sb.append(String.format("  - 심박계: %s\n", hasHr ? "있음 (실측값)" : "없음 → 심박 미수집"));
+        sb.append(String.format("  - 파워미터: %s\n", hasPower ? "있음 (실측값)" : "없음 → 가상 파워 추정값"));
+        sb.append(String.format("  - 속도 센서: %s\n", hasSpeed ? "있음" : "없음 (GPS 기반)"));
+        sb.append(String.format("  - 케이던스 센서: %s\n\n", hasCadence ? "있음" : "없음"));
+
+        return sb.toString();
+    }
+
+    private String deviceTypeKo(String type) {
+        return switch (type) {
+            case "HEAD_UNIT"      -> "헤드유닛";
+            case "HEART_RATE"     -> "심박계";
+            case "POWER_METER"    -> "파워미터";
+            case "SPEED_SENSOR"   -> "속도 센서";
+            case "CADENCE_SENSOR" -> "케이던스 센서";
+            default               -> type;
+        };
     }
 
     private String buildExerciseSessionPrompt(ExerciseHistoryResponse session) {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("다음은 %s 운동 세션 데이터입니다.\n\n", session.getSessionDate()));
 
-        if (session.getIsPT()) {
-            sb.append("⚡ PT 세션\n\n");
-        }
+        if (session.getIsPT()) sb.append("⚡ PT 세션\n\n");
 
         double totalVolume = 0;
         int totalSets = 0;
@@ -326,9 +389,8 @@ public class AiAnalysisService {
                         set.getSetNumber(), set.getWeight(), set.getReps(), volume));
             }
 
-            if (log.getMemo() != null && !log.getMemo().isEmpty()) {
+            if (log.getMemo() != null && !log.getMemo().isEmpty())
                 sb.append("  메모: ").append(log.getMemo()).append("\n");
-            }
             sb.append("\n");
         }
 
@@ -343,16 +405,9 @@ public class AiAnalysisService {
                   "volumeLevel": "낮음/적정/높음 중 하나",
                   "intensityLevel": "낮음/보통/높음/매우높음 중 하나",
                   "highlights": ["잘한 점 1", "잘한 점 2"],
-                  "suggestions": ["개선점/다음에 이렇게 해보세요 1", "개선점 2"],
+                  "suggestions": ["개선점1", "개선점2"],
                   "score": 85
                 }
-                
-                분석 기준:
-                - 볼륨(총 무게×횟수)의 적정성
-                - 운동 구성의 균형 (주동근/보조근 비율)
-                - 세트/횟수 구성의 효율성
-                - PT 세션이면 트레이너와 함께한 점 반영
-                - score는 0~100 (종합 점수)
                 """);
 
         return sb.toString();
@@ -381,9 +436,8 @@ public class AiAnalysisService {
 
                 if (log.getMuscleMappings() != null) {
                     for (ExerciseHistoryResponse.MuscleMappingDto mm : log.getMuscleMappings()) {
-                        if ("PRIMARY".equals(mm.getRole())) {
+                        if ("PRIMARY".equals(mm.getRole()))
                             muscleSetCount.merge(mm.getMuscleName(), sets, Integer::sum);
-                        }
                     }
                 }
 
@@ -400,8 +454,6 @@ public class AiAnalysisService {
         sb.append(String.format("\n📊 월간 요약: 총 %d세트, 총 볼륨 %.0fkg\n", monthlySets, monthlyVolume));
         sb.append("\n부위별 세트 수:\n");
         categorySetCount.forEach((cat, cnt) -> sb.append(String.format("  %s: %d세트\n", cat, cnt)));
-        sb.append("\n주동근별 세트 수:\n");
-        muscleSetCount.forEach((muscle, cnt) -> sb.append(String.format("  %s: %d세트\n", muscle, cnt)));
 
         sb.append("""
                 
@@ -412,19 +464,107 @@ public class AiAnalysisService {
                   "volumeLevel": "낮음/적정/높음",
                   "intensityLevel": "낮음/보통/높음/매우높음",
                   "highlights": ["잘한 점 1", "잘한 점 2", "잘한 점 3"],
-                  "suggestions": ["부족한 부위나 개선점 1", "다음 달 추천 2", "추천 3"],
+                  "suggestions": ["개선점1", "다음 달 추천2", "추천3"],
                   "score": 80
                 }
-                
-                분석 기준:
-                - 운동 빈도 (주 몇회?)
-                - 부위별 균형 (상체/하체/코어 밸런스)
-                - 점진적 과부하 여부
-                - 충분한 볼륨인지
-                - 약한 부위 추천
                 """);
 
         return sb.toString();
+    }
+
+    private String buildBrevetPrompt(BrevetAnalysisRequest req) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(String.format("""
+                브레베(장거리 사이클링 비경쟁 이벤트) 계획을 분석해주세요.
+                
+                [대회 정보]
+                - 대회명: %s
+                - 날짜: %s
+                - 출발 시간: %s
+                - 제한 시간: %d시간
+                - 목표 평균 속도: %.1f km/h
+                - 총 거리: %.1f km
+                - 총 획득 고도: %d m
+                
+                """,
+                req.getEventName(), req.getEventDate(), req.getStartTime(),
+                req.getTimeLimit(), req.getTargetSpeed(),
+                req.getTotalDistance(), req.getTotalAscent()
+        ));
+
+        sb.append("[CP별 날씨 및 도착 계획]\n");
+        for (BrevetAnalysisRequest.CpWeatherDto cp : req.getCps()) {
+            sb.append(String.format("""
+                    ▶ %s (%dkm 지점, 누적고도 %dm)
+                      목표 도착: %s / 마감: %s
+                      날씨: %s, 기온 %.1f°C, 풍속 %.1f km/h, 강수확률 %d%%
+                      풍향 영향: %s
+                    """,
+                    cp.getName(), cp.getDistance(), cp.getElevation(),
+                    cp.getTargetArrival(), cp.getDeadline(),
+                    cp.getWeatherDesc(), cp.getTemp(), cp.getWind(), cp.getPrecip(),
+                    cp.getWindEffect() != null ? cp.getWindEffect() : "정보없음"
+            ));
+        }
+
+        sb.append("""
+                
+                반드시 아래 JSON 형식으로만 응답하세요:
+                {
+                  "summary": "전체 컨디션 한줄 요약 (40자 이내)",
+                  "overallCondition": "좋음/보통/어려움 중 하나",
+                  "paceStrategy": "페이스 전략 (60자 이내)",
+                  "warnings": ["주의사항1", "주의사항2", "주의사항3"],
+                  "tips": ["구간별 팁1 (CP명 포함)", "팁2", "팁3"],
+                  "conclusion": "종합 조언 및 완주 전략 (100자 이내)",
+                  "score": 82
+                }
+                score는 현재 계획대로 완주할 가능성 (0~100)
+                """);
+
+        return sb.toString();
+    }
+
+    // ================================================================
+    // Claude API 호출
+    // ================================================================
+
+    private String callClaudeApi(String prompt) {
+        if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
+            return "{\"summary\":\"API 키 없음\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
+        }
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-api-key", anthropicApiKey);
+        headers.set("anthropic-version", "2023-06-01");
+
+        Map<String, Object> body = Map.of(
+                "model", "claude-sonnet-4-20250514",
+                "max_tokens", 1000,
+                "messages", List.of(Map.of("role", "user", "content", prompt))
+        );
+
+        try {
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://api.anthropic.com/v1/messages", request, String.class);
+
+            JsonNode responseJson = objectMapper.readTree(response.getBody());
+            String text = responseJson.get("content").get(0).get("text").asText();
+
+            if (text.contains("```"))
+                text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
+
+            objectMapper.readTree(text);
+            return text;
+
+        } catch (Exception e) {
+            System.out.println("❌ Claude API 에러: " + e.getMessage());
+            return "{\"summary\":\"분석 실패\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
+        }
     }
 
     // ================================================================
@@ -440,66 +580,15 @@ public class AiAnalysisService {
     }
 
     // ================================================================
-    // Claude API 호출
-    // ================================================================
-
-    private String callClaudeApi(String prompt) {
-        if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
-            return "{\"summary\":\"API 키 없음\",\"targetMuscles\":\"\",\"volumeLevel\":\"보통\",\"intensityLevel\":\"보통\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
-        }
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-api-key", anthropicApiKey);
-        headers.set("anthropic-version", "2023-06-01");
-
-        Map<String, Object> body = Map.of(
-                "model", "claude-sonnet-4-20250514",
-                "max_tokens", 1000,
-                "messages", List.of(
-                        Map.of("role", "user", "content", prompt)
-                )
-        );
-
-        try {
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(
-                    "https://api.anthropic.com/v1/messages",
-                    request,
-                    String.class
-            );
-
-            JsonNode responseJson = objectMapper.readTree(response.getBody());
-            String text = responseJson.get("content").get(0).get("text").asText();
-
-            if (text.contains("```")) {
-                text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
-            }
-
-            objectMapper.readTree(text);
-            return text;
-
-        } catch (Exception e) {
-            System.out.println("❌ Claude API 에러: " + e.getMessage());
-            return "{\"summary\":\"분석 실패\",\"targetMuscles\":\"\",\"volumeLevel\":\"보통\",\"intensityLevel\":\"보통\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
-        }
-    }
-
-    // ================================================================
-    // 헬퍼 메서드
+    // 헬퍼
     // ================================================================
 
     private ExerciseHistoryResponse findSessionById(Long userId, Long sessionId) {
         for (int i = 0; i < 12; i++) {
             java.time.LocalDate date = java.time.LocalDate.now().minusMonths(i);
             String month = String.format("%d-%02d", date.getYear(), date.getMonthValue());
-            List<ExerciseHistoryResponse> sessions = exerciseLogService.getHistory(userId, month);
-            for (ExerciseHistoryResponse session : sessions) {
-                if (session.getId().equals(sessionId)) {
-                    return session;
-                }
+            for (ExerciseHistoryResponse session : exerciseLogService.getHistory(userId, month)) {
+                if (session.getId().equals(sessionId)) return session;
             }
         }
         return null;
@@ -521,11 +610,8 @@ public class AiAnalysisService {
                     .build();
         } catch (JsonProcessingException e) {
             return ActivityAnalysisResponse.builder()
-                    .id(analysis.getId())
-                    .activityId(analysis.getTargetId())
-                    .summary("파싱 실패")
-                    .score(0)
-                    .build();
+                    .id(analysis.getId()).activityId(analysis.getTargetId())
+                    .summary("파싱 실패").score(0).build();
         }
     }
 
@@ -547,29 +633,41 @@ public class AiAnalysisService {
                     .build();
         } catch (JsonProcessingException e) {
             return ExerciseAnalysisResponse.builder()
-                    .id(analysis.getId())
-                    .sessionId(analysis.getTargetId())
-                    .summary("파싱 실패")
-                    .score(0)
-                    .build();
+                    .id(analysis.getId()).sessionId(analysis.getTargetId())
+                    .summary("파싱 실패").score(0).build();
         }
     }
 
-    private double safeDouble(Double value) {
-        return value != null ? value : 0.0;
+    private BrevetAnalysisResponse toBrevetResponse(AiAnalysis analysis, String eventName, String eventDate) {
+        try {
+            JsonNode json = objectMapper.readTree(analysis.getAnalysisData());
+            return BrevetAnalysisResponse.builder()
+                    .id(analysis.getId())
+                    .eventName(eventName)
+                    .eventDate(eventDate)
+                    .createdAt(analysis.getCreatedAt().toString())
+                    .summary(json.path("summary").asText())
+                    .overallCondition(json.path("overallCondition").asText())
+                    .paceStrategy(json.path("paceStrategy").asText())
+                    .warnings(jsonArrayToList(json.path("warnings")))
+                    .tips(jsonArrayToList(json.path("tips")))
+                    .conclusion(json.path("conclusion").asText())
+                    .score(json.path("score").asInt())
+                    .build();
+        } catch (JsonProcessingException e) {
+            return BrevetAnalysisResponse.builder()
+                    .id(analysis.getId()).eventName(eventName).eventDate(eventDate)
+                    .summary("파싱 실패").score(0).build();
+        }
     }
 
-    private int safeInt(Integer value) {
-        return value != null ? value : 0;
-    }
+    private double safeDouble(Double value) { return value != null ? value : 0.0; }
+    private int safeInt(Integer value) { return value != null ? value : 0; }
 
     private List<String> jsonArrayToList(JsonNode node) {
         List<String> list = new ArrayList<>();
-        if (node != null && node.isArray()) {
-            for (JsonNode item : node) {
-                list.add(item.asText());
-            }
-        }
+        if (node != null && node.isArray())
+            for (JsonNode item : node) list.add(item.asText());
         return list;
     }
 }

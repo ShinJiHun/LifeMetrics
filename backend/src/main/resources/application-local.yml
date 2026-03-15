@@ -77,4 +77,4 @@ lotto:
 
 # application-local.yml (로컬 개발용)
 brevet:
-  nas-path: D:/development/project/LifeMetrics/backend/src/main/resources/static/brevet
+  nas-path: ${BREVET_NAS_PATH:}
