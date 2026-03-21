@@ -549,8 +549,7 @@ public class AiAnalysisService {
 
         try {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(
-                    "https://api.anthropic.com/v1/messages", request, String.class);
+            ResponseEntity<String> response = restTemplate.postForEntity("https://api.anthropic.com/v1/messages", request, String.class);
 
             JsonNode responseJson = objectMapper.readTree(response.getBody());
             String text = responseJson.get("content").get(0).get("text").asText();

@@ -1,6 +1,7 @@
 package com.lifemetrics.backend.api;
 
 import com.lifemetrics.backend.dto.ActivityDetailDto;
+import com.lifemetrics.backend.dto.ActivitySegmentDto;
 import com.lifemetrics.backend.dto.ActivitySummaryDto;
 import com.lifemetrics.backend.dto.MonthlyStatsDto;
 import com.lifemetrics.backend.service.ActivityService;
@@ -45,4 +46,17 @@ public class ActivityController {
             @RequestParam int month) {
         return activityService.getMonthlyStats(userId, year, month);
     }
+
+
+    @GetMapping("/{id}/segments")
+    public List<ActivitySegmentDto> getSegments(@PathVariable Long id) {
+        return activityService.getActivitySegments(id);
+    }
+
+    // 포인트 없는 경량 상세 조회
+    @GetMapping("/{id}/summary")
+    public ActivitySummaryDto getSummary(@PathVariable Long id) {
+        return activityService.getActivitySummary(id);
+    }
+
 }

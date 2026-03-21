@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { fetchActivities } from "@/api/activity";
 import type { Activity } from "@/api/activity";
 import ActivityMap from "@/components/ActivityMap";
@@ -40,11 +41,21 @@ function ActivityCard({ activity, selected, onClick }: {
     selected: boolean;
     onClick: () => void;
 }) {
+    const navigate = useNavigate();
+
     return (
         <div className={`activity-card ${selected ? "selected" : ""}`} onClick={onClick}>
             <div className="activity-header">
                 <div className="activity-date">{formatDate(activity.startTime)}</div>
-                <div className="activity-gear">{activity.gearName || ""}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div className="activity-gear">{activity.gearName || ""}</div>
+                    <button
+                        style={{ padding: "3px 10px", fontSize: 11, background: "#1e3a5f", border: "1px solid #2563eb", borderRadius: 6, color: "#93c5fd", cursor: "pointer", flexShrink: 0 }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/records/riding/${activity.id}`); }}
+                    >
+                        자세히
+                    </button>
+                </div>
             </div>
             <div className="activity-map">
                 {activity.polyline

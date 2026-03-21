@@ -26,6 +26,8 @@ public class ActivityService {
     private final AiAnalysisRepository analysisRepo;
     private final ActivityCoreRepository activityRepo;  // ← 이거 있어야 해요!
     private final ObjectMapper objectMapper;
+    private final SegmentEffortRepository segmentEffortRepository;
+    private final SegmentRepository segmentRepository;
 
     public List<ActivitySummaryDto> getActivityList(Long userId, LocalDate startDate, LocalDate endDate, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
@@ -161,4 +163,39 @@ public class ActivityService {
                 .build();
     }
 
+
+    public List<ActivitySegmentDto> getActivitySegments(Long activityCoreId) {
+        List<SegmentEffort> efforts = segmentEffortRepository.findByActivityCoreId(activityCoreId);
+
+        return efforts.stream().map(effort -> {
+            Segment seg = segmentRepository.findById(effort.getSegmentId()).orElse(null);
+            return ActivitySegmentDto.builder()
+                    .effortId(effort.getId())
+                    .segmentId(effort.getSegmentId())
+                    .segmentName(seg != null ? seg.getName() : "알 수 없음")
+                    .distance(seg != null ? seg.getDistance() : null)
+                    .elevationGain(seg != null ? seg.getElevationGain() : null)
+                    .avgGrade(seg != null ? seg.getAvgGrade() : null)
+                    .polyline(seg != null ? seg.getPolyline() : null)
+                    .startTime(effort.getStartTime())
+                    .elapsedTimeSec(effort.getElapsedTimeSec())
+                    .movingTimeSec(effort.getMovingTimeSec())
+                    .avgSpeed(effort.getAvgSpeed())
+                    .maxSpeed(effort.getMaxSpeed())
+                    .avgHeartRate(effort.getAvgHeartRate())
+                    .maxHeartRate(effort.getMaxHeartRate())
+                    .avgPower(effort.getAvgPower())
+                    .avgCadence(effort.getAvgCadence() != null ? effort.getAvgCadence().doubleValue() : null)
+                    .startDistanceM(effort.getStartDistanceM())
+                    .endDistanceM(effort.getEndDistanceM())
+                    .prRank(effort.getPrRank())
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    public ActivitySummaryDto getActivitySummary(Long id) {
+        ActivityCore core = coreRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Activity not found: " + id));
+        return toSummaryDto(core);
+    }
 }
