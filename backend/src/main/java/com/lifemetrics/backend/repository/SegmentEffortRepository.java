@@ -47,4 +47,6 @@ public interface SegmentEffortRepository extends JpaRepository<SegmentEffort, Lo
            ORDER BY se.startTime DESC
            """)
     List<SegmentEffort> findRecentByUserId(@Param("userId") Long userId);
+
+    List<SegmentEffort> findBySegmentIdOrderByElapsedTimeSecAsc(Long segmentId);
 }
