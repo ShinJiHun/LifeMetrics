@@ -61,7 +61,7 @@ public class BodyAnalysisResult {
     }
 
     public static BodyAnalysisResult from(
-            UserInbodyRecord curr,
+            UserBodyRecord curr,
             GoalType goalType,
             AiProvider provider,
             AiAnalysisResponse response

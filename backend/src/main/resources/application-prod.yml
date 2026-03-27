@@ -60,6 +60,11 @@ inbody:
   upload:
     path: /mnt/200gb/NAS/inbody/raw/
 
+# application-gcp.yml
+exercise:
+  gif:
+    base-url: /api/exercise/gif/  # → /api/exercise/gif/CHEST_PRESS.gif (NAS 서빙)
+
 anthropic:
   api-key: ${ANTHROPIC_API_KEY}
 

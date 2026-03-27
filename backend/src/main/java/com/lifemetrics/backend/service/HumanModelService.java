@@ -2,8 +2,8 @@ package com.lifemetrics.backend.service;
 
 import com.lifemetrics.backend.domain.BodyType;
 import com.lifemetrics.backend.dto.HumanModelResponse;
-import com.lifemetrics.backend.entity.UserInbodyRecord;
-import com.lifemetrics.backend.repository.UserInbodyRecordRepository;
+import com.lifemetrics.backend.entity.UserBodyRecord;
+import com.lifemetrics.backend.repository.UserBodyRecordRepository;
 import com.lifemetrics.backend.repository.resolver.BodyTypeResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,13 +12,12 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class HumanModelService {
 
-    private final UserInbodyRecordRepository inbodyRepo;
+    private final UserBodyRecordRepository inbodyRepo;
     private final BodyTypeResolver bodyTypeResolver;
 
     public HumanModelResponse getHumanModel(Long userId) {
 
-        UserInbodyRecord latest =
-                inbodyRepo.findTopByUserIdOrderByRecordDateDesc(userId)
+        UserBodyRecord latest = inbodyRepo.findTopByUserIdOrderByRecordDateDesc(userId)
                         .orElseThrow(() -> new IllegalStateException("No body record"));
 
         BodyType bodyType = bodyTypeResolver.resolve(

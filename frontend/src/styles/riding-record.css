@@ -312,3 +312,22 @@
 }
 .analysis-item.highlight { color: #15803d; }
 .analysis-item.suggestion { color: #b45309; }
+
+
+.activity-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.segment-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: #fef08a;
+    color: #854d0e;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}

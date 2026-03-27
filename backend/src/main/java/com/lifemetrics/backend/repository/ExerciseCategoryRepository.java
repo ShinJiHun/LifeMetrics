@@ -1,4 +1,3 @@
-// repository/ExerciseCategoryRepository.java
 package com.lifemetrics.backend.repository;
 
 import com.lifemetrics.backend.entity.ExerciseCategory;

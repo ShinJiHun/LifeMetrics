@@ -1,7 +1,7 @@
 import "@/styles/body-record.css";
-import MetricCard from "./MetricCard";
-import type { MetricKey } from "@/types/MetricKey";
-import type { BodySummaryRecord } from "@/types/BodySummaryRecord";
+import MetricCard from "./MetricCard.tsx";
+import type { MetricKey } from "@/types/MetricKey.ts";
+import type { BodySummaryRecord } from "@/types/BodySummaryRecord.ts";
 
 interface Props {
     latest: BodySummaryRecord;

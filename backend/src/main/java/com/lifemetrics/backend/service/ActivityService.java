@@ -12,8 +12,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -166,9 +167,20 @@ public class ActivityService {
 
     public List<ActivitySegmentDto> getActivitySegments(Long activityCoreId) {
         List<SegmentEffort> efforts = segmentEffortRepository.findByActivityCoreId(activityCoreId);
+        if (efforts.isEmpty()) return List.of();
+
+        // segment ID 목록 추출 → 한 번에 IN 절로 조회 (쿼리 1번)
+        List<Long> segmentIds = efforts.stream()
+                .map(SegmentEffort::getSegmentId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, Segment> segmentMap = segmentRepository.findAllById(segmentIds)
+                .stream()
+                .collect(Collectors.toMap(Segment::getId, s -> s));
 
         return efforts.stream().map(effort -> {
-            Segment seg = segmentRepository.findById(effort.getSegmentId()).orElse(null);
+            Segment seg = segmentMap.get(effort.getSegmentId()); // Map 조회, DB 안 탐
             return ActivitySegmentDto.builder()
                     .effortId(effort.getId())
                     .segmentId(effort.getSegmentId())
@@ -190,7 +202,10 @@ public class ActivityService {
                     .endDistanceM(effort.getEndDistanceM())
                     .prRank(effort.getPrRank())
                     .build();
-        }).collect(Collectors.toList());
+        }).sorted(Comparator.comparing(
+                ActivitySegmentDto::getStartTime,
+                Comparator.nullsLast(Comparator.naturalOrder())
+        )).collect(Collectors.toList());
     }
 
     public ActivitySummaryDto getActivitySummary(Long id) {

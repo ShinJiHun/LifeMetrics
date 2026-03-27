@@ -15,4 +15,5 @@ export interface BodySummaryRecord {
     visceralFatLevel: number | null;
 
     isMeasured: boolean | null;
+    measurementType: string | null;  // 추가
 }

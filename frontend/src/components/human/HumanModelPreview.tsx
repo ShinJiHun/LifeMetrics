@@ -1,5 +1,5 @@
 // HumanModelPreview.tsx
-import type { BodyRecord } from "../types/BodyRecord";
+import type { BodyRecord } from "../../types/BodyRecord.ts";
 
 export default function HumanModelPreview({ record }: { record: BodyRecord }) {
   return (

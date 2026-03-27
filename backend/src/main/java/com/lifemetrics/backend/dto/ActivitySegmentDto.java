@@ -1,23 +1,26 @@
 package com.lifemetrics.backend.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ActivitySegmentDto {
     private Long effortId;
     private Long segmentId;
     private String segmentName;
-    private Double distance;       // 세그먼트 거리 (m)
-    private Double elevationGain;  // 고도 획득 (m)
-    private Double avgGrade;       // 평균 경사 (%)
-    private String polyline;       // 세그먼트 경로
+    private Double distance;
+    private Double elevationGain;
+    private Double avgGrade;
+    private String polyline;
 
     private LocalDateTime startTime;
-    private Integer elapsedTimeSec;  // 소요 시간 (초)
+    private Integer elapsedTimeSec;
     private Integer movingTimeSec;
     private Double avgSpeed;
     private Double maxSpeed;
@@ -25,7 +28,11 @@ public class ActivitySegmentDto {
     private Integer maxHeartRate;
     private Double avgPower;
     private Double avgCadence;
-    private Double startDistanceM;   // 활동 내 시작 거리
-    private Double endDistanceM;     // 활동 내 종료 거리
-    private Integer prRank;          // PR 순위 (1이면 PR)
+    private Double startDistanceM;
+    private Double endDistanceM;
+    private Integer prRank;
+
+    // 계층 구조용
+    private Integer depth;              // 0=최상위, 1=자식, 2=손자
+    private List<ActivitySegmentDto> children;  // 자식 세그먼트
 }

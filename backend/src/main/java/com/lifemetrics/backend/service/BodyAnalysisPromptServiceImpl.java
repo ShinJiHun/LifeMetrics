@@ -2,7 +2,8 @@ package com.lifemetrics.backend.service;
 
 import com.lifemetrics.backend.domain.GoalType;
 import com.lifemetrics.backend.entity.BodyAnalysisSummaryState;
-import com.lifemetrics.backend.entity.UserInbodyRecord;
+import com.lifemetrics.backend.entity.MeasurementType;
+import com.lifemetrics.backend.entity.UserBodyRecord;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,8 +13,8 @@ public class BodyAnalysisPromptServiceImpl implements BodyAnalysisPromptService 
     public String build(
             GoalType goalType,
             BodyAnalysisSummaryState summary,
-            UserInbodyRecord prev,
-            UserInbodyRecord curr
+            UserBodyRecord prev,
+            UserBodyRecord curr
     ) {
 
         StringBuilder sb = new StringBuilder();
@@ -38,12 +39,12 @@ public class BodyAnalysisPromptServiceImpl implements BodyAnalysisPromptService 
 
         // ⏮ 이전 기록
         if (prev != null) {
-            sb.append("\n[이전 인바디]\n");
+            sb.append("\n[이전 측정 기록]\n");
             sb.append(format(prev));
         }
 
         // ⏺ 현재 기록
-        sb.append("\n[현재 인바디]\n");
+        sb.append("\n[현재 측정 기록]\n");
         sb.append(format(curr));
 
         // 🧠 요청
@@ -66,19 +67,42 @@ public class BodyAnalysisPromptServiceImpl implements BodyAnalysisPromptService 
         return sb.toString();
     }
 
-    private String format(UserInbodyRecord r) {
-        return String.format("""
-        - 날짜: %s
-        - 체중: %.1f kg
-        - 골격근량: %.1f kg
-        - 체지방률: %.1f %%
-        - BMI: %.1f
-        """,
-                r.getRecordDate(),
-                r.getWeight(),
-                r.getSkeletalMuscleMass(),
-                r.getBodyFatPercentage(),
-                r.getBmi()
-        );
+    private String format(UserBodyRecord r) {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append(String.format("- 날짜: %s%n", r.getRecordDate()));
+        sb.append(String.format("- 측정 방식: %s%n", r.getMeasurementType() == MeasurementType.INBODY ? "인바디 기기" : "FitDays 체중계"));
+        sb.append(String.format("- 체중: %.1f kg%n", r.getWeight()));
+
+        if (r.getBmi() != null) {
+            sb.append(String.format("- BMI: %.1f%n", r.getBmi()));
+        }
+        if (r.getBodyFatPercentage() != null) {
+            sb.append(String.format("- 체지방률: %.1f %%%n", r.getBodyFatPercentage()));
+        }
+        if (r.getBodyFatMass() != null) {
+            sb.append(String.format("- 체지방량: %.1f kg%n", r.getBodyFatMass()));
+        }
+
+        // INBODY 전용
+        if (r.getSkeletalMuscleMass() != null) {
+            sb.append(String.format("- 골격근량: %.1f kg%n", r.getSkeletalMuscleMass()));
+        }
+        if (r.getVisceralFatLevel() != null) {
+            sb.append(String.format("- 내장지방레벨: %d%n", r.getVisceralFatLevel()));
+        }
+
+        // FITDAYS 전용
+        if (r.getBodyWater() != null) {
+            sb.append(String.format("- 체수분: %.1f kg%n", r.getBodyWater()));
+        }
+        if (r.getBoneMass() != null) {
+            sb.append(String.format("- 골량: %.1f kg%n", r.getBoneMass()));
+        }
+        if (r.getBasalMetabolicRate() != null) {
+            sb.append(String.format("- 기초대사량: %.0f kcal%n", r.getBasalMetabolicRate()));
+        }
+
+        return sb.toString();
     }
 }

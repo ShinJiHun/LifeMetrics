@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchActivities } from "@/api/activity";
 import type { Activity } from "@/api/activity";
-import ActivityMap from "@/components/ActivityMap";
+import ActivityMap from "@/pages/riding/ActivityMap";
 import "@/styles/riding-record.css";
 
 const formatDistance = (meters: number) => (meters / 1000).toFixed(1);

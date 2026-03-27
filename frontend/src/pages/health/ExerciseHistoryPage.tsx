@@ -1,6 +1,6 @@
 // src/pages/ExerciseHistoryPage.tsx
 import { useState, useEffect, useMemo } from "react";
-import MuscleImageMap from "@/components/Human/MuscleImageMap.tsx";
+import MuscleImageMap from "@/components/human/MuscleImageMap.tsx";
 import "@/styles/global.css";
 import "@/styles/exercise-history.css";
 import "@/styles/muscle-image-map.css";

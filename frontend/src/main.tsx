@@ -1,5 +1,5 @@
 // src/main.tsx
-import React from "react";
+// 삭제
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";

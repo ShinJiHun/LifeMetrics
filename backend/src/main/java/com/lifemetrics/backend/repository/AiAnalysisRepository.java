@@ -14,4 +14,8 @@ public interface AiAnalysisRepository extends JpaRepository<AiAnalysis, Long> {
     // 기간별 분석 조회
     Optional<AiAnalysis> findByUserIdAndAnalysisTypeAndTargetPeriod(
             Long userId, String analysisType, String targetPeriod);
+
+    Optional<AiAnalysis> findByUserIdAndAnalysisTypeAndTargetIdAndTargetPeriod(
+        Long userId, String analysisType, Long targetId, String targetPeriod
+    );
 }

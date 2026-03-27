@@ -26,6 +26,7 @@ interface ExerciseItem {
     equipmentType: string;
     description: string;
     mediaUrl: string;
+    gifUrl?: string | null;  // 추가
 }
 
 interface ExerciseSet {
@@ -273,8 +274,14 @@ export default function ExerciseInputPage() {
                 {/* 오른쪽: GIF + 세트 입력 */}
                 <div className={`exercise-input-area ${isPanelExpanded ? "expanded" : "collapsed"}`}>
 
+                    {/* GIF 미리보기: gifUrl 우선, 없으면 mediaUrl, 없으면 플레이스홀더 */}
                     <div className="exercise-gif-preview">
-                        {selectedExercise?.item.mediaUrl ? (
+                        {selectedExercise?.item.gifUrl ? (
+                            <img
+                                src={selectedExercise.item.gifUrl}
+                                alt={selectedExercise.item.nameKo}
+                            />
+                        ) : selectedExercise?.item.mediaUrl ? (
                             <img
                                 src={`/gif/${selectedExercise.item.mediaUrl}`}
                                 alt={selectedExercise.item.nameKo}

@@ -1,6 +1,6 @@
 // src/components/Layout.tsx
 import { Outlet } from "react-router-dom";
-import SideBar from "@/components/SideBar";
+import SideBar from "@/components/common/SideBar.tsx";
 
 export default function Layout() {
     return (

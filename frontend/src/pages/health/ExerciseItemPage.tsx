@@ -1,6 +1,6 @@
 // src/pages/ExerciseItemPage.tsx
 import { useState, useEffect } from "react";
-import api from "../lib/axios";
+import api from "../../lib/axios.ts";
 import "@/styles/exercise-item.css";
 
 const EQUIPMENT_LABEL: Record<string, string> = {
@@ -41,6 +41,7 @@ interface ExerciseItem {
   equipmentType: string;
   description?: string;
   mediaUrl?: string | null;
+  gifUrl?: string | null;  // ← 추가
 }
 
 export default function ExerciseItemPage() {
@@ -210,13 +211,16 @@ export default function ExerciseItemPage() {
             {selectedItem ? (
                 <div className="detail-content">
                   <div className="detail-media">
-                    {selectedItem.mediaUrl ? (
+                    {selectedItem.gifUrl ? (
+                        <img
+                            src={selectedItem.gifUrl}
+                            alt={selectedItem.nameKo}
+                            style={{width: "100%", height: "auto", objectFit: "contain", borderRadius: 8}}
+                        />
+                    ) : selectedItem.mediaUrl ? (
                         <video
                             src={selectedItem.mediaUrl}
-                            autoPlay
-                            loop
-                            muted
-                            playsInline
+                            autoPlay loop muted playsInline
                         />
                     ) : (
                         <div className="media-placeholder">
@@ -231,7 +235,7 @@ export default function ExerciseItemPage() {
                       <span className="category-badge">{selectedCategoryInfo?.name}</span>
                       <span
                           className="equipment-badge"
-                          style={{ backgroundColor: EQUIPMENT_COLOR[selectedItem.equipmentType] || "#6b7280" }}
+                          style={{backgroundColor: EQUIPMENT_COLOR[selectedItem.equipmentType] || "#6b7280"}}
                       >
                     {EQUIPMENT_LABEL[selectedItem.equipmentType] || selectedItem.equipmentType}
                   </span>

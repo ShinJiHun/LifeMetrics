@@ -1,5 +1,5 @@
 // BodySummary.tsx
-import type { BodyRecord } from "../types/BodyRecord";
+import type { BodyRecord } from "../../types/BodyRecord.ts";
 
 export default function BodySummary({ record }: { record: BodyRecord }) {
   return (

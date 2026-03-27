@@ -6,7 +6,7 @@
 import { resolveBodyType } from "./resolveBodyType";
 
 import type { BodySummaryRecord } from "@/types/BodySummaryRecord";
-import {BODY_TYPE_DESCRIPTIONS} from "@/components/BodyTypeDescription";
+import {BODY_TYPE_DESCRIPTIONS} from "@/components/body/BodyTypeDescription.ts";
 import "@/styles/human-model.css";
 
 interface HumanModelViewProps {

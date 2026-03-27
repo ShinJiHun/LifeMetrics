@@ -3,7 +3,6 @@ package com.lifemetrics.backend.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 
-// entity/ExerciseItem.java
 @Entity
 @Table(name = "exercise_item")
 @Getter
@@ -28,4 +27,13 @@ public class ExerciseItem {
 
     @Column(name = "media_url")
     private String mediaUrl;
+
+    @Column(name = "gif_url")
+    private String gifUrl;
+
+    @Column(name = "youtube_url")
+    private String youtubeUrl;
+
+    @Column(name = "is_active")
+    private Boolean isActive;
 }

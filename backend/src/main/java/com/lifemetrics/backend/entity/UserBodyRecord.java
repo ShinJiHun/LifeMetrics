@@ -1,17 +1,26 @@
-// BodyRecordResponse.java
-package com.lifemetrics.backend.dto;
+package com.lifemetrics.backend.entity;
 
-import com.lifemetrics.backend.entity.MeasurementType;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
 
+@Entity
+@Table(name = "user_body_record")
 @Getter
 @Setter
-public class BodyRecordResponse {
+public class UserBodyRecord {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long userId;
     private LocalDate recordDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private MeasurementType measurementType;
 
     // ===== 공통 =====
@@ -23,14 +32,19 @@ public class BodyRecordResponse {
     // ===== INBODY 전용 =====
     private Double skeletalMuscleMass;
     private Integer visceralFatLevel;
+    private Double waistCircumference;
+    private Double thighCircumference;
+    private Double chestCircumference;
 
     // ===== FITDAYS 전용 =====
+    @Column(name = "total_body_water")
     private Double bodyWater;
+
+    @Column(name = "protein")
+    private Double proteinMass;
+
+    private Double mineral;
     private Double boneMass;
     private Double basalMetabolicRate;
 
-    // ===== delta =====
-    private Double weightDelta;
-    private Double skeletalMuscleMassDelta;
-    private Double bodyFatPercentageDelta;
 }

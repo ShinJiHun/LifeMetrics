@@ -227,6 +227,16 @@ public class AiAnalysisService {
     // ================================================================
 
     public BrevetAnalysisResponse analyzeBrevetPlan(BrevetAnalysisRequest req) {
+        // ★ 기존 분석 있으면 그대로 반환
+        Optional<AiAnalysis> existing = analysisRepo
+                .findByUserIdAndAnalysisTypeAndTargetIdAndTargetPeriod(
+                        req.getUserId(), "brevet_plan", 0L, req.getEventDate());
+
+        if (existing.isPresent()) {
+            return toBrevetResponse(existing.get(), req.getEventName(), req.getEventDate());
+        }
+
+        // 없으면 새로 분석
         String prompt = buildBrevetPrompt(req);
         String analysisJson = callClaudeApi(prompt);
 

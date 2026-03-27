@@ -70,7 +70,6 @@ const formatDate = (dateStr: string) => {
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${weekday}) ${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
 };
 
-// ── 지도 컴포넌트 ─────────────────────────────────────────────────
 function ActivityMap({ activity, segments, selectedSegId, onSelectSeg }: {
     activity: ActivityDetail;
     segments: SegmentEffort[];
@@ -79,6 +78,7 @@ function ActivityMap({ activity, segments, selectedSegId, onSelectSeg }: {
 }) {
     const mapRef = useRef<mapboxgl.Map | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const loadedRef = useRef(false); // 세그먼트 레이어 로드 완료 여부
 
     useEffect(() => {
         if (!containerRef.current || !activity.polyline) return;
@@ -93,50 +93,53 @@ function ActivityMap({ activity, segments, selectedSegId, onSelectSeg }: {
             zoom: 11,
         });
         mapRef.current = map;
+        loadedRef.current = false;
 
         map.on("load", () => {
             // 전체 경로
-            const routeGeoJson: GeoJSON.Feature<GeoJSON.LineString> = {
-                type: "Feature",
-                geometry: {
-                    type: "LineString",
-                    coordinates: coords.map(([lat, lon]) => [lon, lat]),
+            map.addSource("route", {
+                type: "geojson",
+                data: {
+                    type: "Feature",
+                    geometry: { type: "LineString", coordinates: coords.map(([lat, lon]) => [lon, lat]) },
+                    properties: {},
                 },
-                properties: {},
-            };
-
-            map.addSource("route", { type: "geojson", data: routeGeoJson });
+            });
             map.addLayer({
-                id: "route",
-                type: "line",
-                source: "route",
+                id: "route", type: "line", source: "route",
                 paint: { "line-color": "#ef4444", "line-width": 3, "line-opacity": 0.8 },
             });
 
             // 세그먼트 경로들
-            segments.forEach((seg, idx) => {
+            segments.forEach((seg) => {
                 if (!seg.polyline) return;
                 try {
                     const segCoords = polylineLib.decode(seg.polyline);
-                    const segGeoJson: GeoJSON.Feature<GeoJSON.LineString> = {
-                        type: "Feature",
-                        geometry: {
-                            type: "LineString",
-                            coordinates: segCoords.map(([lat, lon]) => [lon, lat]),
-                        },
-                        properties: {},
-                    };
                     const sourceId = `seg-${seg.effortId}`;
-                    map.addSource(sourceId, { type: "geojson", data: segGeoJson });
+                    map.addSource(sourceId, {
+                        type: "geojson",
+                        data: {
+                            type: "Feature",
+                            geometry: { type: "LineString", coordinates: segCoords.map(([lat, lon]) => [lon, lat]) },
+                            properties: {},
+                        },
+                    });
                     map.addLayer({
-                        id: sourceId,
-                        type: "line",
-                        source: sourceId,
+                        id: sourceId, type: "line", source: sourceId,
                         paint: {
                             "line-color": seg.prRank === 1 ? "#a855f7" : "#3b82f6",
                             "line-width": 4,
                             "line-opacity": 0.9,
                         },
+                    });
+                    map.on("click", sourceId, () => {
+                        onSelectSeg(seg.effortId === selectedSegId ? null : seg.effortId);
+                    });
+                    map.on("mouseenter", sourceId, () => {
+                        map.getCanvas().style.cursor = "pointer";
+                    });
+                    map.on("mouseleave", sourceId, () => {
+                        map.getCanvas().style.cursor = "";
                     });
                 } catch (e) {}
             });
@@ -148,26 +151,53 @@ function ActivityMap({ activity, segments, selectedSegId, onSelectSeg }: {
                 [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
                 { padding: 40 }
             );
+
+            loadedRef.current = true; // 레이어 로드 완료 표시
         });
 
-        return () => map.remove();
-    }, [activity.polyline]);
+        return () => { map.remove(); loadedRef.current = false; };
+    }, [activity.polyline, segments]); // segments 의존성 추가
 
-    // 선택된 세그먼트 하이라이트
+    // 선택된 세그먼트 하이라이트 + 지도 이동
     useEffect(() => {
         const map = mapRef.current;
-        if (!map || !map.isStyleLoaded()) return;
+        if (!map || !loadedRef.current) return;
 
-        segments.forEach((seg) => {
-            const layerId = `seg-${seg.effortId}`;
-            if (!map.getLayer(layerId)) return;
-            const isSelected = seg.effortId === selectedSegId;
-            map.setPaintProperty(layerId, "line-color",
-                isSelected ? "#f59e0b" : seg.prRank === 1 ? "#a855f7" : "#3b82f6"
-            );
-            map.setPaintProperty(layerId, "line-width", isSelected ? 6 : 4);
-        });
-    }, [selectedSegId]);
+        const applyHighlight = () => {
+            segments.forEach((seg) => {
+                const layerId = `seg-${seg.effortId}`;
+                if (!map.getLayer(layerId)) return;
+                const isSelected = seg.effortId === selectedSegId;
+                map.setPaintProperty(layerId, "line-color",
+                    isSelected ? "#f59e0b" : seg.prRank === 1 ? "#a855f7" : "#3b82f6"
+                );
+                map.setPaintProperty(layerId, "line-width", isSelected ? 7 : 4);
+                map.setPaintProperty(layerId, "line-opacity", isSelected ? 1 : 0.7);
+            });
+
+            // 선택된 세그먼트로 지도 이동
+            if (selectedSegId !== null) {
+                const sel = segments.find(s => s.effortId === selectedSegId);
+                if (sel?.polyline) {
+                    const segCoords = polylineLib.decode(sel.polyline);
+                    if (segCoords.length) {
+                        const lngs = segCoords.map(([, lon]) => lon);
+                        const lats = segCoords.map(([lat]) => lat);
+                        map.fitBounds(
+                            [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+                            { padding: 80, maxZoom: 15, duration: 600 }
+                        );
+                    }
+                }
+            }
+        };
+
+        if (map.isStyleLoaded()) {
+            applyHighlight();
+        } else {
+            map.once("idle", applyHighlight);
+        }
+    }, [selectedSegId, segments]);
 
     return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
 }
