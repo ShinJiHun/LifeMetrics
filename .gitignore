@@ -66,3 +66,8 @@ bin/
 .vscode/
 
 .env*
+frontend/public/models/
+modeling/
+*.npz
+*.glb
+*.obj
