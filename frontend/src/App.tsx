@@ -1,13 +1,13 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
-import Layout from "@/components/Layout";
-import BodyRecordPage from "@/pages/BodyRecordPage";
-import ExerciseItemPage from "@/pages/ExerciseItemPage";
-import ExerciseLogPage from "@/pages/ExerciseInputPage";
-import ExerciseHistoryPage from "@/pages/ExerciseHistoryPage";
-import RidingRecordPage from "@/pages/RidingRecordPage";
-import BrevePlanPage from "@/pages/BrevePlanPage";
-import ActivityDetailPage from "@/pages/ActivityDetailPage";
+import Layout from "@/components/common/Layout";
+import BodyRecordPage from "@/pages/body/BodyRecordPage";
+import ExerciseItemPage from "@/pages/health/ExerciseItemPage";
+import ExerciseLogPage from "@/pages/health/ExerciseInputPage";
+import ExerciseHistoryPage from "@/pages/health/ExerciseHistoryPage";
+import RidingRecordPage from "@/pages/riding/RidingRecordPage";
+import BrevePlanPage from "@/pages/plan/BrevePlanPage";
+import ActivityDetailPage from "@/pages/riding/ActivityDetailPage";
 
 import "@/styles/global.css";
 

@@ -1,0 +1,632 @@
+[
+  {
+    "folder": "200k 911 mod1",
+    "file": "200k 911 mod1.gpx",
+    "path": "200k 911 mod1/200k 911 mod1.gpx",
+    "size_kb": 216.1
+  },
+  {
+    "folder": "2025_C-400K__250519_",
+    "file": "2025_C-400K__250519_.gpx",
+    "path": "2025_C-400K__250519_/2025_C-400K__250519_.gpx",
+    "size_kb": 413.1
+  },
+  {
+    "folder": "2025_당진200K__250515_",
+    "file": "2025_당진200K__250515_.gpx",
+    "path": "2025_당진200K__250515_/2025_당진200K__250515_.gpx",
+    "size_kb": 475.2
+  },
+  {
+    "folder": "2025_대전-600",
+    "file": "2025_대전-600.gpx",
+    "path": "2025_대전-600/2025_대전-600.gpx",
+    "size_kb": 2353.3
+  },
+  {
+    "folder": "2026_C-300k",
+    "file": "2026_C-300k.gpx",
+    "path": "2026_C-300k/2026_C-300k.gpx",
+    "size_kb": 351.2
+  },
+  {
+    "folder": "B-100_2024",
+    "file": "B-100_2024.gpx",
+    "path": "B-100_2024/B-100_2024.gpx",
+    "size_kb": 149.6
+  },
+  {
+    "folder": "B-200K",
+    "file": "B-200K.gpx",
+    "path": "B-200K/B-200K.gpx",
+    "size_kb": 143.7
+  },
+  {
+    "folder": "B-200K-230530",
+    "file": "B-200K-230530.gpx",
+    "path": "B-200K-230530/B-200K-230530.gpx",
+    "size_kb": 294.5
+  },
+  {
+    "folder": "B-200K-U_2025",
+    "file": "B-200K-U_2025.gpx",
+    "path": "B-200K-U_2025/B-200K-U_2025.gpx",
+    "size_kb": 194.6
+  },
+  {
+    "folder": "B-200K-e_(v5_9_5)",
+    "file": "B-200K-e_(v5_9_5).gpx",
+    "path": "B-200K-e_(v5_9_5)/B-200K-e_(v5_9_5).gpx",
+    "size_kb": 360.0
+  },
+  {
+    "folder": "B-200K-n_(2025)",
+    "file": "B-200K-n_(2025).gpx",
+    "path": "B-200K-n_(2025)/B-200K-n_(2025).gpx",
+    "size_kb": 303.7
+  },
+  {
+    "folder": "B-300K-2025",
+    "file": "B-300K-2025.gpx",
+    "path": "B-300K-2025/B-300K-2025.gpx",
+    "size_kb": 299.0
+  },
+  {
+    "folder": "B-400K_(2025)",
+    "file": "B-400K_(2025).gpx",
+    "path": "B-400K_(2025)/B-400K_(2025).gpx",
+    "size_kb": 561.9
+  },
+  {
+    "folder": "B-600K",
+    "file": "B-600K.gpx",
+    "path": "B-600K/B-600K.gpx",
+    "size_kb": 529.2
+  },
+  {
+    "folder": "B-600K-1",
+    "file": "B-600K-1.gpx",
+    "path": "B-600K-1/B-600K-1.gpx",
+    "size_kb": 909.3
+  },
+  {
+    "folder": "B-600K_(2025)",
+    "file": "B-600K_(2025).gpx",
+    "path": "B-600K_(2025)/B-600K_(2025).gpx",
+    "size_kb": 928.6
+  },
+  {
+    "folder": "B-600K_Heavy (2023_09_14)",
+    "file": "B-600K_Heavy (2023_09_14).gpx",
+    "path": "B-600K_Heavy (2023_09_14)/B-600K_Heavy (2023_09_14).gpx",
+    "size_kb": 623.1
+  },
+  {
+    "folder": "B200K-n (260307)",
+    "file": "B200K-n (260307).gpx",
+    "path": "B200K-n (260307)/B200K-n (260307).gpx",
+    "size_kb": 569.0
+  },
+  {
+    "folder": "B200K_w__07MAR2026",
+    "file": "B200K_w__07MAR2026.gpx",
+    "path": "B200K_w__07MAR2026/B200K_w__07MAR2026.gpx",
+    "size_kb": 1959.8
+  },
+  {
+    "folder": "B300K(n)-2026",
+    "file": "B300K(n)-2026.gpx",
+    "path": "B300K(n)-2026/B300K(n)-2026.gpx",
+    "size_kb": 313.5
+  },
+  {
+    "folder": "BG_2025",
+    "file": "BG_2025.gpx",
+    "path": "BG_2025/BG_2025.gpx",
+    "size_kb": 349.0
+  },
+  {
+    "folder": "BG_2025",
+    "file": "GB_2025.gpx",
+    "path": "BG_2025/GB_2025.gpx",
+    "size_kb": 309.0
+  },
+  {
+    "folder": "BSB_BS_2025",
+    "file": "BSB_BS_2025.gpx",
+    "path": "BSB_BS_2025/BSB_BS_2025.gpx",
+    "size_kb": 2555.8
+  },
+  {
+    "folder": "BSB_BS_2025",
+    "file": "BSB_SB_2025.gpx",
+    "path": "BSB_BS_2025/BSB_SB_2025.gpx",
+    "size_kb": 2620.9
+  },
+  {
+    "folder": "C-100K-bp",
+    "file": "C-100K-bp.gpx",
+    "path": "C-100K-bp/C-100K-bp.gpx",
+    "size_kb": 58.8
+  },
+  {
+    "folder": "C-200-D_2024_02_04",
+    "file": "C-200-D_2024_02_04.gpx",
+    "path": "C-200-D_2024_02_04/C-200-D_2024_02_04.gpx",
+    "size_kb": 446.8
+  },
+  {
+    "folder": "C-200Dn",
+    "file": "C-200Dn.gpx",
+    "path": "C-200Dn/C-200Dn.gpx",
+    "size_kb": 257.5
+  },
+  {
+    "folder": "C-200K-2026",
+    "file": "C-200K-2026.gpx",
+    "path": "C-200K-2026/C-200K-2026.gpx",
+    "size_kb": 225.7
+  },
+  {
+    "folder": "C-400K-D_당진_240403",
+    "file": "C-400K-D_당진_240403.gpx",
+    "path": "C-400K-D_당진_240403/C-400K-D_당진_240403.gpx",
+    "size_kb": 1921.3
+  },
+  {
+    "folder": "C-600K-D_당진",
+    "file": "C-600K-D_당진.gpx",
+    "path": "C-600K-D_당진/C-600K-D_당진.gpx",
+    "size_kb": 2570.3
+  },
+  {
+    "folder": "C200K(e)-2024",
+    "file": "C200K(e)-2024.gpx",
+    "path": "C200K(e)-2024/C200K(e)-2024.gpx",
+    "size_kb": 315.9
+  },
+  {
+    "folder": "C200K-s",
+    "file": "C200K-s.gpx",
+    "path": "C200K-s/C200K-s.gpx",
+    "size_kb": 153.4
+  },
+  {
+    "folder": "C300-C_250421",
+    "file": "C300-C_250421.gpx",
+    "path": "C300-C_250421/C300-C_250421.gpx",
+    "size_kb": 1678.1
+  },
+  {
+    "folder": "C300-D_240324",
+    "file": "C300-D_240324.gpx",
+    "path": "C300-D_240324/C300-D_240324.gpx",
+    "size_kb": 1034.9
+  },
+  {
+    "folder": "C600K-240527",
+    "file": "C600K-240527.gpx",
+    "path": "C600K-240527/C600K-240527.gpx",
+    "size_kb": 702.3
+  },
+  {
+    "folder": "D-200K-S_240508",
+    "file": "D-200K-S_240508.gpx",
+    "path": "D-200K-S_240508/D-200K-S_240508.gpx",
+    "size_kb": 210.4
+  },
+  {
+    "folder": "D-200K_2025.03.10",
+    "file": "D-200K_2025.03.10.gpx",
+    "path": "D-200K_2025.03.10/D-200K_2025.03.10.gpx",
+    "size_kb": 173.1
+  },
+  {
+    "folder": "D-300_Revision_7",
+    "file": "D-300_Revision_7.gpx",
+    "path": "D-300_Revision_7/D-300_Revision_7.gpx",
+    "size_kb": 443.2
+  },
+  {
+    "folder": "D-400K_2025",
+    "file": "D-400K_2025.gpx",
+    "path": "D-400K_2025/D-400K_2025.gpx",
+    "size_kb": 322.7
+  },
+  {
+    "folder": "D-600K",
+    "file": "D-600K.gpx",
+    "path": "D-600K/D-600K.gpx",
+    "size_kb": 480.2
+  },
+  {
+    "folder": "D-600K_20250508",
+    "file": "D-600K_20250508.gpx",
+    "path": "D-600K_20250508/D-600K_20250508.gpx",
+    "size_kb": 975.6
+  },
+  {
+    "folder": "D_200K-Gravel_(2025)",
+    "file": "D_200K-Gravel_(2025).gpx",
+    "path": "D_200K-Gravel_(2025)/D_200K-Gravel_(2025).gpx",
+    "size_kb": 391.7
+  },
+  {
+    "folder": "G-100K_brevet_populaire",
+    "file": "G-100K_brevet_populaire.gpx",
+    "path": "G-100K_brevet_populaire/G-100K_brevet_populaire.gpx",
+    "size_kb": 65.3
+  },
+  {
+    "folder": "G-200K-Danpung",
+    "file": "G-200K-Danpung.gpx",
+    "path": "G-200K-Danpung/G-200K-Danpung.gpx",
+    "size_kb": 241.4
+  },
+  {
+    "folder": "G-200K-J-2025",
+    "file": "G-200K-J-2025.gpx",
+    "path": "G-200K-J-2025/G-200K-J-2025.gpx",
+    "size_kb": 381.1
+  },
+  {
+    "folder": "G-200K-영광",
+    "file": "G-200K-영광.gpx",
+    "path": "G-200K-영광/G-200K-영광.gpx",
+    "size_kb": 130.9
+  },
+  {
+    "folder": "G-300K 장흥 Jangheung",
+    "file": "G-300K 장흥 Jangheung.gpx",
+    "path": "G-300K 장흥 Jangheung/G-300K 장흥 Jangheung.gpx",
+    "size_kb": 254.3
+  },
+  {
+    "folder": "G-300K_섬진강",
+    "file": "G-300K_섬진강.gpx",
+    "path": "G-300K_섬진강/G-300K_섬진강.gpx",
+    "size_kb": 202.7
+  },
+  {
+    "folder": "G-300K_섬진강_2023",
+    "file": "G-300K_섬진강_2023.gpx",
+    "path": "G-300K_섬진강_2023/G-300K_섬진강_2023.gpx",
+    "size_kb": 202.7
+  },
+  {
+    "folder": "G-400K-2022",
+    "file": "G-400K-2022.gpx",
+    "path": "G-400K-2022/G-400K-2022.gpx",
+    "size_kb": 398.8
+  },
+  {
+    "folder": "G-400K-2022",
+    "file": "G-400K.gpx",
+    "path": "G-400K-2022/G-400K.gpx",
+    "size_kb": 532.2
+  },
+  {
+    "folder": "G-400K-Muju",
+    "file": "G-400K-Muju.gpx",
+    "path": "G-400K-Muju/G-400K-Muju.gpx",
+    "size_kb": 248.2
+  },
+  {
+    "folder": "G-400K-b",
+    "file": "G-400K-b.gpx",
+    "path": "G-400K-b/G-400K-b.gpx",
+    "size_kb": 396.8
+  },
+  {
+    "folder": "G-600-2022",
+    "file": "G-600-2022.gpx",
+    "path": "G-600-2022/G-600-2022.gpx",
+    "size_kb": 1273.8
+  },
+  {
+    "folder": "G-600K-zz",
+    "file": "G-600K-zz.gpx",
+    "path": "G-600K-zz/G-600K-zz.gpx",
+    "size_kb": 362.0
+  },
+  {
+    "folder": "G-600K_(땅끝)",
+    "file": "G-600K_(땅끝).gpx",
+    "path": "G-600K_(땅끝)/G-600K_(땅끝).gpx",
+    "size_kb": 513.3
+  },
+  {
+    "folder": "Goyang-400",
+    "file": "Goyang-400.gpx",
+    "path": "Goyang-400/Goyang-400.gpx",
+    "size_kb": 855.0
+  },
+  {
+    "folder": "Gwangju_to_Jeungdo",
+    "file": "Gwangju_to_Jeungdo.gpx",
+    "path": "Gwangju_to_Jeungdo/Gwangju_to_Jeungdo.gpx",
+    "size_kb": 60.5
+  },
+  {
+    "folder": "Gwangju_to_Jeungdo",
+    "file": "Jeungdo_to_Gwangju.gpx",
+    "path": "Gwangju_to_Jeungdo/Jeungdo_to_Gwangju.gpx",
+    "size_kb": 56.7
+  },
+  {
+    "folder": "H-200K",
+    "file": "H-200K.gpx",
+    "path": "H-200K/H-200K.gpx",
+    "size_kb": 216.7
+  },
+  {
+    "folder": "H-S_250730",
+    "file": "H-S_250730.gpx",
+    "path": "H-S_250730/H-S_250730.gpx",
+    "size_kb": 2949.9
+  },
+  {
+    "folder": "H-S_250730",
+    "file": "S-H_250730.gpx",
+    "path": "H-S_250730/S-H_250730.gpx",
+    "size_kb": 2932.5
+  },
+  {
+    "folder": "J-400_250221",
+    "file": "J-400_250221.gpx",
+    "path": "J-400_250221/J-400_250221.gpx",
+    "size_kb": 495.7
+  },
+  {
+    "folder": "J200-25.02.18",
+    "file": "J200-25.02.18.gpx",
+    "path": "J200-25.02.18/J200-25.02.18.gpx",
+    "size_kb": 412.2
+  },
+  {
+    "folder": "J200-C_241011",
+    "file": "J200-C_241011.gpx",
+    "path": "J200-C_241011/J200-C_241011.gpx",
+    "size_kb": 1073.0
+  },
+  {
+    "folder": "J300-C_240317",
+    "file": "J300-C_240317.gpx",
+    "path": "J300-C_240317/J300-C_240317.gpx",
+    "size_kb": 1677.1
+  },
+  {
+    "folder": "J300__25_03_10_",
+    "file": "J300__25_03_10_.gpx",
+    "path": "J300__25_03_10_/J300__25_03_10_.gpx",
+    "size_kb": 1748.9
+  },
+  {
+    "folder": "JEJU-200K v 251002",
+    "file": "JEJU-200K v 251002.gpx",
+    "path": "JEJU-200K v 251002/JEJU-200K v 251002.gpx",
+    "size_kb": 467.7
+  },
+  {
+    "folder": "Jeju-200k",
+    "file": "Jeju-200k.gpx",
+    "path": "Jeju-200k/Jeju-200k.gpx",
+    "size_kb": 680.9
+  },
+  {
+    "folder": "S-200-P",
+    "file": "S-200-P.gpx",
+    "path": "S-200-P/S-200-P.gpx",
+    "size_kb": 1361.7
+  },
+  {
+    "folder": "S-200K-Anyang(with cues)",
+    "file": "S-200K-Anyang(with cues).gpx",
+    "path": "S-200K-Anyang(with cues)/S-200K-Anyang(with cues).gpx",
+    "size_kb": 447.5
+  },
+  {
+    "folder": "S-200K-Anyang(with cues)",
+    "file": "S-200K-Anyang.gpx",
+    "path": "S-200K-Anyang(with cues)/S-200K-Anyang.gpx",
+    "size_kb": 831.1
+  },
+  {
+    "folder": "S-200K-E-pig_250425",
+    "file": "S-200K-E-pig_250425.gpx",
+    "path": "S-200K-E-pig_250425/S-200K-E-pig_250425.gpx",
+    "size_kb": 908.0
+  },
+  {
+    "folder": "S-200K-PBP_260222",
+    "file": "S-200K-PBP_260222.gpx",
+    "path": "S-200K-PBP_260222/S-200K-PBP_260222.gpx",
+    "size_kb": 1571.4
+  },
+  {
+    "folder": "S-200K_Incheon_(gravel)",
+    "file": "S-200K_Incheon_(gravel).gpx",
+    "path": "S-200K_Incheon_(gravel)/S-200K_Incheon_(gravel).gpx",
+    "size_kb": 2604.3
+  },
+  {
+    "folder": "S200-G_240416",
+    "file": "S200-G_240416.gpx",
+    "path": "S200-G_240416/S200-G_240416.gpx",
+    "size_kb": 1076.3
+  },
+  {
+    "folder": "S200-H_2025",
+    "file": "S200-H_2025.gpx",
+    "path": "S200-H_2025/S200-H_2025.gpx",
+    "size_kb": 767.7
+  },
+  {
+    "folder": "S200-Ilsan",
+    "file": "S200-Ilsan.gpx",
+    "path": "S200-Ilsan/S200-Ilsan.gpx",
+    "size_kb": 1857.8
+  },
+  {
+    "folder": "S200-Incheon_2022-04-28",
+    "file": "S200-Incheon_2022-04-28.gpx",
+    "path": "S200-Incheon_2022-04-28/S200-Incheon_2022-04-28.gpx",
+    "size_kb": 193.5
+  },
+  {
+    "folder": "S200-T_250218",
+    "file": "S200-T_250218.gpx",
+    "path": "S200-T_250218/S200-T_250218.gpx",
+    "size_kb": 295.5
+  },
+  {
+    "folder": "S200-Y_2025",
+    "file": "S200-Y_2025.gpx",
+    "path": "S200-Y_2025/S200-Y_2025.gpx",
+    "size_kb": 630.6
+  },
+  {
+    "folder": "S200-e_250218",
+    "file": "S200-e_250218.gpx",
+    "path": "S200-e_250218/S200-e_250218.gpx",
+    "size_kb": 811.7
+  },
+  {
+    "folder": "S200-w_2026",
+    "file": "S200-w_2026.gpx",
+    "path": "S200-w_2026/S200-w_2026.gpx",
+    "size_kb": 558.3
+  },
+  {
+    "folder": "S200GY-20230411",
+    "file": "S200GY-20230411.gpx",
+    "path": "S200GY-20230411/S200GY-20230411.gpx",
+    "size_kb": 2887.2
+  },
+  {
+    "folder": "S300-E_250218",
+    "file": "S300-E_250218.gpx",
+    "path": "S300-E_250218/S300-E_250218.gpx",
+    "size_kb": 1085.3
+  },
+  {
+    "folder": "S300-T_240912",
+    "file": "S300-T_240912.gpx",
+    "path": "S300-T_240912/S300-T_240912.gpx",
+    "size_kb": 919.0
+  },
+  {
+    "folder": "S300_231018",
+    "file": "S300_231018.gpx",
+    "path": "S300_231018/S300_231018.gpx",
+    "size_kb": 1008.1
+  },
+  {
+    "folder": "S400-E_250304",
+    "file": "S400-E_250304.gpx",
+    "path": "S400-E_250304/S400-E_250304.gpx",
+    "size_kb": 1233.9
+  },
+  {
+    "folder": "S400_230509",
+    "file": "S400_230509.gpx",
+    "path": "S400_230509/S400_230509.gpx",
+    "size_kb": 3786.1
+  },
+  {
+    "folder": "S600-E-R_250409",
+    "file": "S600-E-R_250409.gpx",
+    "path": "S600-E-R_250409/S600-E-R_250409.gpx",
+    "size_kb": 2633.1
+  },
+  {
+    "folder": "S600-e_250407",
+    "file": "S600-e_250407.gpx",
+    "path": "S600-e_250407/S600-e_250407.gpx",
+    "size_kb": 3183.2
+  },
+  {
+    "folder": "SBS_BS_2025",
+    "file": "SBS_BS_2025.gpx",
+    "path": "SBS_BS_2025/SBS_BS_2025.gpx",
+    "size_kb": 1360.3
+  },
+  {
+    "folder": "SBS_BS_2025",
+    "file": "SBS_SB_2025.gpx",
+    "path": "SBS_BS_2025/SBS_SB_2025.gpx",
+    "size_kb": 1407.1
+  },
+  {
+    "folder": "Seoul 300k(w)_250312",
+    "file": "Seoul 300k(w)_250312.gpx",
+    "path": "Seoul 300k(w)_250312/Seoul 300k(w)_250312.gpx",
+    "size_kb": 1066.0
+  },
+  {
+    "folder": "Seoul 600k(w)-J to S_250401",
+    "file": "Seoul 600k(w)-J to S_250401.gpx",
+    "path": "Seoul 600k(w)-J to S_250401/Seoul 600k(w)-J to S_250401.gpx",
+    "size_kb": 794.2
+  },
+  {
+    "folder": "Seoul 600k(w)-J to S_250401",
+    "file": "Seoul 600k(w)-S to J_250401.gpx",
+    "path": "Seoul 600k(w)-J to S_250401/Seoul 600k(w)-S to J_250401.gpx",
+    "size_kb": 864.3
+  },
+  {
+    "folder": "Seoul-200K-_w_ Sep5",
+    "file": "Seoul-200K-_w_ Sep5.gpx",
+    "path": "Seoul-200K-_w_ Sep5/Seoul-200K-_w_ Sep5.gpx",
+    "size_kb": 1456.7
+  },
+  {
+    "folder": "Seoul-200K-east",
+    "file": "Seoul-200K-east.gpx",
+    "path": "Seoul-200K-east/Seoul-200K-east.gpx",
+    "size_kb": 842.8
+  },
+  {
+    "folder": "Seoul_400k(w)_250425",
+    "file": "Seoul_400k(w)_250425.gpx",
+    "path": "Seoul_400k(w)_250425/Seoul_400k(w)_250425.gpx",
+    "size_kb": 1217.8
+  },
+  {
+    "folder": "jeju200_2025.01.28",
+    "file": "jeju200_2025.01.28.gpx",
+    "path": "jeju200_2025.01.28/jeju200_2025.01.28.gpx",
+    "size_kb": 305.7
+  },
+  {
+    "folder": "jeju200_2026_Feb",
+    "file": "jeju200_2026_Feb.gpx",
+    "path": "jeju200_2026_Feb/jeju200_2026_Feb.gpx",
+    "size_kb": 313.2
+  },
+  {
+    "folder": "부산-서울 (B-S) incl. Mungyeong detour",
+    "file": "부산-서울 (B-S) incl. Mungyeong detour.gpx",
+    "path": "부산-서울 (B-S) incl. Mungyeong detour/부산-서울 (B-S) incl. Mungyeong detour.gpx",
+    "size_kb": 2490.0
+  },
+  {
+    "folder": "부산-서울 (B-S) incl. Mungyeong detour",
+    "file": "서울-부산 (S-B) incl. Mungyeong detour.gpx",
+    "path": "부산-서울 (B-S) incl. Mungyeong detour/서울-부산 (S-B) incl. Mungyeong detour.gpx",
+    "size_kb": 2410.6
+  },
+  {
+    "folder": "세종200k__25_04_13_",
+    "file": "세종200k__25_04_13_.gpx",
+    "path": "세종200k__25_04_13_/세종200k__25_04_13_.gpx",
+    "size_kb": 303.0
+  },
+  {
+    "folder": "세종300K_20251008",
+    "file": "세종300K_20251008.gpx",
+    "path": "세종300K_20251008/세종300K_20251008.gpx",
+    "size_kb": 734.0
+  }
+]

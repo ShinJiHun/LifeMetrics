@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# 설정
+SERVER="34.172.162.148"
+USER="jihoon"
+REMOTE_PATH="/mnt/200gb/apps"
+SSH_KEY="~/.ssh/gcp-deploy"
+
+# 옵션 파싱
+BUILD=true
+if [ "$1" = "--no-build" ] || [ "$1" = "-n" ]; then
+    BUILD=false
+    echo "⚡ 빌드 스킵 모드"
+fi
+
+if [ "$BUILD" = true ]; then
+    # 1. Backend 빌드
+    echo "[1/5] Backend 빌드 중..."
+    cd backend
+    ./gradlew bootJar --no-daemon
+    cd ..
+
+    # 2. Frontend 빌드
+    echo "[2/5] Frontend 빌드 중..."
+    cd frontend
+    npm run build
+    cd ..
+else
+    echo "[1/5] Backend 빌드 스킵"
+    echo "[2/5] Frontend 빌드 스킵"
+fi
+
+# 3. 파일 전송
+echo "[3/5] 파일 전송 중..."
+scp -i ${SSH_KEY} backend/build/libs/lifemetrics.jar ${USER}@${SERVER}:${REMOTE_PATH}/lifemetrics.jar
+rsync -avz --progress -e "ssh -i ${SSH_KEY}" frontend/dist/ ${USER}@${SERVER}:${REMOTE_PATH}/static/
+
+# 4. Docker 재시작
+echo "[4/5] Docker 재시작 중..."
+ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
+  docker stop lifemetrics 2>/dev/null; \
+  docker rm lifemetrics 2>/dev/null; \
+  docker build -t lifemetrics . && \
+  docker run -d \
+      --name lifemetrics \
+      -p 8080:8080 \
+      --env-file /mnt/200gb/apps/.env \
+      -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw \
+      -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
+      -e SPRING_PROFILES_ACTIVE=prod \
+      --restart unless-stopped \
+      lifemetrics'
+
+# 5. 상태 확인
+echo "[5/5] 상태 확인..."
+ssh -i ${SSH_KEY} ${USER}@${SERVER} 'docker ps | grep lifemetrics'
+
+echo "=== 배포 완료! ==="
+echo "http://${SERVER}:8080"
