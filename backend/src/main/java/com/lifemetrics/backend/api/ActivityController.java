@@ -7,6 +7,7 @@ import com.lifemetrics.backend.dto.MonthlyStatsDto;
 import com.lifemetrics.backend.service.ActivityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;

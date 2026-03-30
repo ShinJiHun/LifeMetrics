@@ -35,4 +35,5 @@ public class ActivitySegmentDto {
     // 계층 구조용
     private Integer depth;              // 0=최상위, 1=자식, 2=손자
     private List<ActivitySegmentDto> children;  // 자식 세그먼트
+    private Double maxPower;
 }

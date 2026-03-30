@@ -57,12 +57,10 @@ logging:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql.BasicBinder: trace
 
-# 로컬에서는 임시 폴더 사용
 inbody:
   upload:
     path: /tmp/inbody/raw/
 
-# application-local.yml
 exercise:
   gif:
     path: /tmp/exercise-gifs/   # 로컬은 안 씀
@@ -71,16 +69,16 @@ exercise:
 anthropic:
   api-key: ${ANTHROPIC_API_KEY}
 
-# google 설정은 최좌측(Root)에서 시작해야 합니다.
 google:
   fitness:
     api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
 
-# application-local.yml 하단에 추가
 lotto:
   datasource:
     enabled: false
 
-# application-local.yml (로컬 개발용)
 brevet:
   nas-path: ${BREVET_NAS_PATH:}
+
+app:
+  base-url: http://localhost:5173

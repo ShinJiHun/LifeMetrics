@@ -9,7 +9,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -197,6 +202,7 @@ public class ActivityService {
                     .avgHeartRate(effort.getAvgHeartRate())
                     .maxHeartRate(effort.getMaxHeartRate())
                     .avgPower(effort.getAvgPower())
+                    .maxPower(effort.getMaxPower())  // ★ 추가
                     .avgCadence(effort.getAvgCadence() != null ? effort.getAvgCadence().doubleValue() : null)
                     .startDistanceM(effort.getStartDistanceM())
                     .endDistanceM(effort.getEndDistanceM())
@@ -213,4 +219,5 @@ public class ActivityService {
                 .orElseThrow(() -> new RuntimeException("Activity not found: " + id));
         return toSummaryDto(core);
     }
+
 }
