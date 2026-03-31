@@ -60,6 +60,19 @@ interface GpxTrack {
   }[];
 }
 
+// ─── WMO 날씨 코드 ──────────────────────────────────────
+const WMO: Record<number, [string, string]> = {
+  0: ["☀️", "맑음"], 1: ["🌤️", "대체로맑음"], 2: ["⛅", "구름조금"], 3: ["☁️", "흐림"],
+  45: ["🌫️", "안개"], 48: ["🌫️", "안개"],
+  51: ["🌦️", "이슬비"], 53: ["🌦️", "이슬비"], 55: ["🌦️", "이슬비"],
+  61: ["🌧️", "비"], 63: ["🌧️", "비"], 65: ["🌧️", "강한비"],
+  71: ["❄️", "눈"], 73: ["❄️", "눈"], 75: ["❄️", "폭설"],
+  80: ["🌦️", "소나기"], 81: ["⛈️", "강한소나기"], 95: ["🌩️", "뇌우"],
+};
+function wmo(code: number): [string, string] {
+  return WMO[code] ?? ["❓", "불명"];
+}
+
 // ─── GPX Parser ─────────────────────────────────────────
 function parseGPX(xml: string): GpxTrack | null {
   const doc = new DOMParser().parseFromString(xml, "text/xml");
@@ -154,65 +167,31 @@ function parseGPX(xml: string): GpxTrack | null {
   return { name, points, distances, totalDist, gain, loss, minEle: Math.min(...eles), maxEle: Math.max(...eles), keyPoints: allKP };
 }
 
-// ─── 날씨 API ────────────────────────────────────────────
-const WMO: Record<number, [string, string]> = {
-  0: ["☀️", "맑음"], 1: ["🌤️", "대체로맑음"], 2: ["⛅", "구름조금"], 3: ["☁️", "흐림"],
-  45: ["🌫️", "안개"], 48: ["🌫️", "안개"],
-  51: ["🌦️", "이슬비"], 53: ["🌦️", "이슬비"], 55: ["🌦️", "이슬비"],
-  61: ["🌧️", "비"], 63: ["🌧️", "비"], 65: ["🌧️", "강한비"],
-  71: ["❄️", "눈"], 73: ["❄️", "눈"], 75: ["❄️", "폭설"],
-  80: ["🌦️", "소나기"], 81: ["⛈️", "강한소나기"], 95: ["🌩️", "뇌우"],
-};
-function wmo(code: number) { return WMO[code] ?? ["❓", "불명"]; }
-function windDirStr(deg: number) {
-  const d = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return d[Math.round(((deg + 22.5) % 360) / 45) % 8];
-}
-
-/** 두 좌표 간 진행 방향(bearing) 계산 (0°=북, 시계방향) */
-function calcBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLon = toRad(lon2 - lon1);
-  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
-  const x =
-    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
-    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
-  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-}
-
-/** 진행방향과 풍향으로 역풍/순풍 분석 */
-function windEffect(bearing: number, windDir: number, windSpeed: number): {
-  label: string;
-  emoji: string;
-  color: string;
-  desc: string;
-} {
-  if (windSpeed < 5) return { label: "무풍", emoji: "😌", color: "#64748b", desc: "바람 영향 거의 없음" };
-  // 풍향은 바람이 불어오는 방향 → 진행방향과 반대면 역풍
-  const diff = ((windDir - bearing + 540) % 360) - 180; // -180 ~ +180
-  const absDiff = Math.abs(diff);
-
-  if (absDiff <= 45)   return { label: "역풍", emoji: "💨", color: "#f87171", desc: `정면에서 ${windSpeed}km/h 맞바람 — 페이스 유지 주의` };
-  if (absDiff <= 90)   return { label: "측역풍", emoji: "↙️", color: "#fb923c", desc: `측면 역풍 ${windSpeed}km/h — 다소 힘든 구간` };
-  if (absDiff <= 135)  return { label: "측순풍", emoji: "↗️", color: "#a3e635", desc: `측면 순풍 ${windSpeed}km/h — 크게 영향 없음` };
-  return               { label: "순풍", emoji: "🚀", color: "#34d399", desc: `등 뒤 ${windSpeed}km/h 순풍 — 속도 이득 예상` };
-}
-
-async function fetchWeatherForPoint(lat: number, lon: number, date: string): Promise<WeatherData | null> {
+// ─── 날씨 API (Open-Meteo) ───────────────────────────────
+async function fetchWeatherForPoint(
+  lat: number,
+  lon: number,
+  date: string,
+  hour: number = 9
+): Promise<WeatherData | null> {
   try {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const target = new Date(date);
-    const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
     let url: string;
-    if (diffDays > 16) {
+    if (diffDays < -1) {
+      // 과거 데이터 → archive API
+      url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=temperature_2m,precipitation_probability,windspeed_10m,winddirection_10m,weathercode&start_date=${date}&end_date=${date}&timezone=Asia%2FSeoul`;
+    } else if (diffDays > 15) {
+      // 16일 초과 → 예보 한계, 15일 후 날짜로 대체
       const maxDate = new Date(today);
       maxDate.setDate(today.getDate() + 15);
       const maxDateStr = maxDate.toISOString().slice(0, 10);
       url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=temperature_2m,precipitation_probability,windspeed_10m,winddirection_10m,weathercode&start_date=${maxDateStr}&end_date=${maxDateStr}&timezone=Asia%2FSeoul`;
-    } else if (diffDays < -1) {
-      url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=temperature_2m,precipitation_probability,windspeed_10m,winddirection_10m,weathercode&start_date=${date}&end_date=${date}&timezone=Asia%2FSeoul`;
     } else {
+      // 현재~15일 → 일반 예보
       url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&hourly=temperature_2m,precipitation_probability,windspeed_10m,winddirection_10m,weathercode&start_date=${date}&end_date=${date}&timezone=Asia%2FSeoul`;
     }
 
@@ -221,8 +200,8 @@ async function fetchWeatherForPoint(lat: number, lon: number, date: string): Pro
     const json = await res.json();
     const h = json.hourly;
     if (!h) return null;
-    const idx = 9;
-    const [icon, desc] = wmo(h.weathercode[idx]);
+
+    const [icon, desc] = wmo(h.weathercode[hour]);
     const hourly: HourlyWeather[] = [6, 9, 12, 15, 18, 21].map((hr) => {
       const [ic] = wmo(h.weathercode[hr]);
       return {
@@ -234,18 +213,51 @@ async function fetchWeatherForPoint(lat: number, lon: number, date: string): Pro
         precip: h.precipitation_probability?.[hr] ?? 0,
       };
     });
+
     return {
       icon, desc,
-      temp: h.temperature_2m[idx],
-      wind: h.windspeed_10m[idx],
-      windDir: h.winddirection_10m[idx],
-      precip: h.precipitation_probability?.[idx] ?? 0,
+      temp: h.temperature_2m[hour],
+      wind: h.windspeed_10m[hour],
+      windDir: h.winddirection_10m[hour],
+      precip: h.precipitation_probability?.[hour] ?? 0,
       hourly,
     };
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 // ─── 유틸 ────────────────────────────────────────────────
+function windDirStr(deg: number) {
+  const d = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return d[Math.round(((deg + 22.5) % 360) / 45) % 8];
+}
+
+function calcBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+function windEffect(bearing: number, windDir: number, windSpeed: number): {
+  label: string;
+  emoji: string;
+  color: string;
+  desc: string;
+} {
+  if (windSpeed < 5) return { label: "무풍", emoji: "😌", color: "#64748b", desc: "바람 영향 거의 없음" };
+  const diff = ((windDir - bearing + 540) % 360) - 180;
+  const absDiff = Math.abs(diff);
+  if (absDiff <= 45)  return { label: "역풍",   emoji: "💨", color: "#f87171", desc: `정면에서 ${windSpeed}km/h 맞바람 — 페이스 유지 주의` };
+  if (absDiff <= 90)  return { label: "측역풍", emoji: "↙️", color: "#fb923c", desc: `측면 역풍 ${windSpeed}km/h — 다소 힘든 구간` };
+  if (absDiff <= 135) return { label: "측순풍", emoji: "↗️", color: "#a3e635", desc: `측면 순풍 ${windSpeed}km/h — 크게 영향 없음` };
+  return                     { label: "순풍",   emoji: "🚀", color: "#34d399", desc: `등 뒤 ${windSpeed}km/h 순풍 — 속도 이득 예상` };
+}
+
 function calcArrival(startTime: string, distKm: number, speedKmh: number): string {
   const [sh, sm] = startTime.split(":").map(Number);
   const mins = sh * 60 + sm + Math.round((distKm / speedKmh) * 60);
@@ -607,7 +619,6 @@ function WeatherPanel({ cp, prev }: { cp: CheckPoint; prev?: CheckPoint }) {
   const w = cp.weather;
   const segDist = prev ? cp.distance - prev.distance : 0;
 
-  // 구간 진행 방향 + 풍향 분석
   const windAnalysis = (() => {
     if (!w || !prev) return null;
     const bearing = calcBearing(prev.lat, prev.lon, cp.lat, cp.lon);
@@ -719,12 +730,10 @@ export default function BrevePlanPage() {
   const [targetSpeed, setTargetSpeed] = useState("15");
   const [gpxFile, setGpxFile] = useState<File | null>(null);
 
-  // ── NAS 코스 선택 state ──────────────────────────────
   const [courses, setCourses] = useState<BrevetCourse[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [courseLoading, setCourseLoading] = useState(false);
 
-  // Claude 분석
   const [brevetAnalysis, setBrevetAnalysis] = useState<{
     summary: string;
     overallCondition: string;
@@ -736,7 +745,6 @@ export default function BrevePlanPage() {
   } | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
 
-  // 코스 목록 최초 로드
   useEffect(() => {
     fetch("/api/brevet/courses")
       .then((r) => r.json())
@@ -744,14 +752,11 @@ export default function BrevePlanPage() {
       .catch(() => console.warn("브레베 코스 목록 로드 실패"));
   }, []);
 
-  // 코스 선택 시 GPX 자동 로드
   const handleCourseSelect = async (value: string) => {
     setSelectedCourse(value);
     if (!value) return;
 
     const [folderName, gpxFileName] = value.split("::");
-
-    // 대회명 자동 채우기 - 선택된 코스의 courseName 사용
     const selected = courses.find(
       (c) => c.folderName === folderName && c.gpxFileName === gpxFileName
     );
@@ -783,7 +788,7 @@ export default function BrevePlanPage() {
 
   const handleGpxFile = useCallback((file: File) => {
     setGpxFile(file);
-    setSelectedCourse(""); // 파일 업로드 시 코스 선택 초기화
+    setSelectedCourse("");
     setGpxError("");
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -902,7 +907,6 @@ export default function BrevePlanPage() {
         select optgroup { background: #0f172a; color: #64748b; }
       `}</style>
 
-      {/* 헤더 */}
       <div style={S.header}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <span style={{ fontSize: 32 }}>🏅</span>
@@ -936,7 +940,6 @@ export default function BrevePlanPage() {
               <input style={S.input} type="number" value={targetSpeed} onChange={(e) => setTargetSpeed(e.target.value)} />
             </FormField>
 
-            {/* ── NAS 코스 선택 (새로 추가) ── */}
             <FormField label="저장된 코스 선택">
               <select
                 style={{ ...S.input, cursor: "pointer" }}
@@ -971,14 +974,12 @@ export default function BrevePlanPage() {
               )}
             </FormField>
 
-            {/* ── 구분선 ── */}
             <div style={{ gridColumn: "1/-1", display: "flex", alignItems: "center", gap: 12, color: "#334155", fontSize: 12 }}>
               <div style={{ flex: 1, height: 1, background: "#1e3a5f" }} />
               또는 직접 업로드
               <div style={{ flex: 1, height: 1, background: "#1e3a5f" }} />
             </div>
 
-            {/* ── GPX 파일 업로드 ── */}
             <FormField label="GPX 파일">
               <label
                 style={{ ...S.fileLabel, borderColor: track && gpxFile ? "#22c55e" : "#475569", color: track && gpxFile ? "#22c55e" : "#94a3b8" }}
@@ -1000,7 +1001,6 @@ export default function BrevePlanPage() {
         </div>
       ) : (
         <div>
-          {/* 요약 */}
           <div style={S.summaryRow}>
             {[
               { icon: "🚴", val: `${totalDistKm} km`, label: "총 거리" },
@@ -1018,7 +1018,6 @@ export default function BrevePlanPage() {
             ))}
           </div>
 
-          {/* 지도 영역 */}
           <div style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 12, marginBottom: 20, overflow: "hidden" }}>
             <div style={{ display: "flex", borderBottom: "1px solid #334155" }}>
               {([["2d", "🗺️ 2D 지도"], ["3d", "🏔️ 3D 지형"]] as const).map(([mode, label]) => (
@@ -1032,11 +1031,9 @@ export default function BrevePlanPage() {
                   }}>{label}</button>
               ))}
             </div>
-
             <div style={{ height: 420 }}>
               <MapboxTerrain track={track} mode={mapMode} hoveredPoint={hoveredPoint} />
             </div>
-
             {track && (
               <div style={{ borderTop: "1px solid #1e293b", background: "#0f172a", padding: "8px 8px 4px" }}>
                 <div style={{ fontSize: 10, color: "#334155", paddingLeft: 8, marginBottom: 2 }}>고도 프로파일</div>
@@ -1045,7 +1042,6 @@ export default function BrevePlanPage() {
             )}
           </div>
 
-          {/* 2단 레이아웃 */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 16, alignItems: "start" }}>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1142,7 +1138,6 @@ export default function BrevePlanPage() {
               })}
             </div>
 
-            {/* 날씨 패널 */}
             <div style={{ position: "sticky", top: 16 }}>
               <h2 style={{ ...S.sectionTitle, marginBottom: 12 }}>☁️ 구간 날씨 요약</h2>
               <div style={{ fontSize: 11, color: "#334155", marginBottom: 12 }}>{eventDate} · 09:00 기준</div>
@@ -1150,7 +1145,6 @@ export default function BrevePlanPage() {
                 <WeatherPanel key={cp.id} cp={cp} prev={i > 0 ? cps[i - 1] : undefined} />
               ))}
 
-              {/* Claude 분석 */}
               <div style={{ marginTop: 16, background: "linear-gradient(135deg,#0f1f3d,#0a1628)", border: "1px solid #1e3a5f", borderRadius: 12, padding: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <h2 style={{ ...S.sectionTitle, fontSize: 14 }}>🤖 Claude AI 분석</h2>
@@ -1168,16 +1162,13 @@ export default function BrevePlanPage() {
                     날씨 로드 후 분석하기를 눌러주세요
                   </div>
                 )}
-
                 {analysisLoading && (
                   <div style={{ color: "#475569", fontSize: 12, textAlign: "center", padding: "16px 0" }}>
                     Claude가 코스와 날씨를 분석 중...
                   </div>
                 )}
-
                 {brevetAnalysis && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {/* 점수 + 요약 */}
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 48, height: 48, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#6366f1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
                         {brevetAnalysis.score}
@@ -1189,14 +1180,10 @@ export default function BrevePlanPage() {
                         </span>
                       </div>
                     </div>
-
-                    {/* 페이스 전략 */}
                     <div style={{ background: "#0f172a", borderRadius: 8, padding: "8px 12px", borderLeft: "3px solid #3b82f6" }}>
                       <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>📍 페이스 전략</div>
                       <div style={{ fontSize: 12, color: "#93c5fd" }}>{brevetAnalysis.paceStrategy}</div>
                     </div>
-
-                    {/* 주의사항 */}
                     {brevetAnalysis.warnings?.length > 0 && (
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", marginBottom: 4 }}>⚠️ 주의사항</div>
@@ -1205,8 +1192,6 @@ export default function BrevePlanPage() {
                         ))}
                       </div>
                     )}
-
-                    {/* 구간별 팁 */}
                     {brevetAnalysis.tips?.length > 0 && (
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, color: "#34d399", marginBottom: 4 }}>💡 구간별 팁</div>
@@ -1215,8 +1200,6 @@ export default function BrevePlanPage() {
                         ))}
                       </div>
                     )}
-
-                    {/* 종합 조언 */}
                     <div style={{ background: "#0f172a", borderRadius: 8, padding: "8px 12px", borderLeft: "3px solid #34d399" }}>
                       <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>🏁 종합 조언</div>
                       <div style={{ fontSize: 12, color: "#e2e8f0" }}>{brevetAnalysis.conclusion}</div>

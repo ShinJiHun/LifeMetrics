@@ -84,3 +84,10 @@ lotto:
 # application-local.yml (로컬 개발용)
 brevet:
   nas-path: ${BREVET_NAS_PATH:}
+
+# application-local.yml에 추가
+windy:
+  api-key: ${WINDY_API_KEY}
+  api-url: https://api.windy.com/api/point-forecast/v2
+  model: gfs  # GFS 모델 (한국 커버리지 좋음)
+
