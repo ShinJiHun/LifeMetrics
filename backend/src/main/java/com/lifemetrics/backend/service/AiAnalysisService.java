@@ -301,7 +301,7 @@ public class AiAnalysisService {
                 (double) safeInt(a.getCalories())
         ));
 
-        sb.append(buildDeviceContext(userId));
+        sb.append(buildDeviceContext(userId, a.getStartTime()));
 
         // 구간별 날씨 데이터
         if (!weatherPoints.isEmpty()) {
@@ -343,8 +343,14 @@ public class AiAnalysisService {
     }
 
     // ★ 기기 컨텍스트 생성
-    private String buildDeviceContext(Long userId) {
-        List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId);
+    private String buildDeviceContext(Long userId, java.time.LocalDateTime activityTime) {
+        List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId)
+                .stream()
+                .filter(d -> d.getFirstSeenAt() == null ||
+                        !d.getFirstSeenAt().toLocalDate().isAfter(
+                                activityTime.toLocalDate()))  // 활동 날짜 이전에 보유한 기기만
+                .toList();
+
         if (devices.isEmpty()) return "";
 
         StringBuilder sb = new StringBuilder("[보유 기기]\n");
