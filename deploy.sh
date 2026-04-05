@@ -7,26 +7,47 @@ REMOTE_PATH="/mnt/200gb/apps"
 SSH_KEY="~/.ssh/gcp-deploy"
 
 # 옵션 파싱
-BUILD=true
-if [ "$1" = "--no-build" ] || [ "$1" = "-n" ]; then
-    BUILD=false
-    echo "⚡ 빌드 스킵 모드"
-fi
+BUILD_BACKEND=true
+BUILD_FRONTEND=true
 
-if [ "$BUILD" = true ]; then
-    # 1. Backend 빌드
+case "$1" in
+    --no-build|-n)
+        BUILD_BACKEND=false
+        BUILD_FRONTEND=false
+        echo "⚡ 빌드 스킵 모드"
+        ;;
+    1)
+        BUILD_BACKEND=true
+        BUILD_FRONTEND=false
+        echo "⚡ Backend만 빌드"
+        ;;
+    2)
+        BUILD_BACKEND=false
+        BUILD_FRONTEND=true
+        echo "⚡ Frontend만 빌드"
+        ;;
+    3)
+        BUILD_BACKEND=true
+        BUILD_FRONTEND=true
+        echo "⚡ 전체 빌드"
+        ;;
+esac
+
+if [ "$BUILD_BACKEND" = true ]; then
     echo "[1/5] Backend 빌드 중..."
     cd backend
     ./gradlew bootJar --no-daemon
     cd ..
+else
+    echo "[1/5] Backend 빌드 스킵"
+fi
 
-    # 2. Frontend 빌드
+if [ "$BUILD_FRONTEND" = true ]; then
     echo "[2/5] Frontend 빌드 중..."
     cd frontend
     npm run build
     cd ..
 else
-    echo "[1/5] Backend 빌드 스킵"
     echo "[2/5] Frontend 빌드 스킵"
 fi
 
@@ -42,14 +63,15 @@ ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
   docker rm lifemetrics 2>/dev/null; \
   docker build -t lifemetrics . && \
   docker run -d \
-      --name lifemetrics \
-      -p 8080:8080 \
-      --env-file /mnt/200gb/apps/.env \
-      -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw \
-      -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
-      -e SPRING_PROFILES_ACTIVE=prod \
-      --restart unless-stopped \
-      lifemetrics'
+    --name lifemetrics \
+    -p 8080:8080 \
+    --add-host=host.docker.internal:host-gateway \
+    --env-file /mnt/200gb/apps/.env \
+    -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw \
+    -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
+    -e SPRING_PROFILES_ACTIVE=prod \
+    --restart unless-stopped \
+    lifemetrics'
 
 # 5. 상태 확인
 echo "[5/5] 상태 확인..."

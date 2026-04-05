@@ -2,6 +2,10 @@
 server:
   port: 8080
 
+parser:
+  api:
+    url: http://34.172.162.148:8001
+
 spring:
   datasource:
     riding :
@@ -31,8 +35,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
 
   security:
     oauth2:
