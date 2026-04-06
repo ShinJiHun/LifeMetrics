@@ -1,7 +1,11 @@
-# application-local.yml
+# application-prod.yml
 server:
   port: 8080
   forward-headers-strategy: native
+
+parser:
+  api:
+    url: http://host.docker.internal:8001
 
 spring:
   datasource:
@@ -29,8 +33,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
 
   security:
     oauth2:
@@ -39,7 +43,7 @@ spring:
           google:
             client-id: 415261907040-90umvp9luqjtbvs5tft2jps2h126iq2h.apps.googleusercontent.com
             client-secret: ${GOOGLE_CLIENT_SECRET}
-            redirect-uri: "http://ride.tho881.me/login/oauth2/code/google"
+            redirect-uri: "https://ride.tho881.me/login/oauth2/code/google"
             scope:
               - https://www.googleapis.com/auth/fitness.nutrition.read
               - https://www.googleapis.com/auth/fitness.body.read
@@ -75,3 +79,6 @@ google:
 
 brevet:
   nas-path: /data/home/tho881/project/NAS/brevet
+
+app:
+  base-url: https://ride.tho881.me

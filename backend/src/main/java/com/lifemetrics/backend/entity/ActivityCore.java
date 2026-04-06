@@ -88,4 +88,18 @@ public class ActivityCore {
 
     @Column(name = "calories")
     private int calories;
+
+    @Column(name = "has_power")
+    private Boolean hasPower;
+
+    @Column(name = "normalized_power")
+    private Double normalizedPower;
+
+    @Column(name = "left_right_balance")
+    private Double leftRightBalance;
+
+    @Column(name = "power_source")
+    private String powerSource;
+
+
 }

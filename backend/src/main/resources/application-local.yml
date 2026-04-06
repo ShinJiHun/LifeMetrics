@@ -2,6 +2,10 @@
 server:
   port: 8080
 
+parser:
+  api:
+    url: http://34.172.162.148:8001
+
 spring:
   datasource:
     riding :
@@ -31,8 +35,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
 
   security:
     oauth2:
@@ -57,12 +61,10 @@ logging:
     org.hibernate.SQL: debug
     org.hibernate.type.descriptor.sql.BasicBinder: trace
 
-# 로컬에서는 임시 폴더 사용
 inbody:
   upload:
     path: /tmp/inbody/raw/
 
-# application-local.yml
 exercise:
   gif:
     path: /tmp/exercise-gifs/   # 로컬은 안 씀
@@ -71,23 +73,21 @@ exercise:
 anthropic:
   api-key: ${ANTHROPIC_API_KEY}
 
-# google 설정은 최좌측(Root)에서 시작해야 합니다.
 google:
   fitness:
     api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
 
-# application-local.yml 하단에 추가
 lotto:
   datasource:
     enabled: false
 
-# application-local.yml (로컬 개발용)
 brevet:
   nas-path: ${BREVET_NAS_PATH:}
 
-# application-local.yml에 추가
 windy:
   api-key: ${WINDY_API_KEY}
   api-url: https://api.windy.com/api/point-forecast/v2
   model: gfs  # GFS 모델 (한국 커버리지 좋음)
 
+app:
+  base-url: http://localhost:5173

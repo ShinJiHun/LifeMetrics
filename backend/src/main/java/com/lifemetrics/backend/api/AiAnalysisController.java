@@ -6,6 +6,7 @@ import com.lifemetrics.backend.dto.BrevetAnalysisResponse;
 import com.lifemetrics.backend.dto.ExerciseAnalysisResponse;
 import com.lifemetrics.backend.service.AiAnalysisService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -20,14 +21,6 @@ public class AiAnalysisController {
     // ================================================================
     // 라이딩 분석 (기존)
     // ================================================================
-
-    @PostMapping("/activity/{activityId}")
-    public ActivityAnalysisResponse analyzeActivity(
-            @RequestParam(defaultValue = "1") Long userId,
-            @PathVariable Long activityId) {
-        return analysisService.analyzeActivity(userId, activityId);
-    }
-
     @PostMapping("/activity/batch")
     public Map<String, Object> analyzeAllActivities(
             @RequestParam(defaultValue = "1") Long userId) {
@@ -103,4 +96,12 @@ public class AiAnalysisController {
             @RequestBody BrevetAnalysisRequest request) {
         return analysisService.analyzeBrevetPlan(request);
     }
+
+    @PostMapping("/activity/{activityId}")
+    public ResponseEntity<?> reAnalyzeActivity(
+            @PathVariable Long activityId,
+            @RequestParam Long userId) {
+        return ResponseEntity.ok(analysisService.reAnalyzeActivity(userId, activityId));
+    }
+
 }

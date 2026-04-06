@@ -7,11 +7,8 @@ import com.lifemetrics.backend.dto.*;
 import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.entity.ActivityWeatherPoint;
 import com.lifemetrics.backend.entity.DeviceInfo;
-import com.lifemetrics.backend.repository.AiAnalysisRepository;
+import com.lifemetrics.backend.repository.*;
 import com.lifemetrics.backend.entity.ActivityCore;
-import com.lifemetrics.backend.repository.ActivityCoreRepository;
-import com.lifemetrics.backend.repository.ActivityWeatherPointRepository;
-import com.lifemetrics.backend.repository.DeviceInfoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -35,6 +32,7 @@ public class AiAnalysisService {
     private final ExerciseLogService exerciseLogService;
     private final DeviceInfoRepository deviceInfoRepo;  // ★ 추가
     private final ObjectMapper objectMapper;
+    private final UserBodyRecordRepository bodyRecordRepo;
 
     @Value("${anthropic.api-key:}")
     private String anthropicApiKey;
@@ -259,19 +257,38 @@ public class AiAnalysisService {
         StringBuilder sb = new StringBuilder();
         sb.append("다음 사이클링 활동 데이터를 분석해주세요.\n\n");
 
+        boolean hasPower = Boolean.TRUE.equals(a.getHasPower());
+
+        double displayPower;
+        String powerLabel;
+
+        if (hasPower && safeDouble(a.getAvgPower()) > 0) {
+            displayPower = safeDouble(a.getAvgPower());
+            powerLabel = "(실측값)";
+        } else {
+            double speedKmh = safeDouble(a.getAvgSpeed());
+            double weightKg = getLatestWeight(userId);
+            double ascentM = safeDouble(a.getTotalAscent());
+            int movingTimeSec = safeInt(a.getMovingTime());
+            double flatPower = speedKmh * weightKg * 0.04;
+            double climbPower = movingTimeSec > 0 ? (weightKg * 9.8 * ascentM / movingTimeSec) : 0;
+            displayPower = Math.round(flatPower + climbPower);
+            powerLabel = "(가상 추정값)";
+        }
+
         sb.append(String.format("""
-                [기본 데이터]
-                - 거리: %.1f km
-                - 이동 시간: %d분
-                - 평균 속도: %.1f km/h
-                - 최고 속도: %.1f km/h
-                - 획득 고도: %.0f m
-                - 평균 심박: %.0f bpm
-                - 최고 심박: %.0f bpm
-                - 평균 파워: %.0f W (가상 추정값)
-                - 칼로리: %.0f kcal
-                
-                """,
+            [기본 데이터]
+            - 거리: %.1f km
+            - 이동 시간: %d분
+            - 평균 속도: %.1f km/h
+            - 최고 속도: %.1f km/h
+            - 획득 고도: %.0f m
+            - 평균 심박: %.0f bpm
+            - 최고 심박: %.0f bpm
+            - 평균 파워: %.0f W %s
+            - 칼로리: %.0f kcal
+            
+            """,
                 safeDouble(a.getTotalDistance()) / 1000,
                 safeInt(a.getMovingTime()) / 60,
                 safeDouble(a.getAvgSpeed()),
@@ -279,12 +296,12 @@ public class AiAnalysisService {
                 safeDouble(a.getTotalAscent()),
                 safeDouble(a.getAvgHeartRate()),
                 safeDouble(a.getMaxHeartRate()),
-                safeDouble(a.getAvgPower()),
+                displayPower,
+                powerLabel,
                 (double) safeInt(a.getCalories())
         ));
 
-        // ★ 기기 컨텍스트 추가
-        sb.append(buildDeviceContext(userId));
+        sb.append(buildDeviceContext(userId, a.getStartTime()));
 
         // 구간별 날씨 데이터
         if (!weatherPoints.isEmpty()) {
@@ -326,8 +343,14 @@ public class AiAnalysisService {
     }
 
     // ★ 기기 컨텍스트 생성
-    private String buildDeviceContext(Long userId) {
-        List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId);
+    private String buildDeviceContext(Long userId, java.time.LocalDateTime activityTime) {
+        List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId)
+                .stream()
+                .filter(d -> d.getFirstSeenAt() == null ||
+                        !d.getFirstSeenAt().toLocalDate().isAfter(
+                                activityTime.toLocalDate()))  // 활동 날짜 이전에 보유한 기기만
+                .toList();
+
         if (devices.isEmpty()) return "";
 
         StringBuilder sb = new StringBuilder("[보유 기기]\n");
@@ -678,5 +701,24 @@ public class AiAnalysisService {
         if (node != null && node.isArray())
             for (JsonNode item : node) list.add(item.asText());
         return list;
+    }
+
+    private double getLatestWeight(Long userId) {
+        return bodyRecordRepo
+                .findByUserIdOrderByRecordDate(userId)
+                .stream()
+                .filter(r -> r.getWeight() != null)
+                .reduce((first, second) -> second) // 마지막 기록
+                .map(r -> r.getWeight())
+                .orElse(75.0); // 기본값
+    }
+
+    public ActivityAnalysisResponse reAnalyzeActivity(Long userId, Long activityId) {
+        // 기존 분석 삭제
+        analysisRepo.findByUserIdAndAnalysisTypeAndTargetId(userId, "activity", activityId)
+                .ifPresent(analysisRepo::delete);
+
+        // 새로 분석
+        return analyzeActivity(userId, activityId);
     }
 }
