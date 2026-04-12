@@ -4,7 +4,7 @@ server:
 
 parser:
   api:
-    url: http://34.172.162.148:8001
+    url: http://localhost:8001
 
 spring:
   datasource:
@@ -35,8 +35,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
+      max-file-size: 100MB
+      max-request-size: 100MB
 
   security:
     oauth2:
@@ -84,10 +84,11 @@ lotto:
 brevet:
   nas-path: ${BREVET_NAS_PATH:}
 
-windy:
-  api-key: ${WINDY_API_KEY}
-  api-url: https://api.windy.com/api/point-forecast/v2
-  model: gfs  # GFS 모델 (한국 커버리지 좋음)
+#windy:
+#  api-key: ${WINDY_API_KEY}
+#  api-url: https://api.windy.com/api/point-forecast/v2
+#  model: gfs  # GFS 모델 (한국 커버리지 좋음)
 
 app:
   base-url: http://localhost:5173
+
