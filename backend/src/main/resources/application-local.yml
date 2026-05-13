@@ -12,6 +12,7 @@ spring:
       url: jdbc:mariadb://34.172.162.148:3306/riding_db
       username: ${DB_USERNAME}
       password: ${DB_PASSWORD}
+
       driver-class-name: org.mariadb.jdbc.Driver
 
       hikari:
@@ -71,7 +72,7 @@ exercise:
     base-url: /gif/   # → /gif/CHEST_PRESS.gif (public 폴더)
 
 anthropic:
-  api-key: ${ANTHROPIC_API_KEY}
+  api-key: ${ANTHROPIC_API_KEY:}
 
 google:
   fitness:
@@ -84,10 +85,10 @@ lotto:
 brevet:
   nas-path: ${BREVET_NAS_PATH:}
 
-#windy:
-#  api-key: ${WINDY_API_KEY}
-#  api-url: https://api.windy.com/api/point-forecast/v2
-#  model: gfs  # GFS 모델 (한국 커버리지 좋음)
+windy:
+  api-key: ${WINDY_API_KEY:}
+  api-url: https://api.windy.com/api/point-forecast/v2
+  model: gfs  # GFS 모델 (한국 커버리지 좋음)
 
 app:
   base-url: http://localhost:5173

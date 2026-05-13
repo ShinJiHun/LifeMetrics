@@ -1,5 +1,14 @@
 /* activity-detail.css */
 
+/* 세그먼트 스크롤 컨테이너: 스크롤바 숨김 (스크롤 동작은 유지) */
+.segment-scroll {
+    scrollbar-width: none;          /* Firefox */
+    -ms-overflow-style: none;       /* IE/Edge */
+}
+.segment-scroll::-webkit-scrollbar {
+    display: none;                  /* Chrome/Safari/Edge */
+}
+
 .detail-page {
     max-width: 720px;
     margin: 0 auto;

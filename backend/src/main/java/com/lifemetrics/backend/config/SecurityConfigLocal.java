@@ -14,7 +14,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@Profile("local")  // local 프로파일일 때만 적용
+@Profile("local")
 public class SecurityConfigLocal {
 
     @Bean
@@ -35,7 +35,8 @@ public class SecurityConfigLocal {
             "http://localhost:5173",
             "https://ride.tho881.me"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // ★ PATCH 추가
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

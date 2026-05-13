@@ -4,6 +4,7 @@ import com.lifemetrics.backend.dto.ActivityDetailDto;
 import com.lifemetrics.backend.dto.ActivitySegmentDto;
 import com.lifemetrics.backend.dto.ActivitySummaryDto;
 import com.lifemetrics.backend.dto.MonthlyStatsDto;
+import com.lifemetrics.backend.dto.UpdateActivityRequest;
 import com.lifemetrics.backend.service.ActivityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -22,7 +23,6 @@ public class ActivityController {
     private final ActivityService activityService;
 
     // 라이딩 목록
-    // ActivityController.java - getList 메서드 수정
     @GetMapping("/list")
     public List<ActivitySummaryDto> getList(
             @RequestParam Long userId,
@@ -48,7 +48,6 @@ public class ActivityController {
         return activityService.getMonthlyStats(userId, year, month);
     }
 
-
     @GetMapping("/{id}/segments")
     public List<ActivitySegmentDto> getSegments(@PathVariable Long id) {
         return activityService.getActivitySegments(id);
@@ -60,4 +59,27 @@ public class ActivityController {
         return activityService.getActivitySummary(id);
     }
 
+    // ★ 신규: 라이딩 부분 수정 (현재는 제목만)
+    //   PATCH /api/activity/{id}   Body: { "name": "새 제목" }
+    @PatchMapping("/{id}")
+    public ResponseEntity<ActivitySummaryDto> updateActivity(
+            @PathVariable Long id,
+            @RequestBody UpdateActivityRequest request) {
+        try {
+            ActivitySummaryDto updated = activityService.updateActivityName(id, request.getName());
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // ★ Spring Security가 PATCH를 막을 경우 대체 경로 (POST)
+    //   POST /api/activity/{id}/update   Body: { "name": "새 제목" }
+    @PostMapping("/{id}/update")
+    public ResponseEntity<ActivitySummaryDto> updateActivityViaPost(
+            @PathVariable Long id,
+            @RequestBody UpdateActivityRequest request) {
+        return updateActivity(id, request);
+    }
 }

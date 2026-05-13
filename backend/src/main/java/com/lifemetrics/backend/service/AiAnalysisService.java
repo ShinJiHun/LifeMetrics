@@ -30,7 +30,7 @@ public class AiAnalysisService {
     private final ActivityCoreRepository activityRepo;
     private final ActivityWeatherPointRepository weatherPointRepo;
     private final ExerciseLogService exerciseLogService;
-    private final DeviceInfoRepository deviceInfoRepo;  // ★ 추가
+    private final DeviceInfoRepository deviceInfoRepo;
     private final ObjectMapper objectMapper;
     private final UserBodyRecordRepository bodyRecordRepo;
 
@@ -57,7 +57,7 @@ public class AiAnalysisService {
         List<ActivityWeatherPoint> weatherPoints = weatherPointRepo
                 .findByActivityCoreIdOrderBySeq(activityId);
 
-        String prompt = buildActivityPrompt(activity, weatherPoints, userId);  // ★ userId 전달
+        String prompt = buildActivityPrompt(activity, weatherPoints, userId);
         String analysisJson = callClaudeApi(prompt);
 
         AiAnalysis analysis = new AiAnalysis();
@@ -87,7 +87,7 @@ public class AiAnalysisService {
                 List<ActivityWeatherPoint> weatherPoints = weatherPointRepo
                         .findByActivityCoreIdOrderBySeq(activity.getId());
 
-                String prompt = buildActivityPrompt(activity, weatherPoints, userId);  // ★ userId 전달
+                String prompt = buildActivityPrompt(activity, weatherPoints, userId);
                 String analysisJson = callClaudeApi(prompt);
 
                 AiAnalysis analysis = new AiAnalysis();
@@ -113,6 +113,12 @@ public class AiAnalysisService {
                 .findByUserIdAndAnalysisTypeAndTargetId(userId, "activity", activityId)
                 .map(this::toActivityResponse)
                 .orElse(null);
+    }
+
+    public ActivityAnalysisResponse reAnalyzeActivity(Long userId, Long activityId) {
+        analysisRepo.findByUserIdAndAnalysisTypeAndTargetId(userId, "activity", activityId)
+                .ifPresent(analysisRepo::delete);
+        return analyzeActivity(userId, activityId);
     }
 
     // ================================================================
@@ -225,7 +231,6 @@ public class AiAnalysisService {
     // ================================================================
 
     public BrevetAnalysisResponse analyzeBrevetPlan(BrevetAnalysisRequest req) {
-        // ★ 기존 분석 있으면 그대로 반환
         Optional<AiAnalysis> existing = analysisRepo
                 .findByUserIdAndAnalysisTypeAndTargetIdAndTargetPeriod(
                         req.getUserId(), "brevet_plan", 0L, req.getEventDate());
@@ -234,7 +239,6 @@ public class AiAnalysisService {
             return toBrevetResponse(existing.get(), req.getEventName(), req.getEventDate());
         }
 
-        // 없으면 새로 분석
         String prompt = buildBrevetPrompt(req);
         String analysisJson = callClaudeApi(prompt);
 
@@ -250,62 +254,140 @@ public class AiAnalysisService {
     }
 
     // ================================================================
-    // 프롬프트 빌더
+    // 프롬프트 빌더 — 라이딩 (★ 강화 버전)
     // ================================================================
 
     private String buildActivityPrompt(ActivityCore a, List<ActivityWeatherPoint> weatherPoints, Long userId) {
         StringBuilder sb = new StringBuilder();
-        sb.append("다음 사이클링 활동 데이터를 분석해주세요.\n\n");
 
+        // ── 시스템 페르소나 ──
+        sb.append("""
+                ## 당신의 역할
+                
+                당신은 한국의 베테랑 사이클링 코치입니다. KOM 다수 보유, 1200km 브레베 완주 경험,
+                UCI 코칭 자격증을 가지고 있습니다. 데이터 분석을 통해 라이더의 페이싱, 강도 관리,
+                훈련 스트레스를 평가하고 구체적인 코칭을 제공합니다.
+                
+                톤: 전문적이되 친근하게. "~네요", "~합니다" 정중체. 과장 금지, 구체적 수치 인용.
+                절대 모호한 칭찬("좋았어요", "잘했어요") 금지. 반드시 데이터 근거 제시.
+                
+                ---
+                
+                """);
+
+        // ── 라이드 메타 데이터 ──
         boolean hasPower = Boolean.TRUE.equals(a.getHasPower());
+        double weightKg = getLatestWeight(userId);
 
         double displayPower;
         String powerLabel;
-
         if (hasPower && safeDouble(a.getAvgPower()) > 0) {
             displayPower = safeDouble(a.getAvgPower());
-            powerLabel = "(실측값)";
+            powerLabel = "(파워미터 실측)";
         } else {
             double speedKmh = safeDouble(a.getAvgSpeed());
-            double weightKg = getLatestWeight(userId);
             double ascentM = safeDouble(a.getTotalAscent());
             int movingTimeSec = safeInt(a.getMovingTime());
             double flatPower = speedKmh * weightKg * 0.04;
             double climbPower = movingTimeSec > 0 ? (weightKg * 9.8 * ascentM / movingTimeSec) : 0;
             displayPower = Math.round(flatPower + climbPower);
-            powerLabel = "(가상 추정값)";
+            powerLabel = "(가상 추정)";
         }
 
+        double distanceKm = safeDouble(a.getTotalDistance()) / 1000.0;
+        int movingMin = safeInt(a.getMovingTime()) / 60;
+        double avgHr = safeDouble(a.getAvgHeartRate());
+        double maxHr = safeDouble(a.getMaxHeartRate());
+        double avgCadence = safeDouble(a.getAvgCadence());
+        double ascent = safeDouble(a.getTotalAscent());
+        double avgSpeed = safeDouble(a.getAvgSpeed());
+        double maxSpeed = safeDouble(a.getMaxSpeed());
+
+        // 추정 FTP 기반 IF/TSS 계산 (체중 × 3.0 W/kg 가정)
+        double estimatedFtp = weightKg * 3.0;
+        double normalizedPower = a.getNormalizedPower() != null
+                ? a.getNormalizedPower() : displayPower;
+        double intensityFactor = estimatedFtp > 0 ? normalizedPower / estimatedFtp : 0;
+        double durationHours = movingMin / 60.0;
+        int tss = (int) Math.round(durationHours * intensityFactor * intensityFactor * 100);
+
+        // 심박존 추정 (HRR 기반, 안정시 60 / 최대 190 가정)
+        int restingHr = 60;
+        int maxHrEstimate = 190;
+        double hrr = (avgHr - restingHr) / (double) (maxHrEstimate - restingHr);
+        String hrZone;
+        if (hrr < 0.6) hrZone = "Z2 (지구력)";
+        else if (hrr < 0.7) hrZone = "Z3 (템포)";
+        else if (hrr < 0.8) hrZone = "Z4 (역치)";
+        else if (hrr < 0.9) hrZone = "Z5 (VO2max)";
+        else hrZone = "Z6 (무산소)";
+
+        // 케이던스 평가
+        String cadenceComment;
+        if (avgCadence < 60) cadenceComment = "낮음 (60 미만, 무릎 부담)";
+        else if (avgCadence < 80) cadenceComment = "다소 낮음 (60~80)";
+        else if (avgCadence <= 95) cadenceComment = "이상적 (80~95)";
+        else cadenceComment = "높음 (95 초과)";
+
+        // 등반 강도 (m/km)
+        double climbPerKm = distanceKm > 0 ? ascent / distanceKm : 0;
+        String climbCategory;
+        if (climbPerKm < 5) climbCategory = "평지 위주";
+        else if (climbPerKm < 12) climbCategory = "중간 기복";
+        else if (climbPerKm < 20) climbCategory = "산악 라이딩";
+        else climbCategory = "고난이도 산악";
+
         sb.append(String.format("""
-            [기본 데이터]
-            - 거리: %.1f km
-            - 이동 시간: %d분
-            - 평균 속도: %.1f km/h
-            - 최고 속도: %.1f km/h
-            - 획득 고도: %.0f m
-            - 평균 심박: %.0f bpm
-            - 최고 심박: %.0f bpm
-            - 평균 파워: %.0f W %s
-            - 칼로리: %.0f kcal
-            
-            """,
-                safeDouble(a.getTotalDistance()) / 1000,
-                safeInt(a.getMovingTime()) / 60,
-                safeDouble(a.getAvgSpeed()),
-                safeDouble(a.getMaxSpeed()),
-                safeDouble(a.getTotalAscent()),
-                safeDouble(a.getAvgHeartRate()),
-                safeDouble(a.getMaxHeartRate()),
-                displayPower,
+                ## 라이딩 데이터
+                
+                [기본 메트릭]
+                - 거리: %.1f km
+                - 이동 시간: %d시간 %d분 (%.2f h)
+                - 평균 속도: %.1f km/h / 최고 %.1f km/h
+                - 획득 고도: %.0f m (%.1f m/km, %s)
+                
+                [심박]
+                - 평균: %.0f bpm / 최고 %.0f bpm
+                - 추정 심박존: %s (HRR %.0f%%)
+                
+                [파워] %s
+                - 평균 파워: %.0f W (%.2f W/kg)
+                - Normalized Power: %.0f W
+                - 추정 FTP: %.0f W (체중 %.1fkg × 3.0)
+                - Intensity Factor (IF): %.2f
+                - Training Stress Score (TSS): %d
+                
+                [케이던스]
+                - 평균: %.0f rpm — %s
+                
+                [에너지]
+                - 칼로리: %d kcal
+                
+                """,
+                distanceKm,
+                movingMin / 60, movingMin % 60, durationHours,
+                avgSpeed, maxSpeed,
+                ascent, climbPerKm, climbCategory,
+                avgHr, maxHr,
+                hrZone, hrr * 100,
                 powerLabel,
-                (double) safeInt(a.getCalories())
+                displayPower, weightKg > 0 ? displayPower / weightKg : 0,
+                normalizedPower,
+                estimatedFtp, weightKg,
+                intensityFactor,
+                tss,
+                avgCadence, cadenceComment,
+                safeInt(a.getCalories())
         ));
 
+        // 기기 정보
         sb.append(buildDeviceContext(userId, a.getStartTime()));
 
-        // 구간별 날씨 데이터
+        // 구간별 날씨
         if (!weatherPoints.isEmpty()) {
             sb.append("[구간별 날씨 (30분 간격)]\n");
+            double avgTemp = 0, avgWind = 0;
+            int countWp = 0;
             for (ActivityWeatherPoint wp : weatherPoints) {
                 String time = wp.getPointTime() != null ? wp.getPointTime().format(TIME_FMT) : "?";
                 String desc = wp.getWeatherDesc() != null ? wp.getWeatherDesc() : "";
@@ -318,37 +400,89 @@ public class AiAnalysisService {
                         wp.getWindSpeed() != null ? wp.getWindSpeed() : 0,
                         desc
                 ));
+                if (wp.getTemperature() != null) {
+                    avgTemp += wp.getTemperature();
+                    countWp++;
+                }
+                if (wp.getWindSpeed() != null) avgWind += wp.getWindSpeed();
+            }
+            if (countWp > 0) {
+                sb.append(String.format("  → 평균 기온 %.1f°C, 평균 풍속 %.1f m/s\n",
+                        avgTemp / countWp, avgWind / countWp));
             }
             sb.append("\n");
         }
 
+        // ── 분석 가이드 ──
         sb.append("""
-                반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만:
+                ## 분석 가이드
+                
+                아래 항목을 정량적으로 평가하세요. 모든 항목은 위 데이터 수치를 직접 인용하여 근거 제시.
+                
+                1. **페이싱 (pacingAnalysis)**: IF/TSS와 거리/시간을 종합하여 페이스 적정성 평가.
+                   - IF 0.5~0.65: 회복/지구력 라이딩
+                   - IF 0.65~0.8: 템포/유산소
+                   - IF 0.8~0.95: 역치 (LT)
+                   - IF 0.95~1.05: VO2max
+                   - IF 1.05+: 무산소 (단시간만 지속 가능)
+                   장거리(100km+)에서 IF가 0.75 이상이면 과도한 페이스로 판단.
+                
+                2. **생리학적 부담 (physiologyAnalysis)**: 심박과 파워 관계를 분석.
+                   심박 대비 파워가 낮으면 누적 피로/탈수, 심박 대비 파워가 높으면 효율적 컨디션.
+                
+                3. **케이던스 (cadenceAnalysis)**: 이상 범위(80~95) 대비 평가.
+                   낮으면 근피로 누적/무릎 부담, 너무 높으면 비효율적 페달링 가능성.
+                
+                4. **날씨 영향 (weatherImpact)**: 평균 풍속 4m/s 이상이면 영향 명시.
+                   기온 25°C 초과 또는 5°C 미만 시 체온 관리 코멘트.
+                
+                5. **회복 처방 (recoveryAdvice)**: TSS 기준
+                   - TSS < 150: 다음 날 정상 훈련 가능
+                   - TSS 150~300: 24시간 회복 또는 가벼운 라이딩
+                   - TSS 300~450: 48시간 회복 권장
+                   - TSS 450+: 3일 이상 회복, 영양/수면 집중
+                
+                6. **점수 (score)**: 페이싱 + 강도 적정성 + 데이터 완전성 종합 0~100.
+                
+                ---
+                
+                ## 출력 형식
+                
+                반드시 아래 JSON만 출력. 다른 텍스트 절대 금지. 마크다운 코드블록 금지.
+                
                 {
-                  "summary": "한줄요약 (25자 이내)",
+                  "summary": "한줄 진단 (40자 이내, 구체적 수치 포함 권장)",
                   "intensity": "낮음/보통/높음/매우높음",
-                  "weatherImpact": "날씨가 라이딩에 미친 영향 한줄 (없으면 빈문자열)",
-                  "highlights": ["잘한점1", "잘한점2", "잘한점3"],
-                  "suggestions": ["개선점1", "개선점2"],
-                  "score": 85
+                  "score": 85,
+                  "pacingGrade": "양호/불균형/후반약화/전반과속 중 하나",
+                  "intensityFactor": 0.72,
+                  "trainingStress": 245,
+                  "pacingAnalysis": "페이싱 평가 (60자 이내, 데이터 근거)",
+                  "physiologyAnalysis": "심박/파워 관계 분석 (60자 이내)",
+                  "cadenceAnalysis": "케이던스 평가 (60자 이내)",
+                  "weatherImpact": "날씨 영향 (60자 이내, 영향 없으면 빈 문자열)",
+                  "highlights": ["잘한 점 1 (수치 인용)", "잘한 점 2", "잘한 점 3"],
+                  "suggestions": ["개선점 1 (구체적)", "개선점 2"],
+                  "recoveryAdvice": "회복 권장 (40자 이내, 시간 명시)",
+                  "nextRideTip": "다음 라이딩 처방 (80자 이내, 강도/거리/케이던스 등 구체적)"
                 }
                 
-                분석 시 보유 기기/센서 현황을 반드시 반영하세요:
-                - 심박계 없으면: 심박 데이터 없음을 명시하고 속도/고도 기반으로 강도 추정
-                - 파워미터 없으면: 파워는 가상 추정값임을 명시
-                - 날씨 영향(맞바람/뒷바람, 기온, 강수)도 반영
+                주의:
+                - 파워가 가상 추정값일 경우 IF/TSS 신뢰도가 낮음을 highlight나 suggestion에 한 번 명시
+                - 심박계 없으면 심박 기반 분석 생략하고 속도/고도 기반 코멘트
+                - 모호한 표현("적당히", "잘") 금지. 반드시 수치/존/시간 인용.
                 """);
 
         return sb.toString();
     }
 
-    // ★ 기기 컨텍스트 생성
+    // 기기 컨텍스트
     private String buildDeviceContext(Long userId, java.time.LocalDateTime activityTime) {
         List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId)
                 .stream()
                 .filter(d -> d.getFirstSeenAt() == null ||
                         !d.getFirstSeenAt().toLocalDate().isAfter(
-                                activityTime.toLocalDate()))  // 활동 날짜 이전에 보유한 기기만
+                                activityTime.toLocalDate()))
                 .toList();
 
         if (devices.isEmpty()) return "";
@@ -393,6 +527,10 @@ public class AiAnalysisService {
             default               -> type;
         };
     }
+
+    // ================================================================
+    // 프롬프트 빌더 — 운동 (기존 유지)
+    // ================================================================
 
     private String buildExerciseSessionPrompt(ExerciseHistoryResponse session) {
         StringBuilder sb = new StringBuilder();
@@ -505,6 +643,10 @@ public class AiAnalysisService {
         return sb.toString();
     }
 
+    // ================================================================
+    // 프롬프트 빌더 — 브레베 (기존 유지)
+    // ================================================================
+
     private String buildBrevetPrompt(BrevetAnalysisRequest req) {
         StringBuilder sb = new StringBuilder();
 
@@ -560,7 +702,7 @@ public class AiAnalysisService {
     }
 
     // ================================================================
-    // Claude API 호출
+    // Claude API 호출 (★ max_tokens 2000으로 증가)
     // ================================================================
 
     private String callClaudeApi(String prompt) {
@@ -576,7 +718,7 @@ public class AiAnalysisService {
 
         Map<String, Object> body = Map.of(
                 "model", "claude-sonnet-4-20250514",
-                "max_tokens", 1000,
+                "max_tokens", 2000,
                 "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
@@ -626,6 +768,10 @@ public class AiAnalysisService {
         return null;
     }
 
+    // ================================================================
+    // Entity → DTO 변환
+    // ================================================================
+
     private ActivityAnalysisResponse toActivityResponse(AiAnalysis analysis) {
         try {
             JsonNode json = objectMapper.readTree(analysis.getAnalysisData());
@@ -634,16 +780,41 @@ public class AiAnalysisService {
                     .activityId(analysis.getTargetId())
                     .model("claude-sonnet-4-20250514")
                     .createdAt(analysis.getCreatedAt().toString())
+
+                    // 핵심
                     .summary(json.path("summary").asText())
                     .intensity(json.path("intensity").asText())
+                    .score(json.path("score").asInt())
+
+                    // 정량 분석
+                    .pacingGrade(json.path("pacingGrade").asText(""))
+                    .intensityFactor(json.path("intensityFactor").isMissingNode()
+                            ? null : json.path("intensityFactor").asDouble())
+                    .trainingStress(json.path("trainingStress").isMissingNode()
+                            ? null : json.path("trainingStress").asInt())
+
+                    // 코칭 인사이트
+                    .pacingAnalysis(json.path("pacingAnalysis").asText(""))
+                    .physiologyAnalysis(json.path("physiologyAnalysis").asText(""))
+                    .cadenceAnalysis(json.path("cadenceAnalysis").asText(""))
+                    .weatherImpact(json.path("weatherImpact").asText(""))
+
+                    // 기존
                     .highlights(jsonArrayToList(json.path("highlights")))
                     .suggestions(jsonArrayToList(json.path("suggestions")))
-                    .score(json.path("score").asInt())
+
+                    // 처방
+                    .recoveryAdvice(json.path("recoveryAdvice").asText(""))
+                    .nextRideTip(json.path("nextRideTip").asText(""))
+
                     .build();
         } catch (JsonProcessingException e) {
             return ActivityAnalysisResponse.builder()
-                    .id(analysis.getId()).activityId(analysis.getTargetId())
-                    .summary("파싱 실패").score(0).build();
+                    .id(analysis.getId())
+                    .activityId(analysis.getTargetId())
+                    .summary("파싱 실패")
+                    .score(0)
+                    .build();
         }
     }
 
@@ -708,17 +879,8 @@ public class AiAnalysisService {
                 .findByUserIdOrderByRecordDate(userId)
                 .stream()
                 .filter(r -> r.getWeight() != null)
-                .reduce((first, second) -> second) // 마지막 기록
+                .reduce((first, second) -> second)
                 .map(r -> r.getWeight())
-                .orElse(75.0); // 기본값
-    }
-
-    public ActivityAnalysisResponse reAnalyzeActivity(Long userId, Long activityId) {
-        // 기존 분석 삭제
-        analysisRepo.findByUserIdAndAnalysisTypeAndTargetId(userId, "activity", activityId)
-                .ifPresent(analysisRepo::delete);
-
-        // 새로 분석
-        return analyzeActivity(userId, activityId);
+                .orElse(75.0);
     }
 }

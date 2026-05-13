@@ -11,6 +11,10 @@ import java.util.List;
 public class ActivityDetailDto {
     private Long id;
     private String filename;
+
+    // ★ 라이드 제목 (사용자 입력 또는 자동 생성)
+    private String name;
+
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
@@ -33,6 +37,7 @@ public class ActivityDetailDto {
     private Double avgPower;
     private Double maxPower;
     private Double avgCadence;
+    private Double maxCadence;          // ★ 추가
 
     // 거리 구분
     private Double uphillDistance;
@@ -45,6 +50,15 @@ public class ActivityDetailDto {
     private Double endLat;
     private Double endLon;
     private String polyline;
+
+    // ★ 출발지명 (역지오코딩 결과, 예: "천호동, 서울")
+    private String locationName;
+
+    // ★ Strava 스타일 Relative Effort (TRIMP 기반)
+    private Integer relativeEffort;
+
+    // 칼로리
+    private Integer calories;
 
     // 장비
     private String gearName;

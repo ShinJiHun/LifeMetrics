@@ -106,6 +106,7 @@ public class BodyService {
         dto.setBodyWater(curr.getBodyWater());
         dto.setBoneMass(curr.getBoneMass());
         dto.setBasalMetabolicRate(curr.getBasalMetabolicRate());
+        dto.setRawLlmJson(curr.getRawLlmJson());
 
         dto.setWeightDelta(calc(curr.getWeight(),
                 prev != null ? prev.getWeight() : null));

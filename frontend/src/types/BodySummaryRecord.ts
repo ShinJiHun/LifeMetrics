@@ -16,4 +16,6 @@ export interface BodySummaryRecord {
 
     isMeasured: boolean | null;
     measurementType: string | null;  // 추가
+
+    rawLlmJson: string | null;
 }

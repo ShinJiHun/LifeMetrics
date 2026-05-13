@@ -22,6 +22,7 @@ public class ActivityUploadService {
 
     private final RestTemplate restTemplate;
 
+
     public UploadResultDto.FileResult processFile(MultipartFile file) {
         String filename = file.getOriginalFilename();
         try {

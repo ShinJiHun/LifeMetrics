@@ -2,7 +2,6 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// ─── 타입 ───────────────────────────────────────────────
 interface BrevetCourse {
   folderName: string;
   courseName: string;

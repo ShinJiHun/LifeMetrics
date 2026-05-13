@@ -90,36 +90,39 @@
 }
 
 /* 카드 */
+
+/* 변경 */
 .metric-card {
     border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 8px 10px;
+    border-radius: 10px;
+    padding: 6px 8px;          /* 8 10 → 6 8 */
     background: #ffffff;
     cursor: pointer;
     transition: all 0.2s ease;
-    min-height: 66px;
-}
-
-.metric-card.active {
-    border: 2px solid #2563eb;
-    background: #f0f6ff;
+    min-height: 56px;          /* 66 → 56 */
 }
 
 .metric-title {
-    font-size: 12px;
+    font-size: 11px;            /* 12 → 11 */
     color: #6b7280;
-    margin-bottom: 4px;
+    margin-bottom: 2px;         /* 4 → 2 */
 }
 
 .metric-value {
-    font-size: 22px;
+    font-size: 17px;            /* 22 → 17 */
     font-weight: 700;
-    margin-bottom: 4px;
+    margin-bottom: 2px;         /* 4 → 2 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metric-delta {
-    font-size: 12px;
+    font-size: 10px;            /* 12 → 10 */
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .metric-delta.plus {
@@ -171,14 +174,48 @@
     border-radius: 12px;
     background: #ffffff;
     border-left: 4px solid #2563eb;
-    padding: 8px 10px;
-    margin-left: calc(var(--left-axis-offset) - 62px);
+    padding: 12px 14px;
     margin-top: 8px;
     font-size: 13px;
     line-height: 1.5;
     color: #374151;
-    max-height: 96px;
+    flex: 1;              /* ← 추가: 남은 공간 다 차지 */
+    min-height: 0;        /* ← flex 자식이 줄어들 수 있게 */
     overflow-y: auto;
+    /* max-height: 640px;  ← 제거 또는 유지 */
+}
+
+.summary-text-box .ai-header {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #1f2937;
+}
+
+.summary-text-box .ai-kv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 18px;
+    row-gap: 6px;
+}
+
+.summary-text-box .ai-kv-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px dashed #f1f5f9;
+    padding-bottom: 4px;
+}
+
+.summary-text-box .ai-kv-key {
+    color: #6b7280;
+    flex: 0 0 auto;
+}
+
+.summary-text-box .ai-kv-val {
+    color: #111827;
+    font-weight: 600;
+    text-align: right;
+    word-break: break-all;
 }
 
 .inbody-upload-btn {
@@ -319,5 +356,154 @@
 
 .body-upload-btn:disabled {
     opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ai-analysis {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.ai-section {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+.ai-summary {
+    background: linear-gradient(to right, #fef3c7, #fde68a);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+}
+
+.ai-summary-icon {
+    font-size: 22px;
+}
+
+.ai-summary-text {
+    font-weight: 600;
+    color: #92400e;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.ai-section-title {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.ai-eval-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ai-eval-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 10px;
+    align-items: start;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.ai-eval-label {
+    font-weight: 600;
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.ai-eval-value {
+    color: #1f2937;
+}
+
+.ai-trend {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #1f2937;
+}
+
+.ai-recommendations {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #1f2937;
+}
+
+.ai-recommendations li {
+    margin-bottom: 4px;
+}
+
+.ai-recommendations li:last-child {
+    margin-bottom: 0;
+}
+
+.metric-grid-3x2 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);  /* 6 → 3 (원래대로) */
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.metric-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 8px 10px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 66px;
+}
+
+.metric-title {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.metric-delta {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.ai-analysis-trigger-btn {
+    margin-top: 12px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.ai-analysis-trigger-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.ai-analysis-trigger-btn:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
 }

@@ -33,4 +33,7 @@ public class BodyRecordResponse {
     private Double weightDelta;
     private Double skeletalMuscleMassDelta;
     private Double bodyFatPercentageDelta;
+
+    // ===== LLM 원문 JSON =====
+    private String rawLlmJson;
 }

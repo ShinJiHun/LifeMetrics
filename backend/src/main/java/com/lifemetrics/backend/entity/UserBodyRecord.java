@@ -47,4 +47,7 @@ public class UserBodyRecord {
     private Double boneMass;
     private Double basalMetabolicRate;
 
+    @Column(name = "raw_llm_json", columnDefinition = "longtext")
+    private String rawLlmJson;
+
 }

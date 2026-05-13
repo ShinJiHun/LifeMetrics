@@ -15,7 +15,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@Profile("!local")  // ← 추가
+@Profile("!local")
 public class SecurityConfig {
 
     @Value("${app.base-url}")
@@ -60,7 +60,8 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "https://ride.tho881.me"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // ★ PATCH 추가
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

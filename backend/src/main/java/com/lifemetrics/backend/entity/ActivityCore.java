@@ -3,6 +3,7 @@ package com.lifemetrics.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,6 +17,10 @@ public class ActivityCore {
     private Long userId;
 
     private String filename;
+
+    // ★ 라이드 제목 (편집 가능 → Setter 추가)
+    @Setter
+    private String name;
 
     @Column(name = "start_time")
     private LocalDateTime startTime;
@@ -46,6 +51,10 @@ public class ActivityCore {
 
     @Column(name = "avg_cadence")
     private Double avgCadence;
+
+    // ★ 최대 케이던스 (Avg/Max 테이블용)
+    @Column(name = "max_cadence")
+    private Double maxCadence;
 
     @Column(name = "avg_heart_rate")
     private Double avgHeartRate;
@@ -101,5 +110,13 @@ public class ActivityCore {
     @Column(name = "power_source")
     private String powerSource;
 
+    // ★ 출발지명 캐시 (Setter는 mapper에서 호출)
+    @Setter
+    @Column(name = "location_name")
+    private String locationName;
 
+    // ★ Strava 스타일 RE 점수 캐시 (Setter는 mapper에서 호출)
+    @Setter
+    @Column(name = "relative_effort")
+    private Integer relativeEffort;
 }
