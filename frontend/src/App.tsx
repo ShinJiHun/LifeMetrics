@@ -8,6 +8,7 @@ import ExerciseHistoryPage from "@/pages/health/ExerciseHistoryPage";
 import RidingRecordPage from "@/pages/riding/RidingRecordPage";
 import BrevePlanPage from "@/pages/plan/BrevePlanPage";
 import ActivityDetailPage from "@/pages/riding/ActivityDetailPage";
+import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 
 import "@/styles/global.css";
 
@@ -26,6 +27,7 @@ export default function App() {
                 <Route path="/plan/brevet" element={<BrevePlanPage />} />
                 <Route path="/plan/touring" element={<div style={{padding:24}}>🏕️ 투어링 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
+                <Route path="/persona" element={<PersonaChatPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

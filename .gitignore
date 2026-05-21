@@ -75,3 +75,11 @@ modeling/
 ### JVM crash logs ###
 hs_err_pid*.log
 replay_pid*.log
+
+### 페르소나 챗봇 (개인 PDF) ###
+backend/templates/*.pdf
+backend/src/main/resources/templates/*.pdf
+backend/bootrun.log
+
+### Claude Code 로컬 설정 ###
+.claude/

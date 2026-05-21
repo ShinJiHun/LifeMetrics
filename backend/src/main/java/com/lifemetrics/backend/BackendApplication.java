@@ -7,6 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class BackendApplication {
 
     public static void main(String[] args) {
+        // .env 는 backend/src/main/resources/.env 에 위치 (gitignored).
+        // spring-dotenv 기본 탐색 경로는 실행 작업 디렉터리(backend/)이므로 디렉터리를 지정한다.
+        System.setProperty("springdotenv.directory", "src/main/resources");
         SpringApplication.run(BackendApplication.class, args);
     }
 

@@ -166,7 +166,6 @@ export default function BodyRecordPage() {
                 ))}
             </div>
 
-            {/* 기록 없을 때 */}
             {!current ? (
                 <div
                     style={{

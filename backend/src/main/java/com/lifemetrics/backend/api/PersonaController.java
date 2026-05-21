@@ -1,0 +1,63 @@
+package com.lifemetrics.backend.api;
+
+import com.lifemetrics.backend.dto.PersonaChatRequest;
+import com.lifemetrics.backend.dto.PersonaChatResponse;
+import com.lifemetrics.backend.dto.PersonaRefreshResponse;
+import com.lifemetrics.backend.entity.PersonaProfile;
+import com.lifemetrics.backend.repository.BlogPostRepository;
+import com.lifemetrics.backend.service.BlogCrawlerService;
+import com.lifemetrics.backend.service.PersonaChatService;
+import com.lifemetrics.backend.service.PersonaProfileService;
+import com.lifemetrics.backend.service.ResumeService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/persona")
+@RequiredArgsConstructor
+public class PersonaController {
+
+    private final BlogCrawlerService blogCrawlerService;
+    private final PersonaProfileService personaProfileService;
+    private final PersonaChatService personaChatService;
+    private final BlogPostRepository blogPostRepository;
+    private final ResumeService resumeService;
+
+    /** 블로그 재크롤링 + 이력서 재로딩 + 페르소나 프로필 재생성 (수동 트리거). */
+    @PostMapping("/refresh")
+    public PersonaRefreshResponse refresh() {
+        int crawled = blogCrawlerService.crawlAll();
+        boolean resumeLoaded = resumeService.reload();
+        boolean profileGenerated = personaProfileService.regenerate();
+        String msg = "글 " + crawled + "개 수집"
+                + (resumeLoaded ? ", 이력서 로드됨" : ", 이력서 없음/미설정")
+                + (profileGenerated ? ", 페르소나 프로필 재생성 완료" : ", 프로필 생성 실패(글 없음 또는 API 키 미설정)");
+        return new PersonaRefreshResponse(crawled, profileGenerated, msg);
+    }
+
+    /** 블로그 페르소나와 멀티턴 대화. */
+    @PostMapping("/chat")
+    public PersonaChatResponse chat(@RequestBody PersonaChatRequest request) {
+        String reply = personaChatService.chat(request.getMessages());
+        return new PersonaChatResponse(reply);
+    }
+
+    /** 현재 적재 상태 확인. */
+    @GetMapping("/status")
+    public Map<String, Object> status() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("postCount", blogPostRepository.count());
+        Optional<PersonaProfile> profile = personaProfileService.getLatest();
+        result.put("profileGenerated", profile.isPresent());
+        result.put("profileGeneratedAt", profile.map(PersonaProfile::getGeneratedAt).orElse(null));
+        result.put("profilePostCount", profile.map(PersonaProfile::getPostCount).orElse(null));
+        result.put("resumeLoaded", resumeService.isLoaded());
+        result.put("resumePath", resumeService.getResolvedPath());
+        result.put("resumeChars", resumeService.getResumeText() == null ? 0 : resumeService.getResumeText().length());
+        return result;
+    }
+}

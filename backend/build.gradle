@@ -46,6 +46,12 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     implementation 'org.jsoup:jsoup:1.17.2'
+
+    // .env 파일을 Spring 프로퍼티로 로드 (Spring Boot 3 전용 아티팩트)
+    implementation 'me.paulschwarz:springboot3-dotenv:5.1.0'
+
+    // PDF 텍스트 추출 (페르소나 챗봇: 이력서 PDF 참조용)
+    implementation 'org.apache.pdfbox:pdfbox:3.0.4'
 }
 
 bootJar {

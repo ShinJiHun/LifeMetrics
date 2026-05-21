@@ -494,6 +494,30 @@ DROP TABLE IF EXISTS `v_user_body_stats`;
 CREATE ALGORITHM=UNDEFINED SQL SECURITY DEFINER VIEW `v_user_body_stats` AS select `ubr`.`user_id` AS `user_id`,`ubr`.`record_date` AS `record_date`,`ubr`.`weight` AS `weight`,`ubr`.`skeletal_muscle_mass` AS `skeletal_muscle_mass`,`ubr`.`body_fat_percentage` AS `body_fat_percentage`,`ubr`.`ecw_tbw_ratio` AS `ecw_tbw_ratio`,avg(`ubr`.`weight`) over ( partition by `ubr`.`user_id` order by `ubr`.`record_date` rows between 3 preceding  and  current row ) AS `weight_ma`,avg(`ubr`.`body_fat_percentage`) over ( partition by `ubr`.`user_id` order by `ubr`.`record_date` rows between 3 preceding  and  current row ) AS `body_fat_ma`,`ubr`.`weight` - lag(`ubr`.`weight`,1) over ( partition by `ubr`.`user_id` order by `ubr`.`record_date`) AS `weight_delta`,`ubr`.`body_fat_percentage` - lag(`ubr`.`body_fat_percentage`,1) over ( partition by `ubr`.`user_id` order by `ubr`.`record_date`) AS `body_fat_delta` from `user_body_record` `ubr`
 ;
 
+-- 테이블 riding_db.blog_post 구조 (페르소나 챗봇: 티스토리 글 적재)
+CREATE TABLE IF NOT EXISTS `blog_post` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `url` varchar(512) NOT NULL,
+  `post_no` int(11) DEFAULT NULL,
+  `title` varchar(512) DEFAULT NULL,
+  `content` longtext DEFAULT NULL,
+  `author` varchar(100) DEFAULT NULL,
+  `categories` varchar(512) DEFAULT NULL,
+  `published_at` datetime DEFAULT NULL,
+  `crawled_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_blog_post_url` (`url`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- 테이블 riding_db.persona_profile 구조 (페르소나 챗봇: LLM 생성 프로필 캐시, 최신 1건 사용)
+CREATE TABLE IF NOT EXISTS `persona_profile` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `profile_text` longtext NOT NULL,
+  `post_count` int(11) DEFAULT NULL,
+  `generated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;

@@ -8,9 +8,9 @@ parser:
 
 spring:
   datasource:
-    riding :
+    riding:
       url: jdbc:mariadb://34.172.162.148:3306/riding_db
-      username: ${DB_USERNAME}
+      username: ${DB_USER}
       password: ${DB_PASSWORD}
 
       driver-class-name: org.mariadb.jdbc.Driver
@@ -72,7 +72,8 @@ exercise:
     base-url: /gif/   # → /gif/CHEST_PRESS.gif (public 폴더)
 
 anthropic:
-  api-key: ${ANTHROPIC_API_KEY:}
+  # .env(backend/src/main/resources/.env)의 CLAUDE_KEY 사용. spring-dotenv 가 로드.
+  api-key: ${CLAUDE_KEY:}
 
 google:
   fitness:
@@ -89,6 +90,16 @@ windy:
   api-key: ${WINDY_API_KEY:}
   api-url: https://api.windy.com/api/point-forecast/v2
   model: gfs  # GFS 모델 (한국 커버리지 좋음)
+
+persona:
+  blog:
+    base-url: https://tho881.tistory.com
+    sitemap-path: /sitemap.xml
+    # 본문 셀렉터 후보(우선순위 순, 콤마 구분). 스킨 변경 시 여기만 조정.
+    content-selectors: "#article-view .tt_article_useless_p_margin,.tt_article_useless_p_margin,.area_view_content,.article_view"
+  resume:
+    # bootRun 작업 디렉터리(=backend/) 기준 상대 경로. 실제 PDF 를 backend/templates/resume.pdf 에 둘 것.
+    path: templates/resume.pdf
 
 app:
   base-url: http://localhost:5173
