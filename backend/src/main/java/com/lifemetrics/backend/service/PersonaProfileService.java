@@ -22,7 +22,7 @@ public class PersonaProfileService {
     private final BlogPostRepository blogPostRepository;
     private final PersonaProfileRepository personaProfileRepository;
     private final ClaudeClient claudeClient;
-    private final ResumeService resumeService;
+    private final PersonaDocService personaDocService;
 
     /** 프로필 생성 시 글 1개당 프롬프트에 넣을 본문 최대 길이. */
     private static final int PER_POST_CHARS = 1200;
@@ -46,10 +46,9 @@ public class PersonaProfileService {
         }
 
         StringBuilder corpus = new StringBuilder();
-        if (resumeService.isLoaded()) {
-            corpus.append("## (참고) 본인이 직접 작성한 이력서\n")
-                  .append(resumeService.getResumeText())
-                  .append("\n\n## 블로그 글 모음\n\n");
+        if (personaDocService.isAnyLoaded()) {
+            corpus.append(personaDocService.getCombinedText())
+                  .append("## 블로그 글 모음\n\n");
         }
         for (BlogPost p : posts) {
             corpus.append("### ").append(p.getTitle() == null ? "(제목 없음)" : p.getTitle()).append("\n");
@@ -62,24 +61,25 @@ public class PersonaProfileService {
         }
 
         String systemPrompt = """
-                당신은 한 사람의 이력서와 블로그 글 전체를 읽고 그 사람이 어떤 사람인지 정리하는 분석가입니다.
+                당신은 한 사람의 이력서·포트폴리오와 블로그 글 전체를 읽고 그 사람이 어떤 사람인지 정리하는 분석가입니다.
                 아래 자료를 근거로, 본인을 설명하는 "페르소나 프로필"을 작성하세요.
 
                 다음 항목을 마크다운 소제목으로 구성하세요:
                 - 한 줄 소개
-                - 경력 / 직무 (이력서 우선, 블로그 보조)
+                - 경력 / 직무 (이력서·포트폴리오 우선, 블로그 보조)
                 - 주요 관심사 / 전문 분야
                 - 기술 스택 / 학습 이력
+                - 대표 프로젝트 / 작업물 (포트폴리오 기반)
                 - 취미 / 라이프스타일 (운동, 자전거, 여행, 독서 등)
                 - 글쓰기 톤·성격이 드러나는 특징
                 - 대표적인 글 주제 5개 내외
 
-                이력서에 명시된 사실(회사·기간·직무)은 우선 신뢰하되, 블로그 글과 모순되면 둘 다 언급하세요.
+                이력서·포트폴리오에 명시된 사실(회사·기간·직무·프로젝트)은 우선 신뢰하되, 블로그 글과 모순되면 둘 다 언급하세요.
                 반드시 자료에 실제로 나타난 내용만 쓰고, 추측·과장하지 마세요. 한국어로 작성하세요.
                 """;
 
-        String userText = "다음은 글쓴이의 자료입니다 (이력서 "
-                + (resumeService.isLoaded() ? "포함" : "없음")
+        String userText = "다음은 글쓴이의 자료입니다 (본인 문서 "
+                + (personaDocService.isAnyLoaded() ? "포함" : "없음")
                 + ", 블로그 글 " + posts.size() + "개).\n\n" + corpus;
 
         String profileText = claudeClient.complete(systemPrompt, userText, MAX_TOKENS);

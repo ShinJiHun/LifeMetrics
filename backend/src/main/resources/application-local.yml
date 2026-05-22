@@ -97,9 +97,10 @@ persona:
     sitemap-path: /sitemap.xml
     # 본문 셀렉터 후보(우선순위 순, 콤마 구분). 스킨 변경 시 여기만 조정.
     content-selectors: "#article-view .tt_article_useless_p_margin,.tt_article_useless_p_margin,.area_view_content,.article_view"
-  resume:
-    # bootRun 작업 디렉터리(=backend/) 기준 상대 경로. 실제 PDF 를 backend/templates/resume.pdf 에 둘 것.
-    path: templates/resume.pdf
+  # 본인이 직접 작성한 PDF 문서 자동 스캔. 클래스패스(=src/main/resources)의 templates/*.pdf 전부 로드.
+  # PDF 를 src/main/resources/templates/ 아래에 두기만 하면 추가/삭제됨(코드·설정 변경 불필요).
+  docs:
+    location: "classpath*:templates/*.pdf"
 
 app:
   base-url: http://localhost:5173

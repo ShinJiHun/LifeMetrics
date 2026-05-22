@@ -25,7 +25,7 @@ public class PersonaChatService {
     private final BlogPostRepository blogPostRepository;
     private final PersonaProfileService personaProfileService;
     private final ClaudeClient claudeClient;
-    private final ResumeService resumeService;
+    private final PersonaDocService personaDocService;
 
     private static final int MAX_HISTORY = 20;
     private static final int TOP_K = 4;
@@ -67,22 +67,20 @@ public class PersonaChatService {
     private String buildSystemPrompt(String query) {
         StringBuilder sb = new StringBuilder();
         sb.append("""
-                당신은 한 사람의 "페르소나 비서"입니다. 아래 이력서, 페르소나 프로필, 블로그 글 발췌를
+                당신은 한 사람의 "페르소나 비서"입니다. 아래 본인 문서(이력서·포트폴리오 등), 페르소나 프로필, 블로그 글 발췌를
                 근거로 이 사람이 어떤 사람인지 방문자에게 친절하고 자연스럽게 설명하세요.
 
                 규칙:
-                - 반드시 아래 제공된 정보(이력서/프로필/글 발췌)에 근거해서만 답하세요. 모르면 "그 내용은 자료에 없네요"라고 솔직히 말하세요.
-                - 경력·직무·소속 같은 사실관계 질문은 이력서를 우선 인용하세요. 관심사·취미·생각은 블로그 글을 인용하세요.
+                - 반드시 아래 제공된 정보(본인 문서/프로필/글 발췌)에 근거해서만 답하세요. 모르면 "그 내용은 자료에 없네요"라고 솔직히 말하세요.
+                - 경력·직무·소속·프로젝트 같은 사실관계 질문은 이력서·포트폴리오를 우선 인용하세요. 관심사·취미·생각은 블로그 글을 인용하세요.
                 - 추측·과장·없는 사실 생성 금지.
                 - 자연스러운 대화체(정중체 "~합니다/~네요"). JSON·마크다운 표 금지.
                 - 답변은 보통 2~5문장으로 간결하게. 관련 블로그 글이 있으면 글 제목을 자연스럽게 언급해도 좋습니다.
 
                 """);
 
-        if (resumeService.isLoaded()) {
-            sb.append("## 이력서 (본인이 직접 작성)\n")
-              .append(resumeService.getResumeText())
-              .append("\n\n");
+        if (personaDocService.isAnyLoaded()) {
+            sb.append(personaDocService.getCombinedText());
         }
 
         Optional<PersonaProfile> profile = personaProfileService.getLatest();

@@ -7,8 +7,8 @@ import com.lifemetrics.backend.entity.PersonaProfile;
 import com.lifemetrics.backend.repository.BlogPostRepository;
 import com.lifemetrics.backend.service.BlogCrawlerService;
 import com.lifemetrics.backend.service.PersonaChatService;
+import com.lifemetrics.backend.service.PersonaDocService;
 import com.lifemetrics.backend.service.PersonaProfileService;
-import com.lifemetrics.backend.service.ResumeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,16 +25,16 @@ public class PersonaController {
     private final PersonaProfileService personaProfileService;
     private final PersonaChatService personaChatService;
     private final BlogPostRepository blogPostRepository;
-    private final ResumeService resumeService;
+    private final PersonaDocService personaDocService;
 
     /** 블로그 재크롤링 + 이력서 재로딩 + 페르소나 프로필 재생성 (수동 트리거). */
     @PostMapping("/refresh")
     public PersonaRefreshResponse refresh() {
         int crawled = blogCrawlerService.crawlAll();
-        boolean resumeLoaded = resumeService.reload();
+        boolean docsLoaded = personaDocService.reload();
         boolean profileGenerated = personaProfileService.regenerate();
         String msg = "글 " + crawled + "개 수집"
-                + (resumeLoaded ? ", 이력서 로드됨" : ", 이력서 없음/미설정")
+                + (docsLoaded ? ", 본인 문서(이력서/포트폴리오) 로드됨" : ", 본인 문서 없음/미설정")
                 + (profileGenerated ? ", 페르소나 프로필 재생성 완료" : ", 프로필 생성 실패(글 없음 또는 API 키 미설정)");
         return new PersonaRefreshResponse(crawled, profileGenerated, msg);
     }
@@ -55,9 +55,8 @@ public class PersonaController {
         result.put("profileGenerated", profile.isPresent());
         result.put("profileGeneratedAt", profile.map(PersonaProfile::getGeneratedAt).orElse(null));
         result.put("profilePostCount", profile.map(PersonaProfile::getPostCount).orElse(null));
-        result.put("resumeLoaded", resumeService.isLoaded());
-        result.put("resumePath", resumeService.getResolvedPath());
-        result.put("resumeChars", resumeService.getResumeText() == null ? 0 : resumeService.getResumeText().length());
+        result.put("docsLoaded", personaDocService.isAnyLoaded());
+        result.put("docs", personaDocService.getStatusList());
         return result;
     }
 }
