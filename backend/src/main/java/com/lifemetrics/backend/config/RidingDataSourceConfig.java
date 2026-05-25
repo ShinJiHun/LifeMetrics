@@ -18,7 +18,10 @@ import javax.sql.DataSource;
 import java.util.Properties;
 
 @Configuration
-@EnableJpaRepositories(basePackages = "com.lifemetrics.backend", excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.lifemetrics\\.backend\\.lotto\\..*" ), entityManagerFactoryRef = "ridingEntityManagerFactory", transactionManagerRef = "ridingTransactionManager")
+@EnableJpaRepositories(basePackages = "com.lifemetrics.backend", excludeFilters = {
+        @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.lifemetrics\\.backend\\.lotto\\..*"),
+        @ComponentScan.Filter(type = FilterType.REGEX, pattern = "com\\.lifemetrics\\.backend\\.persona\\..*")
+}, entityManagerFactoryRef = "ridingEntityManagerFactory", transactionManagerRef = "ridingTransactionManager")
 public class RidingDataSourceConfig {
 
     @Primary

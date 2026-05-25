@@ -1,7 +1,7 @@
 package com.lifemetrics.backend.service;
 
-import com.lifemetrics.backend.entity.BlogPost;
-import com.lifemetrics.backend.repository.BlogPostRepository;
+import com.lifemetrics.backend.persona.entity.BlogPost;
+import com.lifemetrics.backend.persona.repository.BlogPostRepository;
 import lombok.RequiredArgsConstructor;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -49,7 +49,7 @@ public class BlogCrawlerService {
     /**
      * 전체 글을 크롤링해 upsert. 수집된(또는 갱신된) 글 수를 반환.
      */
-    @Transactional
+    @Transactional("journalTransactionManager")
     public int crawlAll() {
         List<String> postUrls = collectPostUrls();
         Pattern postNoPattern = Pattern.compile(".*/(\\d+)$");

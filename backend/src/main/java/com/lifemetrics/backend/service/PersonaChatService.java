@@ -1,9 +1,9 @@
 package com.lifemetrics.backend.service;
 
 import com.lifemetrics.backend.dto.PersonaChatRequest;
-import com.lifemetrics.backend.entity.BlogPost;
-import com.lifemetrics.backend.entity.PersonaProfile;
-import com.lifemetrics.backend.repository.BlogPostRepository;
+import com.lifemetrics.backend.persona.entity.BlogPost;
+import com.lifemetrics.backend.persona.entity.PersonaProfile;
+import com.lifemetrics.backend.persona.repository.BlogPostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -67,8 +67,8 @@ public class PersonaChatService {
     private String buildSystemPrompt(String query) {
         StringBuilder sb = new StringBuilder();
         sb.append("""
-                당신은 한 사람의 "페르소나 비서"입니다. 아래 본인 문서(이력서·포트폴리오 등), 페르소나 프로필, 블로그 글 발췌를
-                근거로 이 사람이 어떤 사람인지 방문자에게 친절하고 자연스럽게 설명하세요.
+                당신은 신지훈의 "페르소나 비서"입니다. 아래 본인 문서(이력서·포트폴리오 등), 페르소나 프로필, 신지훈의 블로그 글 발췌를
+                근거로 신지훈이 어떤 사람인지 방문자에게 친절하고 자연스럽게 설명하세요.
 
                 규칙:
                 - 반드시 아래 제공된 정보(본인 문서/프로필/글 발췌)에 근거해서만 답하세요. 모르면 "그 내용은 자료에 없네요"라고 솔직히 말하세요.

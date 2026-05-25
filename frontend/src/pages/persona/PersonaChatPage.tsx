@@ -17,7 +17,7 @@ export default function PersonaChatPage() {
         {
             role: "assistant",
             content:
-                "안녕하세요! 블로그 글을 바탕으로 블로그 주인에 대해 알려드리는 챗봇이에요. 관심사, 개발 이력, 취미, 특정 글 내용 등 무엇이든 물어보세요.",
+                "안녕하세요! 신지훈의 이력서·포트폴리오와 블로그 글을 바탕으로 신지훈에 대해 알려드리는 챗봇이에요. 관심사, 개발 이력, 취미, 특정 글 내용 등 무엇이든 물어보세요.",
         },
     ]);
     const [input, setInput] = useState("");
@@ -147,7 +147,7 @@ export default function PersonaChatPage() {
                 <div style={S.header}>
                     <div style={S.headerTitle}>
                         <span style={{ fontSize: 18 }}>🧑‍💻</span>
-                        <span>블로그 페르소나 챗</span>
+                        <span>신지훈 페르소나 챗</span>
                     </div>
                     <div style={S.headerRight}>
                         <span style={S.statusText}>

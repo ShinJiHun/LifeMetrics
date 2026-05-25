@@ -57,7 +57,7 @@ export default function SideBar() {
         <h3 style={{ marginTop: 24 }}>🤖 AI</h3>
         <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <NavLink to="/persona" style={linkStyle}>
-            🧑‍💻 블로그 페르소나 챗
+            🧑‍💻 신지훈 페르소나 챗
           </NavLink>
         </nav>
       </aside>
