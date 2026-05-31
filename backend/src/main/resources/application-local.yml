@@ -9,14 +9,14 @@ parser:
 spring:
   config:
     import: optional:classpath:.env[.properties]
+
   datasource:
+    # LifeMetrics 메인 DB (운동/건강/라이딩/페르소나)
     riding:
       url: jdbc:mariadb://localhost:3307/riding_db
       username: ${DB_USER}
       password: ${DB_PASSWORD}
-
       driver-class-name: org.mariadb.jdbc.Driver
-
       hikari:
         maximum-pool-size: 10
         minimum-idle: 2
@@ -24,8 +24,9 @@ spring:
         idle-timeout: 600000
         max-lifetime: 1800000
 
+    # Journal DB (같은 인스턴스, 다른 스키마)
     journal:
-      url: jdbc:mariadb://localhost:3307/riding_db
+      url: jdbc:mariadb://localhost:3307/journal_db
       username: ${DB_USER}
       password: ${DB_PASSWORD}
       driver-class-name: org.mariadb.jdbc.Driver
@@ -58,8 +59,8 @@ spring:
       client:
         registration:
           google:
-            client-id: 963024529670-769djp6j8pv6hn2eetaci3nveaq7f10p.apps.googleusercontent.com
-            client-secret: ${GOOGLE_CLIENT_SECRET} # 끝에 's' 제거
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - https://www.googleapis.com/auth/fitness.nutrition.read
               - https://www.googleapis.com/auth/fitness.body.read
@@ -69,7 +70,7 @@ spring:
           google:
             authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
             token-uri: https://oauth2.googleapis.com/token
-            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo # 끝에 'o' 추가
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
 
 logging:
   level:
@@ -83,7 +84,7 @@ inbody:
 exercise:
   gif:
     path: /tmp/exercise-gifs/   # 로컬은 안 씀
-    base-url: /gif/   # → /gif/CHEST_PRESS.gif (public 폴더)
+    base-url: /gif/             # → /gif/CHEST_PRESS.gif (public 폴더)
 
 anthropic:
   # .env(backend/src/main/resources/.env)의 ANTHROPIC_API_KEY 사용. spring-dotenv 가 로드.
@@ -118,4 +119,3 @@ persona:
 
 app:
   base-url: http://localhost:5173
-

@@ -1,5 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
+export interface GearContext {
+    bikeId: number;
+    bikeLabel?: string;
+    chainring?: string;
+    cassette?: string;
+    tire?: string;
+    etc?: Record<string, string>;
+}
+
 export interface Activity {
     id: number;
     filename: string;
@@ -19,6 +28,7 @@ export interface Activity {
     avgPower?: number;
     avgCadence?: number;
     calories?: number;
+    gearContext?: GearContext;
 }
 
 export async function fetchActivities(userId = 1): Promise<Activity[]> {

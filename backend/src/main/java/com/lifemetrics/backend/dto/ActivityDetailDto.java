@@ -63,6 +63,9 @@ public class ActivityDetailDto {
     // 장비
     private String gearName;
 
+    // 자전거 / 구동계 (활동일 기준 effective 컴포넌트)
+    private GearContext gearContext;
+
     // 날씨
     private WeatherDto weather;
 

@@ -49,7 +49,7 @@ function ActivityCard({activity, selected, onClick}: {
             <div className="activity-header">
                 <div className="activity-date">{formatDate(activity.startTime)}</div>
                 <div style={{display: "flex", alignItems: "center", gap: 8}}>
-                    <div className="activity-gear">{activity.gearName || ""}</div>
+                    <div className="activity-gear">{activity.gearContext?.bikeLabel || activity.gearName || ""}</div>
                     <button
                         style={{
                             padding: "3px 10px",
@@ -94,6 +94,36 @@ function ActivityCard({activity, selected, onClick}: {
                     <span className="stat-label">m 획득고도</span>
                 </div>
             </div>
+            {/* 구동계 (활동일 기준 effective) */}
+            {activity.gearContext && (activity.gearContext.chainring || activity.gearContext.cassette || activity.gearContext.tire) && (
+                <div
+                    style={{
+                        display: "flex",
+                        gap: 10,
+                        padding: "6px 10px",
+                        margin: "6px 0",
+                        fontSize: 11,
+                        color: "#cbd5e1",
+                        background: "#0f172a",
+                        border: "1px solid #1e293b",
+                        borderRadius: 6,
+                        flexWrap: "wrap",
+                    }}
+                >
+                    {activity.gearContext.chainring && (
+                        <span><span style={{color: "#64748b"}}>체인링</span> {activity.gearContext.chainring}</span>
+                    )}
+                    {activity.gearContext.cassette && (
+                        <span><span style={{color: "#64748b"}}>카세트</span> {activity.gearContext.cassette}</span>
+                    )}
+                    {activity.gearContext.tire && (
+                        <span><span style={{color: "#64748b"}}>타이어</span> {activity.gearContext.tire}</span>
+                    )}
+                    {activity.gearContext.etc && Object.entries(activity.gearContext.etc).map(([k, v]) => (
+                        <span key={k}><span style={{color: "#64748b"}}>{k}</span> {v}</span>
+                    ))}
+                </div>
+            )}
             {/* 하단 2열 */}
             <div className="activity-stats-grid">
                 <div className="stat-cell">

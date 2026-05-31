@@ -47,4 +47,7 @@ public class ActivitySummaryDto {
 
     // ★ 날씨 (요약 페이지에서도 보여주려면 추가)
     private WeatherDto weather;
+
+    // 자전거 / 구동계 (활동일 기준 effective 컴포넌트)
+    private GearContext gearContext;
 }

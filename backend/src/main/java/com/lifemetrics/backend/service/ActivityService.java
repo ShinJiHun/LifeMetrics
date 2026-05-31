@@ -33,6 +33,7 @@ public class ActivityService {
     private final SegmentEffortRepository segmentEffortRepository;
     private final SegmentRepository segmentRepository;
     private final ActivityDetailMapper detailMapper;
+    private final GearResolveService gearResolveService;
 
     private static final int DEFAULT_RESTING_HR = 60;
     private static final int DEFAULT_MAX_HR = 190;
@@ -69,6 +70,7 @@ public class ActivityService {
 
         List<ActivityPoint> points = pointRepository.findByActivityCoreIdOrderBySeqAsc(id);
         ActivityWeather weather = weatherRepository.findByActivityCoreId(id).orElse(null);
+        GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime());
 
         return ActivityDetailDto.builder()
                 .id(core.getId())
@@ -99,6 +101,7 @@ public class ActivityService {
                 .endLon(core.getEndLon())
                 .polyline(core.getPolyline())
                 .gearName(core.getGearName())
+                .gearContext(gearContext)
                 .locationName(core.getLocationName())
                 .relativeEffort(core.getRelativeEffort())
                 .weather(weather != null ? toWeatherDto(weather) : null)
@@ -248,6 +251,7 @@ public class ActivityService {
         WeatherDto weather = weatherRepository.findByActivityCoreId(core.getId())
                 .map(this::toWeatherDto)
                 .orElse(null);
+        GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime());
 
         return ActivitySummaryDto.builder()
                 .id(core.getId())
@@ -279,6 +283,7 @@ public class ActivityService {
                 .locationName(core.getLocationName())
                 .relativeEffort(core.getRelativeEffort())
                 .weather(weather)
+                .gearContext(gearContext)
                 .build();
     }
 

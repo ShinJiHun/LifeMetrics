@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import {useEffect, useRef, useState } from "react";
+import {useTts} from "@/hooks/useTts.ts";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -25,6 +26,8 @@ export default function PersonaChatPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [status, setStatus] = useState<PersonaStatus | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const { supported: ttsSupported, speaking, speak, stop } = useTts();
+    const [ttsEnabled, setTtsEnabled] = useState(false);
 
     const loadStatus = async () => {
         try {
@@ -78,6 +81,7 @@ export default function PersonaChatPage() {
     const handleSend = async () => {
         const text = input.trim();
         if (!text || sending) return;
+        stop(); // 진행 중인 읽기 중단
 
         const userMsg: ChatMessage = { role: "user", content: text };
         const nextHistory = [...messages, userMsg];
@@ -110,10 +114,9 @@ export default function PersonaChatPage() {
             }
 
             const data = await res.json();
-            setMessages(prev => [
-                ...prev,
-                { role: "assistant", content: data.reply || "(빈 응답)" },
-            ]);
+            const reply = data.reply || "(빈 응답)";
+            setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+            if (ttsEnabled) speak(reply); // 자동 읽기 (전송 제스처 직후라 autoplay 정책 통과)
         } catch (e) {
             console.error("[페르소나 채팅 네트워크 에러]", e);
             setMessages(prev => [
@@ -155,6 +158,26 @@ export default function PersonaChatPage() {
                                 ? `글 ${status.postCount}개 · 프로필 ${status.profileGenerated ? "생성됨" : "없음"}`
                                 : "상태 확인 중…"}
                         </span>
+
+                        {ttsSupported && (
+                            <button
+                                onClick={() => {
+                                    const n = !ttsEnabled;
+                                    setTtsEnabled(n);
+                                    if (!n) stop();
+                                }}
+                                style={{ ...S.refreshBtn, ...(ttsEnabled ? S.ttsOn : {}) }}
+                                title="응답 자동 읽기"
+                            >
+                                {ttsEnabled ? "🔊 읽기 켜짐" : "🔇 읽기 꺼짐"}
+                            </button>
+                        )}
+                        {speaking && (
+                            <button onClick={stop} style={S.refreshBtn} title="읽기 정지">
+                                ⏹ 정지
+                            </button>
+                        )}
+
                         <button
                             onClick={handleRefresh}
                             disabled={refreshing}
@@ -183,6 +206,15 @@ export default function PersonaChatPage() {
                             >
                                 {m.content}
                             </div>
+                            {ttsSupported && m.role === "assistant" && (
+                                <button
+                                    onClick={() => speak(m.content)}
+                                    style={S.speakBtn}
+                                    title="이 답변 읽기"
+                                >
+                                    🔊
+                                </button>
+                            )}
                         </div>
                     ))}
                     {sending && (
