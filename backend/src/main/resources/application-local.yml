@@ -1,6 +1,9 @@
 # application-local.yml
 server:
   port: 8080
+  tomcat:
+    accesslog:
+      check-exists: false
 
 parser:
   api:
@@ -90,6 +93,15 @@ anthropic:
   # .env(backend/src/main/resources/.env)의 ANTHROPIC_API_KEY 사용. spring-dotenv 가 로드.
   api-key: ${ANTHROPIC_API_KEY:}
 
+typecast:
+  # Typecast TTS. 키 미설정이면 /api/tts 가 503 → 프론트는 조용히 재생 스킵(브라우저 기본동작 영향 없음).
+  api-key: ${TYPECAST_API_KEY:}
+  base-url: https://api.typecast.ai
+  model: ssfm-v30            # 최신 모델(권장). 안정버전은 ssfm-v21
+  voice:
+    persona: ${TYPECAST_VOICE_PERSONA:}   # GET /v2/voices 에서 고른 tc_xxxx
+    riding:  ${TYPECAST_VOICE_RIDING:}    # tc_xxxx
+
 google:
   fitness:
     api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
@@ -110,12 +122,26 @@ persona:
   blog:
     base-url: https://tho881.tistory.com
     sitemap-path: /sitemap.xml
-    # 본문 셀렉터 후보(우선순위 순, 콤마 구분). 스킨 변경 시 여기만 조정.
     content-selectors: "#article-view .tt_article_useless_p_margin,.tt_article_useless_p_margin,.area_view_content,.article_view"
-  # 본인이 직접 작성한 PDF 문서 자동 스캔. 클래스패스(=src/main/resources)의 templates/*.pdf 전부 로드.
-  # PDF 를 src/main/resources/templates/ 아래에 두기만 하면 추가/삭제됨(코드·설정 변경 불필요).
   docs:
     location: "classpath*:templates/*.pdf"
 
 app:
   base-url: http://localhost:5173
+
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  model: gemini-2.5-flash   # AI Studio 모델 목록에서 현재 Flash ID 확인 후 설정
+
+gcp:
+  tts:
+    language-code: ko-KR
+    audio-encoding: LINEAR16          # 용량 줄이려면 MP3 (컨트롤러 Content-Type=audio/mpeg)
+    voice:
+      persona: ko-KR-Chirp3-HD-Kore   # 여성
+      riding:  ko-KR-Chirp3-HD-Charon # 남성
+
+vertex:
+  project-id: ridingwebapplication
+  location: global
+  model: gemini-2.5-flash

@@ -1,9 +1,12 @@
 import {useEffect, useRef, useState} from "react";
+import {useTts} from "@/hooks/useTts.ts";
 
 interface ChatMessage {
     role: "user" | "assistant";
     content: string;
 }
+
+type ChatMode = "text" | "voice";
 
 interface Props {
     activityId: number;
@@ -12,6 +15,8 @@ interface Props {
 
 export default function ActivityChatPopover({activityId, userId = 1}: Props) {
     const [open, setOpen] = useState(false);
+    const {supported: ttsSupported, speaking, speak, stop} = useTts('riding');
+    const [mode, setMode] = useState<ChatMode>("text");
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             role: "assistant",
@@ -33,9 +38,16 @@ export default function ActivityChatPopover({activityId, userId = 1}: Props) {
         if (open && inputRef.current) inputRef.current.focus();
     }, [open]);
 
+    // 텍스트 모드로 전환되면 진행 중인 읽기 중단
+    const switchMode = (next: ChatMode) => {
+        setMode(next);
+        if (next === "text") stop();
+    };
+
     const handleSend = async () => {
         const text = input.trim();
         if (!text || sending) return;
+        stop(); // 진행 중인 읽기 중단
 
         const userMsg: ChatMessage = {role: "user", content: text};
         const nextHistory = [...messages, userMsg];
@@ -68,10 +80,13 @@ export default function ActivityChatPopover({activityId, userId = 1}: Props) {
             }
 
             const data = await res.json();
+            const reply = data.reply || "(빈 응답)";
             setMessages(prev => [...prev, {
                 role: "assistant",
-                content: data.reply || "(빈 응답)",
+                content: reply,
             }]);
+            // 보이스 버전일 때만 자동 읽기 (전송 제스처 직후라 autoplay 정책 통과)
+            if (mode === "voice" && ttsSupported) speak(reply);
         } catch (e) {
             console.error("[채팅 네트워크 에러]", e);
             setMessages(prev => [...prev, {
@@ -133,7 +148,38 @@ export default function ActivityChatPopover({activityId, userId = 1}: Props) {
                             <span style={S.headerIcon}>🤖</span>
                             <span>라이딩 코치 챗</span>
                         </div>
-                        <button onClick={() => setOpen(false)} style={S.closeBtn}>×</button>
+                        <div style={S.headerRight}>
+                            {speaking && (
+                                <button onClick={stop} style={S.ttsBtn} title="읽기 정지">⏹</button>
+                            )}
+                            <button onClick={() => setOpen(false)} style={S.closeBtn}>×</button>
+                        </div>
+                    </div>
+
+                    {/* 모드 탭 */}
+                    <div style={S.tabBar} role="tablist">
+                        <button
+                            role="tab"
+                            aria-selected={mode === "text"}
+                            onClick={() => switchMode("text")}
+                            style={{...S.tab, ...(mode === "text" ? S.tabActive : {})}}
+                        >
+                            💬 텍스트 버전
+                        </button>
+                        <button
+                            role="tab"
+                            aria-selected={mode === "voice"}
+                            onClick={() => switchMode("voice")}
+                            disabled={!ttsSupported}
+                            title={ttsSupported ? "답변과 동시에 음성으로 읽어줍니다" : "이 브라우저는 음성 합성을 지원하지 않습니다"}
+                            style={{
+                                ...S.tab,
+                                ...(mode === "voice" ? S.tabActive : {}),
+                                ...(!ttsSupported ? S.tabDisabled : {}),
+                            }}
+                        >
+                            🔊 보이스 버전
+                        </button>
                     </div>
 
                     <div ref={scrollRef} className="lm-chat-scroll" style={S.messageList}>
@@ -153,6 +199,16 @@ export default function ActivityChatPopover({activityId, userId = 1}: Props) {
                                 >
                                     {m.content}
                                 </div>
+                                {/* 보이스 버전에서만 답변별 수동 읽기 버튼 노출 */}
+                                {mode === "voice" && ttsSupported && m.role === "assistant" && (
+                                    <button
+                                        onClick={() => speak(m.content)}
+                                        style={S.speakBtn}
+                                        title="이 답변 읽기"
+                                    >
+                                        🔊
+                                    </button>
+                                )}
                             </div>
                         ))}
                         {sending && (
@@ -257,6 +313,11 @@ const S: Record<string, React.CSSProperties> = {
     headerIcon: {
         fontSize: 16,
     },
+    headerRight: {
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+    },
     closeBtn: {
         background: "transparent",
         border: "none",
@@ -265,6 +326,46 @@ const S: Record<string, React.CSSProperties> = {
         lineHeight: 1,
         cursor: "pointer",
         padding: "0 4px",
+    },
+    tabBar: {
+        display: "flex",
+        borderBottom: "1px solid #334155",
+        background: "#1e293b",
+    },
+    tab: {
+        flex: 1,
+        padding: "10px 0",
+        background: "transparent",
+        border: "none",
+        borderBottom: "2px solid transparent",
+        color: "#94a3b8",
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        transition: "color 0.15s, border-color 0.15s, background 0.15s",
+    },
+    tabActive: {
+        color: "#f1f5f9",
+        borderBottom: "2px solid #6366f1",
+        background: "linear-gradient(135deg, rgba(37,99,235,0.12), rgba(99,102,241,0.12))",
+    },
+    tabDisabled: {
+        opacity: 0.4,
+        cursor: "not-allowed",
+    },
+    ttsBtn: {
+        background: "transparent",
+        border: "1px solid #334155",
+        borderRadius: 8,
+        color: "#cbd5e1",
+        fontSize: 13,
+        cursor: "pointer",
+        padding: "3px 7px",
+        lineHeight: 1,
     },
     messageList: {
         flex: 1,
@@ -277,6 +378,7 @@ const S: Record<string, React.CSSProperties> = {
     messageRow: {
         display: "flex",
         width: "100%",
+        alignItems: "flex-end",
     },
     bubble: {
         maxWidth: "85%",
@@ -297,6 +399,15 @@ const S: Record<string, React.CSSProperties> = {
         color: "#e2e8f0",
         border: "1px solid #334155",
         borderBottomLeftRadius: 4,
+    },
+    speakBtn: {
+        background: "transparent",
+        border: "none",
+        color: "#64748b",
+        fontSize: 13,
+        cursor: "pointer",
+        padding: "0 4px",
+        alignSelf: "flex-end",
     },
     typingBubble: {
         display: "flex",

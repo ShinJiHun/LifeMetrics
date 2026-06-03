@@ -26,7 +26,7 @@ export default function PersonaChatPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [status, setStatus] = useState<PersonaStatus | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const { supported: ttsSupported, speaking, speak, stop } = useTts();
+    const { supported: ttsSupported, speaking, speak, stop } = useTts('persona');
     const [ttsEnabled, setTtsEnabled] = useState(false);
 
     const loadStatus = async () => {
@@ -386,5 +386,19 @@ const S: Record<string, React.CSSProperties> = {
         fontSize: 14,
         fontWeight: 600,
         flexShrink: 0,
+    },speakBtn: {
+        background: "transparent",
+        border: "none",
+        color: "#94a3b8",
+        cursor: "pointer",
+        fontSize: 14,
+        padding: "0 6px",
+        alignSelf: "center",
+        flexShrink: 0,
+    },
+    ttsOn: {
+        background: "linear-gradient(135deg,#2563eb,#6366f1)",
+        color: "#fff",
+        borderColor: "transparent",
     },
 };

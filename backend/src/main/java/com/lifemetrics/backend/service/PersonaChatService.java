@@ -17,6 +17,8 @@ import java.util.Optional;
  * 블로그 글 기반 페르소나 챗. 임베딩 대신,
  * 캐시된 페르소나 프로필 + 질문과 키워드가 겹치는 상위 글 본문을 프롬프트에 주입한다.
  * 글 수가 적어(~50개) in-memory 점수화로 충분하다.
+ *
+ * LLM 호출은 Vertex(Gemini). 개인 문서/블로그를 다루므로 입력을 학습에 쓰지 않는 Vertex가 적합.
  */
 @Service
 @RequiredArgsConstructor
@@ -24,17 +26,18 @@ public class PersonaChatService {
 
     private final BlogPostRepository blogPostRepository;
     private final PersonaProfileService personaProfileService;
-    private final ClaudeClient claudeClient;
+    private final GeminiService geminiService;          // ✅ ClaudeClient 대체
     private final PersonaDocService personaDocService;
 
     private static final int MAX_HISTORY = 20;
     private static final int TOP_K = 4;
     private static final int PER_POST_CHARS = 1500;
-    private static final int MAX_TOKENS = 1024;
+    // thinking 모델(2.5/3.x Flash)은 내부 사고에도 출력 토큰을 소비하므로 여유있게.
+    private static final int MAX_TOKENS = 2048;
 
     public String chat(List<PersonaChatRequest.Message> messages) {
-        if (!claudeClient.hasApiKey()) {
-            return "API 키가 설정되지 않았습니다.";
+        if (!geminiService.hasApiKey()) {
+            return "AI 서비스가 설정되지 않았습니다. (ADC / Vertex 프로젝트 확인 필요)";
         }
         if (messages == null || messages.isEmpty()) {
             return "메시지가 비어 있습니다.";
@@ -50,17 +53,29 @@ public class PersonaChatService {
 
         String systemPrompt = buildSystemPrompt(lastUserMessage);
 
-        List<Map<String, String>> apiMessages = new ArrayList<>();
+        // 최근 MAX_HISTORY개만 사용해 GeminiService.ChatMessage 로 변환
+        List<GeminiService.ChatMessage> history = new ArrayList<>();
         int start = Math.max(0, messages.size() - MAX_HISTORY);
         for (int i = start; i < messages.size(); i++) {
             PersonaChatRequest.Message m = messages.get(i);
-            String role = "assistant".equalsIgnoreCase(m.getRole()) ? "assistant" : "user";
             String content = m.getContent() == null ? "" : m.getContent();
-            apiMessages.add(Map.of("role", role, "content", content));
+            if (content.isBlank()) continue;
+            // role 은 그대로 전달. assistant→model 매핑은 GeminiService 내부에서 처리.
+            history.add(new GeminiService.ChatMessage(m.getRole(), content));
         }
 
-        String reply = claudeClient.complete(systemPrompt, apiMessages, MAX_TOKENS);
-        return reply != null ? reply
+        // Gemini는 contents가 user 턴으로 시작해야 한다. 앞에 붙은 assistant 턴은 제거.
+        while (!history.isEmpty()
+                && ("assistant".equalsIgnoreCase(history.get(0).role())
+                || "model".equalsIgnoreCase(history.get(0).role()))) {
+            history.remove(0);
+        }
+        if (history.isEmpty()) {
+            return "질문 메시지가 없습니다.";
+        }
+
+        String reply = geminiService.chat(systemPrompt, history, MAX_TOKENS);
+        return (reply != null && !reply.isBlank()) ? reply
                 : "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
     }
 
@@ -86,8 +101,8 @@ public class PersonaChatService {
         Optional<PersonaProfile> profile = personaProfileService.getLatest();
         if (profile.isPresent()) {
             sb.append("## 페르소나 프로필\n")
-              .append(profile.get().getProfileText())
-              .append("\n\n");
+                    .append(profile.get().getProfileText())
+                    .append("\n\n");
         } else {
             sb.append("## 페르소나 프로필\n(아직 생성되지 않음 - /api/persona/refresh 필요)\n\n");
         }
