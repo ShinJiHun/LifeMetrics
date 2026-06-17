@@ -1,18 +1,12 @@
-// hooks/useTts.ts
-// 브라우저 기본 음성합성(speechSynthesis) 대신 서버(Typecast) 합성 오디오를 재생한다.
-// 백엔드 POST /api/tts { text, voice } → audio/wav 바이트를 받아 <audio>로 직렬 재생.
-// 키/보이스 미설정 시 백엔드가 503을 주므로 재생만 조용히 스킵된다(에러 노출 없음).
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type TtsVoice = 'persona' | 'riding';
 
-// Typecast text 상한(2000자)과 체감 지연을 고려해 문장 단위로 잘라 순차 재생한다.
 const MAX_CHUNK = 1500;
 
 function chunkText(text: string, maxLen = MAX_CHUNK): string[] {
     const normalized = text.replace(/\s+/g, ' ').trim();
     if (!normalized) return [];
-    // 한국어/영문 문장부호 기준 분할(마침표·물음표·느낌표·…·。)
     const sentences = normalized.match(/[^.!?。…]+[.!?。…]?/g) ?? [normalized];
     const chunks: string[] = [];
     let cur = '';
@@ -102,7 +96,6 @@ export function useTts(voice: TtsVoice = 'persona') {
         finish();
     }, [revokeUrl, finish]);
 
-    // 언마운트 시 정리
     useEffect(() => () => {
         stoppedRef.current = true;
         if (audioRef.current) audioRef.current.pause();
