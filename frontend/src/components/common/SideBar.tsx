@@ -1,78 +1,140 @@
-import {NavLink} from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
-const linkStyle = ({isActive}: { isActive: boolean }) => ({
+type Persona = "athlete" | "developer" | "human";
+
+// 현재 경로로 페르소나 판별
+function resolvePersona(pathname: string): Persona {
+    if (pathname.startsWith("/developer") || pathname.startsWith("/persona")) return "developer";
+    if (pathname.startsWith("/human")) return "human";
+    return "athlete";
+}
+
+const PERSONA_META: Record<Persona, { emoji: string; title: string; accent: string }> = {
+    athlete: { emoji: "🚴", title: "애슐리트 신지훈", accent: "#2563eb" },
+    developer: { emoji: "👨‍💻", title: "개발자 신지훈", accent: "#6366f1" },
+    human: { emoji: "🌱", title: "인간 신지훈", accent: "#16a34a" },
+};
+
+const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "10px 14px",
     textDecoration: "none",
-    color: isActive ? "#2563eb" : "#111",
+    color: isActive ? accent : "#111",
     fontWeight: isActive ? "bold" : "normal",
 });
 
-const subLinkStyle = ({isActive}: { isActive: boolean }) => ({
+const subLinkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "8px 14px 8px 28px",
     textDecoration: "none",
-    color: isActive ? "#2563eb" : "#555",
+    color: isActive ? accent : "#555",
     fontWeight: isActive ? "bold" : "normal",
     fontSize: 14,
 });
 
 export default function SideBar() {
+    const { pathname } = useLocation();
+    const persona = resolvePersona(pathname);
+    const meta = PERSONA_META[persona];
+
     return (
-        <aside style={{width: 220, borderRight: "1px solid #e5e7eb", padding: 16}}>
+        <aside style={{ width: 220, borderRight: "1px solid #e5e7eb", padding: 16 }}>
+            {/* 페르소나 선택으로 돌아가기 */}
+            <NavLink
+                to="/"
+                style={{
+                    display: "inline-block",
+                    fontSize: 13,
+                    color: "#8a90a3",
+                    textDecoration: "none",
+                    marginBottom: 8,
+                }}
+            >
+                ← 페르소나 선택
+            </NavLink>
+
+            {/* 현재 페르소나 헤더 */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    color: meta.accent,
+                    marginBottom: 16,
+                }}
+            >
+                <span style={{ fontSize: 18 }}>{meta.emoji}</span>
+                <span>{meta.title}</span>
+            </div>
+
+            {persona === "athlete" ? (
+                <AthleteMenu accent={meta.accent} />
+            ) : (
+                <PlaceholderMenu />
+            )}
+        </aside>
+    );
+}
+
+function AthleteMenu({ accent }: { accent: string }) {
+    return (
+        <>
             <h3>📊 기록</h3>
-            <nav style={{display: "flex", flexDirection: "column", gap: 6}}>
-                <NavLink to="/records/body" style={linkStyle}>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <NavLink to="/records/body" style={linkStyle(accent)}>
                     🧍 신체 기록
                 </NavLink>
 
                 {/* 헬스/피트니스 - 하위 메뉴 */}
                 <div>
-                    <div style={{padding: "10px 14px", color: "#111", fontWeight: "bold"}}>
+                    <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
                         🏋️ 피트니스
                     </div>
-                    <nav style={{display: "flex", flexDirection: "column", gap: 2}}>
-                        <NavLink to="/records/health/history" style={subLinkStyle}>
+                    <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <NavLink to="/records/health/history" style={subLinkStyle(accent)}>
                             📋 기록
                         </NavLink>
-                        <NavLink to="/records/health/log" style={subLinkStyle}>
+                        <NavLink to="/records/health/log" style={subLinkStyle(accent)}>
                             ✏️ 입력
                         </NavLink>
                     </nav>
                 </div>
 
-                <NavLink to="/records/riding" style={linkStyle}>
+                <NavLink to="/records/riding" style={linkStyle(accent)}>
                     🚴 라이딩 기록
                 </NavLink>
             </nav>
 
-            <h3 style={{marginTop: 24}}>🗺️ 계획</h3>
-            <nav style={{display: "flex", flexDirection: "column", gap: 6}}>
-                <NavLink to="/plan/brevet" style={linkStyle}>
+            <h3 style={{ marginTop: 24 }}>🗺️ 계획</h3>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <NavLink to="/plan/brevet" style={linkStyle(accent)}>
                     🏅 랜도너스 계획
                 </NavLink>
-                <NavLink to="/plan/live" style={linkStyle}>
+                <NavLink to="/plan/live" style={linkStyle(accent)}>
                     🛰️ 라이브 라이딩
                 </NavLink>
-                <NavLink to="/plan/touring" style={linkStyle}>
+                <NavLink to="/plan/touring" style={linkStyle(accent)}>
                     🏕️ 투어링 계획
                 </NavLink>
             </nav>
 
-            <h3 style={{marginTop: 24}}>🤖 AI</h3>
-            <nav style={{display: "flex", flexDirection: "column", gap: 6}}>
-                <NavLink to="/persona" style={linkStyle}>
-                    🧑‍💻 신지훈 페르소나 챗
-                </NavLink>
-            </nav>
-
-            <h3 style={{marginTop: 24}}>🚲 장비</h3>
-            <nav style={{display: "flex", flexDirection: "column", gap: 6}}>
-                <NavLink to="/bikes" style={linkStyle}>
+            <h3 style={{ marginTop: 24 }}>🚲 장비</h3>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <NavLink to="/bikes" style={linkStyle(accent)}>
                     🚴 내 자전거
                 </NavLink>
-                <NavLink to="/bikes/register" style={linkStyle}>
+                <NavLink to="/bikes/register" style={linkStyle(accent)}>
                     ➕ 자전거 등록
                 </NavLink>
             </nav>
-        </aside>
+        </>
+    );
+}
+
+function PlaceholderMenu() {
+    return (
+        <div style={{ marginTop: 8, fontSize: 14, color: "#9aa0b2", lineHeight: 1.7 }}>
+            메뉴 준비 중…
+        </div>
     );
 }

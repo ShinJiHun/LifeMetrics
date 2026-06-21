@@ -1,25 +1,35 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import Layout from "@/components/common/Layout";
-import BodyRecordPage from "@/pages/body/BodyRecordPage";
-import ExerciseItemPage from "@/pages/health/ExerciseItemPage";
-import ExerciseLogPage from "@/pages/health/ExerciseInputPage";
-import ExerciseHistoryPage from "@/pages/health/ExerciseHistoryPage";
-import RidingRecordPage from "@/pages/riding/RidingRecordPage";
-import BrevePlanPage from "@/pages/plan/BrevePlanPage";
-import LiveRidePage from "@/pages/plan/LiveRidingPage";
-import ActivityDetailPage from "@/pages/riding/ActivityDetailPage";
+import BodyRecordPage from "@/pages/ride/body/BodyRecordPage";
+import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
+import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
+import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
+import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
+import BrevePlanPage from "@/pages/ride/plan/BrevePlanPage";
+import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
+import ActivityDetailPage from "@/pages/ride/riding/ActivityDetailPage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
+import PersonaGate from "@/pages/persona/PersonaGate";
+import DeveloperBlogPage from "@/pages/developer/DeveloperBlogPage";
+import HumanBlogPage from "@/pages/human/HumanBlogPage";
 
 import "@/styles/global.css";
-import BikeRegisterPage from "@/pages/riding/Bikeregisterpage.tsx";
-import BikeListPage from "@/pages/riding/BikeListPage.tsx";
+import BikeRegisterPage from "@/pages/ride/riding/Bikeregisterpage.tsx";
+import BikeListPage from "@/pages/ride/riding/BikeListPage.tsx";
+
+function PersonaGateRoute() {
+    const navigate = useNavigate();
+    return <PersonaGate onSelect={(_key, route) => navigate(route)} />;
+}
 
 export default function App() {
     return (
         <Routes>
+            {/* 첫 페이지: 페르소나 선택 게이트 (사이드바 Layout 밖, 풀스크린) */}
+            <Route path="/" element={<PersonaGateRoute />} />
+
             <Route element={<Layout />}>
-                <Route path="/" element={<BodyRecordPage />} />
                 <Route path="/records/body" element={<BodyRecordPage />} />
                 <Route path="/records/health" element={<Navigate to="/records/health/history" replace />} />
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
@@ -30,7 +40,10 @@ export default function App() {
                 <Route path="/plan/live" element={<LiveRidePage />} />
                 <Route path="/plan/touring" element={<div style={{ padding: 24 }}>🏕️ 투어링 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
-                <Route path="/persona" element={<PersonaChatPage />} />
+                <Route path="/persona" element={<Navigate to="/" replace />} />
+                <Route path="/persona/developer" element={<PersonaChatPage />} />
+                <Route path="/developer" element={<DeveloperBlogPage />} />
+                <Route path="/human" element={<HumanBlogPage />} />
                 <Route path="/bikes" element={<BikeListPage />} />
                 <Route path="/bikes/register" element={<BikeRegisterPage />} />
             </Route>

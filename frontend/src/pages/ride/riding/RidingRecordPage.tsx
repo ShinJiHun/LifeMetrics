@@ -2,7 +2,7 @@ import {useState, useEffect, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
 import {fetchActivities} from "@/api/activity";
 import type {Activity} from "@/api/activity";
-import ActivityMap from "@/pages/riding/ActivityMap";
+import ActivityMap from "@/pages/ride/riding/ActivityMap";
 import {useDropzone} from "react-dropzone";
 import "@/styles/riding-record.css";
 

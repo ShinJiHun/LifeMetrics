@@ -1,6 +1,6 @@
 // src/pages/ExerciseItemPage.tsx
 import { useState, useEffect } from "react";
-import api from "../../lib/axios.ts";
+import api from "@/lib/axios.ts";
 import "@/styles/exercise-item.css";
 
 const EQUIPMENT_LABEL: Record<string, string> = {
