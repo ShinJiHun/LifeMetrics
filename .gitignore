@@ -83,3 +83,7 @@ backend/bootrun.log
 
 ### Claude Code 로컬 설정 ###
 .claude/
+
+### macOS ###
+.DS_Store
+**/.DS_Store
