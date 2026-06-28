@@ -11,8 +11,11 @@ import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
 import ActivityDetailPage from "@/pages/ride/riding/ActivityDetailPage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
-import DeveloperBlogPage from "@/pages/developer/DeveloperBlogPage";
-import HumanBlogPage from "@/pages/human/HumanBlogPage";
+import BlogHomePage from "@/pages/blog/BlogHomePage";
+import MenuManagePage from "@/pages/blog/MenuManagePage";
+import SubCategoryPage from "@/pages/blog/SubCategoryPage";
+import PostDetailPage from "@/pages/blog/PostDetailPage";
+import PostEditorPage from "@/pages/blog/PostEditorPage";
 
 import "@/styles/global.css";
 import BikeRegisterPage from "@/pages/ride/riding/Bikeregisterpage.tsx";
@@ -42,8 +45,19 @@ export default function App() {
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
                 <Route path="/persona" element={<Navigate to="/" replace />} />
                 <Route path="/persona/developer" element={<PersonaChatPage />} />
-                <Route path="/developer" element={<DeveloperBlogPage />} />
-                <Route path="/human" element={<HumanBlogPage />} />
+
+                {/* 개발자 / 인간 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}
+                {["developer", "human"].map((p) => (
+                    <Route key={p}>
+                        <Route path={`/${p}`} element={<BlogHomePage />} />
+                        <Route path={`/${p}/manage`} element={<MenuManagePage />} />
+                        <Route path={`/${p}/sub/:subId`} element={<SubCategoryPage />} />
+                        <Route path={`/${p}/post/new`} element={<PostEditorPage />} />
+                        <Route path={`/${p}/post/:postId`} element={<PostDetailPage />} />
+                        <Route path={`/${p}/post/:postId/edit`} element={<PostEditorPage />} />
+                    </Route>
+                ))}
+
                 <Route path="/bikes" element={<BikeListPage />} />
                 <Route path="/bikes/register" element={<BikeRegisterPage />} />
             </Route>

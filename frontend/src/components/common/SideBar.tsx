@@ -1,19 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
-
-type Persona = "athlete" | "developer" | "human";
-
-// 현재 경로로 페르소나 판별
-function resolvePersona(pathname: string): Persona {
-    if (pathname.startsWith("/developer") || pathname.startsWith("/persona")) return "developer";
-    if (pathname.startsWith("/human")) return "human";
-    return "athlete";
-}
-
-const PERSONA_META: Record<Persona, { emoji: string; title: string; accent: string }> = {
-    athlete: { emoji: "🚴", title: "애슐리트 신지훈", accent: "#2563eb" },
-    developer: { emoji: "👨‍💻", title: "개발자 신지훈", accent: "#6366f1" },
-    human: { emoji: "🌱", title: "인간 신지훈", accent: "#16a34a" },
-};
+import { PERSONA_META, resolvePersonaFromPath } from "@/lib/persona";
+import PersonaContentMenu from "@/components/common/PersonaContentMenu";
 
 const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "10px 14px",
@@ -32,11 +19,11 @@ const subLinkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) =
 
 export default function SideBar() {
     const { pathname } = useLocation();
-    const persona = resolvePersona(pathname);
+    const persona = resolvePersonaFromPath(pathname);
     const meta = PERSONA_META[persona];
 
     return (
-        <aside style={{ width: 220, borderRight: "1px solid #e5e7eb", padding: 16 }}>
+        <aside style={{ width: 220, borderRight: "1px solid #e5e7eb", padding: 16, overflowY: "auto" }}>
             {/* 페르소나 선택으로 돌아가기 */}
             <NavLink
                 to="/"
@@ -70,7 +57,7 @@ export default function SideBar() {
             {persona === "athlete" ? (
                 <AthleteMenu accent={meta.accent} />
             ) : (
-                <PlaceholderMenu />
+                <PersonaContentMenu persona={persona} accent={meta.accent} />
             )}
         </aside>
     );
@@ -128,13 +115,5 @@ function AthleteMenu({ accent }: { accent: string }) {
                 </NavLink>
             </nav>
         </>
-    );
-}
-
-function PlaceholderMenu() {
-    return (
-        <div style={{ marginTop: 8, fontSize: 14, color: "#9aa0b2", lineHeight: 1.7 }}>
-            메뉴 준비 중…
-        </div>
     );
 }
