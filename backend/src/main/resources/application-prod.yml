@@ -113,3 +113,9 @@ brevet:
 
 app:
   base-url: https://ride.tho881.me
+
+slack:
+  webhook-url: ${SLACK_WEBHOOK_URL:}
+
+settings:
+  password: ${SETTINGS_PASSWORD:lifemetrics}

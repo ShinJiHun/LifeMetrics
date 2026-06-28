@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
+import SettingsTodoModal from "./SettingsTodoModal";
 
 // ── 페르소나 정의 ─────────────────────────────
 // route 는 실제 라우터 경로로 바꿔서 쓰세요 (예: navigate(p.route))
@@ -58,6 +59,7 @@ const PERSONAS: Persona[] = [
 export default function PersonaGate({ onSelect }: PersonaGateProps) {
     // 화면 로드 시 RIDER 가 강조된 상태 (스크린샷과 동일)
     const [active, setActive] = useState("rider");
+    const [showSettings, setShowSettings] = useState(false);
 
     const handleSelect = (p: Persona) => {
         if (onSelect) onSelect(p.key, p.route);
@@ -67,6 +69,7 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
         <>
             <style>{`
         .lm-gate {
+          position: relative;
           min-height: 100%;
           box-sizing: border-box;
           padding: 64px 24px;
@@ -179,13 +182,42 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
           .lm-title { font-size: 36px; }
           .lm-card.is-active { transform: none; }
         }
+        .lm-gear {
+          position: absolute;
+          top: 22px;
+          right: 24px;
+          width: 46px;
+          height: 46px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+          background: #ffffff;
+          box-shadow: 0 6px 18px rgba(30, 41, 90, 0.10);
+          font-size: 22px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+        .lm-gear:hover { transform: rotate(45deg); box-shadow: 0 10px 24px rgba(30, 41, 90, 0.16); }
         @media (prefers-reduced-motion: reduce) {
           .lm-card, .lm-btn { transition: none; }
           .lm-card.is-active { transform: none; }
+          .lm-gear:hover { transform: none; }
         }
       `}</style>
 
             <div className="lm-gate">
+                <button
+                    type="button"
+                    className="lm-gear"
+                    title="설정"
+                    aria-label="설정"
+                    onClick={() => setShowSettings(true)}
+                >
+                    ⚙️
+                </button>
                 <h1 className="lm-title">LifeMetrics</h1>
                 <p className="lm-subtitle">어떤 신지훈을 만나러 오셨나요?</p>
 
@@ -219,6 +251,8 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
                     ))}
                 </div>
             </div>
+
+            {showSettings && <SettingsTodoModal onClose={() => setShowSettings(false)} />}
         </>
     );
 }

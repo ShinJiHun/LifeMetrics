@@ -129,6 +129,12 @@ persona:
 app:
   base-url: http://localhost:5173
 
+slack:
+  webhook-url: ${SLACK_WEBHOOK_URL:}
+
+settings:
+  password: ${SETTINGS_PASSWORD:lifemetrics}
+
 gemini:
   api-key: ${GEMINI_API_KEY:}
   model: gemini-2.5-flash   # AI Studio 모델 목록에서 현재 Flash ID 확인 후 설정
