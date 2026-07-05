@@ -279,6 +279,8 @@
     font-weight: 600;
     color: #1e293b;
     line-height: 1.4;
+    max-height: 120px;
+    overflow-y: auto;
 }
 .analysis-intensity-badge {
     display: inline-block;

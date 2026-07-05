@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { Visibility } from "@/types/content";
+import Markdown from "@/components/common/Markdown";
 import { PERSONA_META, blogPersonaFromPath } from "@/lib/persona";
 import {
     addPost,
@@ -40,6 +41,7 @@ export default function PostEditorPage() {
     const [title, setTitle] = useState(editing?.title ?? "");
     const [body, setBody] = useState(editing?.body ?? "");
     const [visibility, setVisibility] = useState<Visibility>(editing?.visibility ?? "public");
+    const [preview, setPreview] = useState(false);
 
     if (subOptions.length === 0) {
         return (
@@ -93,13 +95,29 @@ export default function PostEditorPage() {
                 style={S.input}
             />
 
-            <label style={S.label}>내용</label>
-            <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="내용을 입력하세요"
-                style={{ ...S.input, minHeight: 320, resize: "vertical", lineHeight: 1.7 }}
-            />
+            <div style={S.contentHead}>
+                <label style={{ ...S.label, margin: 0 }}>내용 (마크다운 지원)</label>
+                <div style={S.tabs}>
+                    <TabBtn active={!preview} accent={accent} onClick={() => setPreview(false)}>
+                        ✏️ 쓰기
+                    </TabBtn>
+                    <TabBtn active={preview} accent={accent} onClick={() => setPreview(true)}>
+                        👁 미리보기
+                    </TabBtn>
+                </div>
+            </div>
+            {preview ? (
+                <div style={S.previewBox}>
+                    {body.trim() ? <Markdown>{body}</Markdown> : <span style={S.muted}>미리볼 내용이 없습니다.</span>}
+                </div>
+            ) : (
+                <textarea
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder={"내용을 입력하세요 (마크다운 사용 가능)\n\n# 제목\n**굵게**, *기울임*, `코드`\n- 목록\n> 인용문"}
+                    style={{ ...S.input, minHeight: 320, resize: "vertical", lineHeight: 1.7 }}
+                />
+            )}
 
             <label style={S.label}>공개 범위</label>
             <div style={{ display: "flex", gap: 10, marginBottom: 28 }}>
@@ -168,6 +186,37 @@ function ToggleBtn({
     );
 }
 
+function TabBtn({
+    active,
+    accent,
+    onClick,
+    children,
+}: {
+    active: boolean;
+    accent: string;
+    onClick: () => void;
+    children: ReactNode;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                border: "none",
+                background: active ? accent : "transparent",
+                color: active ? "#fff" : "#6b7280",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+            }}
+        >
+            {children}
+        </button>
+    );
+}
+
 const S: Record<string, CSSProperties> = {
     page: { maxWidth: 720, margin: "0 auto", padding: "40px 24px 80px" },
     title: { margin: "0 0 28px", fontSize: 28, fontWeight: 800, color: "#1b2236" },
@@ -186,4 +235,10 @@ const S: Record<string, CSSProperties> = {
         fontSize: 15, fontWeight: 700, padding: "12px 24px", borderRadius: 999, cursor: "pointer",
     },
     muted: { color: "#9aa0b2", fontSize: 15, marginBottom: 12 },
+    contentHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+    tabs: { display: "flex", gap: 4, background: "#f1f3f9", borderRadius: 999, padding: 3 },
+    previewBox: {
+        width: "100%", boxSizing: "border-box", padding: "16px 18px", marginBottom: 22,
+        borderRadius: 10, border: "1px solid #d8dbe6", background: "#fff", minHeight: 320,
+    },
 };

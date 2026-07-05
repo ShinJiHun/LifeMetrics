@@ -27,7 +27,7 @@ public class ClaudeClient {
     @Value("${anthropic.api-key:}")
     private String anthropicApiKey;
 
-    private static final String MODEL = "claude-sonnet-4-20250514";
+    private static final String MODEL = "claude-sonnet-5";
     private static final String API_URL = "https://api.anthropic.com/v1/messages";
 
     public boolean hasApiKey() {

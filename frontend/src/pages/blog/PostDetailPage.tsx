@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { PERSONA_META, blogPersonaFromPath } from "@/lib/persona";
 import { deletePost, findCategory, findPost, findSubMenu, useContent } from "@/lib/contentStore";
+import Markdown from "@/components/common/Markdown";
 
 export default function PostDetailPage() {
     const { pathname } = useLocation();
@@ -59,7 +60,9 @@ export default function PostDetailPage() {
 
             <h1 style={S.title}>{post.title || "(제목 없음)"}</h1>
 
-            <div style={S.body}>{post.body || <span style={S.muted}>(내용 없음)</span>}</div>
+            <div style={S.body}>
+                {post.body ? <Markdown>{post.body}</Markdown> : <span style={S.muted}>(내용 없음)</span>}
+            </div>
 
             <div style={S.actions}>
                 <Link to={`/${persona}/post/${post.id}/edit`} style={{ ...S.btn, background: accent }}>

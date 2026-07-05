@@ -11,7 +11,7 @@ import java.util.List;
  */
 public record AiAnalysisResponse(
 
-        String model,                 // ✅ 추가: 실제 사용된 AI 모델명 (gpt-4o, claude-sonnet-4-20250514 등)
+        String model,                 // ✅ 추가: 실제 사용된 AI 모델명 (gpt-4o, claude-sonnet-5 등)
 
         String summaryJson,           // 전체 분석 결과 JSON (누적 서사용)
 

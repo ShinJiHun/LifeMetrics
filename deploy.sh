@@ -4,7 +4,7 @@
 SERVER="34.172.162.148"
 USER="jihoon"
 REMOTE_PATH="/mnt/200gb/apps"
-SSH_KEY="~/.ssh/gcp-deploy"
+SSH_KEY="/Users/jihoon/.ssh/riding_key_nopass"
 
 # 옵션 파싱
 BUILD_BACKEND=true
@@ -55,13 +55,17 @@ fi
 echo "[3/5] 파일 전송 중..."
 scp -i ${SSH_KEY} backend/build/libs/lifemetrics.jar ${USER}@${SERVER}:${REMOTE_PATH}/lifemetrics.jar
 rsync -avz --progress -e "ssh -i ${SSH_KEY}" frontend/dist/ ${USER}@${SERVER}:${REMOTE_PATH}/static/
+scp -i ${SSH_KEY} backend/src/main/resources/.env ${USER}@${SERVER}:${REMOTE_PATH}/.env
 
 # 4. Docker 재시작
 echo "[4/5] Docker 재시작 중..."
+
 ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
+  docker build -t lifemetrics:new . && \
   docker stop lifemetrics 2>/dev/null; \
   docker rm lifemetrics 2>/dev/null; \
-  docker build -t lifemetrics . && \
+  docker tag lifemetrics:latest lifemetrics:prev 2>/dev/null; \
+  docker tag lifemetrics:new lifemetrics:latest && \
   docker run -d \
     --name lifemetrics \
     -p 8080:8080 \
@@ -71,7 +75,8 @@ ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
     -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
     -e SPRING_PROFILES_ACTIVE=prod \
     --restart unless-stopped \
-    lifemetrics'
+    lifemetrics:latest'
+
 
 # 5. 상태 확인
 echo "[5/5] 상태 확인..."

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 type Spec = {
     brand?: string; model?: string; modelYear?: number | string;
@@ -22,6 +23,7 @@ function fromApi(j: any): Spec {
 }
 
 export default function BikeRegisterPage() {
+    const navigate = useNavigate();
     const [form, setForm] = useState<Spec>({});
     const [query, setQuery] = useState('');
     const [busy, setBusy] = useState('');
@@ -30,7 +32,10 @@ export default function BikeRegisterPage() {
     const [error, setError] = useState('');
     const [savedId, setSavedId] = useState<number | null>(null);
 
-    const set = (k: keyof Spec, v: string) => setForm((f) => ({ ...f, [k]: v }));
+    const set = (k: keyof Spec, v: string) => {
+        if (savedId) setSavedId(null);      // 등록 후 폼 수정하면 재등록 허용
+        setForm((f) => ({ ...f, [k]: v }));
+    };
 
     const applySpec = (j: any) => {
         setForm((f) => ({ ...f, ...fromApi(j) }));
@@ -67,6 +72,8 @@ export default function BikeRegisterPage() {
     };
 
     const save = async () => {
+        if (busy) return;                          // 진행 중 재진입 차단
+        if (savedId) return;                        // 이미 등록된 폼 재저장 차단
         if (!form.brand || !form.model) { setError('브랜드/제품명은 필수입니다.'); return; }
         setError(''); setBusy('save');
         try {
@@ -83,6 +90,7 @@ export default function BikeRegisterPage() {
             if (!res.ok) throw new Error('저장 실패 (' + res.status + ')');
             const saved = await res.json();
             setSavedId(saved.id);
+            navigate('/bikes');                     // 등록 완료 → 내 자전거 목록으로 이동
         } catch (e) { setError(e instanceof Error ? e.message : '오류'); }
         finally { setBusy(''); }
     };
@@ -140,9 +148,10 @@ export default function BikeRegisterPage() {
                 {field('카세트', 'cassetteLabel')}
             </div>
 
-            <button onClick={save} disabled={busy !== ''}
-                    style={{ ...btn, width: '100%', marginTop: 20, background: '#16a34a' }}>
-                {busy === 'save' ? '저장 중…' : '등록'}
+            <button onClick={save} disabled={busy !== '' || savedId !== null}
+                    style={{ ...btn, width: '100%', marginTop: 20,
+                        background: savedId ? '#9ca3af' : '#16a34a' }}>
+                {busy === 'save' ? '저장 중…' : savedId ? '등록 완료 ✓' : '등록'}
             </button>
 
             {error && <p style={{ color: '#dc3545', marginTop: 12 }}>{error}</p>}

@@ -96,7 +96,7 @@ public class FitdaysOcrService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = Map.of(
-                "model", "claude-sonnet-4-20250514",
+                "model", "claude-sonnet-5",
                 "max_tokens", 1024,
                 "messages", List.of(
                         Map.of(

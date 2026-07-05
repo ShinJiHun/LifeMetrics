@@ -704,7 +704,6 @@ public class AiAnalysisService {
     // ================================================================
     // Claude API 호출 (★ max_tokens 2000으로 증가)
     // ================================================================
-
     private String callClaudeApi(String prompt) {
         if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
             return "{\"summary\":\"API 키 없음\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
@@ -717,7 +716,7 @@ public class AiAnalysisService {
         headers.set("anthropic-version", "2023-06-01");
 
         Map<String, Object> body = Map.of(
-                "model", "claude-sonnet-4-20250514",
+                "model", "claude-sonnet-5",
                 "max_tokens", 2000,
                 "messages", List.of(Map.of("role", "user", "content", prompt))
         );
@@ -727,7 +726,21 @@ public class AiAnalysisService {
             ResponseEntity<String> response = restTemplate.postForEntity("https://api.anthropic.com/v1/messages", request, String.class);
 
             JsonNode responseJson = objectMapper.readTree(response.getBody());
-            String text = responseJson.get("content").get(0).get("text").asText();
+
+            // content 배열에서 type=="text" 블록을 찾는다 (thinking 블록이 앞에 올 수 있음)
+            String text = null;
+            JsonNode contentArr = responseJson.get("content");
+            if (contentArr != null && contentArr.isArray()) {
+                for (JsonNode block : contentArr) {
+                    if ("text".equals(block.path("type").asText())) {
+                        text = block.path("text").asText();
+                        break;
+                    }
+                }
+            }
+            if (text == null) {
+                throw new RuntimeException("응답에서 text 블록을 찾지 못함: " + response.getBody());
+            }
 
             if (text.contains("```"))
                 text = text.replaceAll("```json\\s*", "").replaceAll("```\\s*", "").trim();
@@ -740,7 +753,6 @@ public class AiAnalysisService {
             return "{\"summary\":\"분석 실패\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
         }
     }
-
     // ================================================================
     // 풍향 변환
     // ================================================================
@@ -778,7 +790,7 @@ public class AiAnalysisService {
             return ActivityAnalysisResponse.builder()
                     .id(analysis.getId())
                     .activityId(analysis.getTargetId())
-                    .model("claude-sonnet-4-20250514")
+                    .model("claude-sonnet-5")
                     .createdAt(analysis.getCreatedAt().toString())
 
                     // 핵심
@@ -824,7 +836,7 @@ public class AiAnalysisService {
             return ExerciseAnalysisResponse.builder()
                     .id(analysis.getId())
                     .sessionId(analysis.getTargetId())
-                    .model("claude-sonnet-4-20250514")
+                    .model("claude-sonnet-5")
                     .createdAt(analysis.getCreatedAt().toString())
                     .summary(json.path("summary").asText())
                     .targetMuscles(json.path("targetMuscles").asText())
