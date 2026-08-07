@@ -29,6 +29,16 @@ export default function PersonaChatPage() {
     const { supported: ttsSupported, speaking, speak, stop } = useTts('persona');
     const [ttsEnabled, setTtsEnabled] = useState(false);
 
+    const [recording, setRecording] = useState(false);
+    const [transcribing, setTranscribing] = useState(false);
+    const [micError, setMicError] = useState("");
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const micSupported =
+        typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia &&
+        typeof MediaRecorder !== "undefined";
+
     const loadStatus = async () => {
         try {
             const res = await fetch("/api/persona/status");
@@ -125,6 +135,63 @@ export default function PersonaChatPage() {
             ]);
         } finally {
             setSending(false);
+        }
+    };
+
+    const transcribeAndFill = async (blob: Blob) => {
+        setTranscribing(true);
+        setMicError("");
+        try {
+            const form = new FormData();
+            form.append("audio", blob, "recording.webm");
+            const res = await fetch("/api/persona/transcribe", { method: "POST", body: form });
+            const data = await res.json();
+            if (!res.ok) {
+                setMicError(data.error || `음성 인식 실패 (HTTP ${res.status})`);
+                return;
+            }
+            if (data.text) {
+                setInput(prev => (prev ? `${prev} ${data.text}` : data.text));
+            }
+        } catch (e) {
+            console.error("[음성 인식 네트워크 에러]", e);
+            setMicError("음성 인식 중 네트워크 오류가 발생했습니다.");
+        } finally {
+            setTranscribing(false);
+        }
+    };
+
+    const handleMicClick = async () => {
+        if (recording) {
+            mediaRecorderRef.current?.stop();
+            return;
+        }
+
+        setMicError("");
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mimeType = MediaRecorder.isTypeSupported("audio/webm")
+                ? "audio/webm"
+                : "";
+            const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = e => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+            recorder.onstop = () => {
+                stream.getTracks().forEach(t => t.stop());
+                setRecording(false);
+                const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" });
+                if (blob.size > 0) transcribeAndFill(blob);
+            };
+
+            mediaRecorderRef.current = recorder;
+            recorder.start();
+            setRecording(true);
+        } catch (e) {
+            console.error("[마이크 접근 실패]", e);
+            setMicError("마이크를 사용할 수 없습니다. 권한을 확인해주세요.");
         }
     };
 
@@ -228,12 +295,28 @@ export default function PersonaChatPage() {
                     )}
                 </div>
 
+                {micError && <div style={S.micError}>{micError}</div>}
+
                 <div style={S.inputRow}>
+                    {micSupported && (
+                        <button
+                            onClick={handleMicClick}
+                            disabled={sending || transcribing}
+                            title={recording ? "녹음 종료" : "음성으로 입력"}
+                            style={{
+                                ...S.micBtn,
+                                ...(recording ? S.micBtnActive : {}),
+                                opacity: sending || transcribing ? 0.5 : 1,
+                            }}
+                        >
+                            {transcribing ? "…" : recording ? "⏹" : "🎤"}
+                        </button>
+                    )}
                     <textarea
                         value={input}
                         onChange={e => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="예: 이 사람 자전거 얼마나 타? / 어떤 개발 글을 썼어?"
+                        placeholder={recording ? "녹음 중… 다시 누르면 종료" : "예: 이 사람 자전거 얼마나 타? / 어떤 개발 글을 썼어?"}
                         rows={1}
                         disabled={sending}
                         style={S.input}
@@ -375,6 +458,27 @@ const S: Record<string, React.CSSProperties> = {
         fontFamily: "inherit",
         lineHeight: 1.4,
         maxHeight: 120,
+    },
+    micBtn: {
+        height: 40,
+        width: 40,
+        flexShrink: 0,
+        borderRadius: 10,
+        background: "#334155",
+        border: "1px solid #475569",
+        color: "#e2e8f0",
+        fontSize: 16,
+        cursor: "pointer",
+    },
+    micBtnActive: {
+        background: "linear-gradient(135deg,#dc2626,#f97316)",
+        borderColor: "transparent",
+        color: "#fff",
+    },
+    micError: {
+        padding: "0 12px 8px",
+        fontSize: 12,
+        color: "#f87171",
     },
     sendBtn: {
         height: 40,

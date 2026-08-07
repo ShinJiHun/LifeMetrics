@@ -43,6 +43,15 @@ export default function BodyMetricCards({
             />
 
             <MetricCard
+                title="제지방량"
+                value={latest.fatFreeMass}
+                unit="kg"
+                delta={latest.fatFreeMassDelta}
+                active={selected === "fatFreeMass"}
+                onClick={() => onSelect("fatFreeMass")}
+            />
+
+            <MetricCard
                 title="체지방률"
                 value={latest.bodyFatPercentage}
                 unit="%"

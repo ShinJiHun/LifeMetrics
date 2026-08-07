@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { Visibility } from "@/types/content";
-import Markdown from "@/components/common/Markdown";
+import RichText from "@/components/common/RichText";
+import RichTextEditor from "@/components/common/RichTextEditor";
 import { PERSONA_META, blogPersonaFromPath } from "@/lib/persona";
 import {
     addPost,
@@ -41,15 +42,17 @@ export default function PostEditorPage() {
     const [title, setTitle] = useState(editing?.title ?? "");
     const [body, setBody] = useState(editing?.body ?? "");
     const [visibility, setVisibility] = useState<Visibility>(editing?.visibility ?? "public");
-    const [preview, setPreview] = useState(false);
+    const [mode, setMode] = useState<"write" | "html" | "preview">("write");
 
     if (subOptions.length === 0) {
         return (
             <div style={S.page}>
                 <p style={S.muted}>먼저 메뉴(대메뉴·소메뉴)를 만들어야 글을 쓸 수 있어요.</p>
-                <Link to={`/${persona}/manage`} style={{ color: accent, fontWeight: 600 }}>
-                    메뉴 관리로 가기 →
-                </Link>
+                {persona === "human" && (
+                    <Link to={`/${persona}/manage`} style={{ color: accent, fontWeight: 600 }}>
+                        메뉴 관리로 가기 →
+                    </Link>
+                )}
             </div>
         );
     }
@@ -96,26 +99,36 @@ export default function PostEditorPage() {
             />
 
             <div style={S.contentHead}>
-                <label style={{ ...S.label, margin: 0 }}>내용 (마크다운 지원)</label>
+                <label style={{ ...S.label, margin: 0 }}>내용</label>
                 <div style={S.tabs}>
-                    <TabBtn active={!preview} accent={accent} onClick={() => setPreview(false)}>
+                    <TabBtn active={mode === "write"} accent={accent} onClick={() => setMode("write")}>
                         ✏️ 쓰기
                     </TabBtn>
-                    <TabBtn active={preview} accent={accent} onClick={() => setPreview(true)}>
+                    <TabBtn active={mode === "html"} accent={accent} onClick={() => setMode("html")}>
+                        {"</>"} HTML
+                    </TabBtn>
+                    <TabBtn active={mode === "preview"} accent={accent} onClick={() => setMode("preview")}>
                         👁 미리보기
                     </TabBtn>
                 </div>
             </div>
-            {preview ? (
+            {mode === "preview" ? (
                 <div style={S.previewBox}>
-                    {body.trim() ? <Markdown>{body}</Markdown> : <span style={S.muted}>미리볼 내용이 없습니다.</span>}
+                    {body.trim() ? <RichText>{body}</RichText> : <span style={S.muted}>미리볼 내용이 없습니다.</span>}
                 </div>
-            ) : (
+            ) : mode === "html" ? (
                 <textarea
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
-                    placeholder={"내용을 입력하세요 (마크다운 사용 가능)\n\n# 제목\n**굵게**, *기울임*, `코드`\n- 목록\n> 인용문"}
-                    style={{ ...S.input, minHeight: 320, resize: "vertical", lineHeight: 1.7 }}
+                    placeholder="HTML을 직접 입력하거나 붙여넣으세요"
+                    style={S.htmlBox}
+                />
+            ) : (
+                <RichTextEditor
+                    value={body}
+                    onChange={setBody}
+                    accent={accent}
+                    placeholder="내용을 입력하세요"
                 />
             )}
 
@@ -240,5 +253,11 @@ const S: Record<string, CSSProperties> = {
     previewBox: {
         width: "100%", boxSizing: "border-box", padding: "16px 18px", marginBottom: 22,
         borderRadius: 10, border: "1px solid #d8dbe6", background: "#fff", minHeight: 320,
+    },
+    htmlBox: {
+        width: "100%", boxSizing: "border-box", padding: "14px 16px", marginBottom: 22,
+        borderRadius: 10, border: "1px solid #d8dbe6", background: "#0f172a", color: "#e2e8f0",
+        minHeight: 320, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        fontSize: 13, lineHeight: 1.6, resize: "vertical",
     },
 };

@@ -1,0 +1,19 @@
+.rte-content {
+    padding: 16px 18px;
+    min-height: 320px;
+}
+.rte-content .ProseMirror {
+    outline: none;
+    min-height: 288px;
+}
+.rte-content .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    color: #b3b8c8;
+    pointer-events: none;
+}
+.rte-content .ProseMirror img.ProseMirror-selectednode {
+    outline: 2px solid #6366f1;
+    border-radius: 10px;
+}

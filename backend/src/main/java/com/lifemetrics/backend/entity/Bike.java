@@ -34,7 +34,13 @@ public class Bike {
     private Integer purchasePrice;
 
     private Double totalDistance = 0.0;
+
+    /** 누적 이동시간(초). DB 컬럼값은 신뢰하지 않고 조회 시 activity_core 에서 집계해 덮어쓴다. */
     private Integer totalTime = 0;
+
+    /** 누적 총시간(초, 정지 포함). 저장 컬럼이 없어 조회 시에만 채워진다. */
+    @Transient
+    private Integer totalElapsedTime = 0;
 
     private String photoUrl;
 

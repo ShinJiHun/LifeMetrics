@@ -8,6 +8,11 @@ export interface BodySummaryRecord {
     skeletalMuscleMassDelta: number | null;
 
     bodyFatMass: number;
+
+    /** 제지방량 = 체중 - 체지방량. 인바디 기록지 값과 일치한다. */
+    fatFreeMass: number | null;
+    fatFreeMassDelta: number | null;
+
     bodyFatPercentage: number;
     bodyFatPercentageDelta: number | null;
 

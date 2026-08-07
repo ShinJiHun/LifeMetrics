@@ -34,9 +34,16 @@ public class JournalContentService {
     private final JournalSubMenuRepository subRepo;
     private final JournalPostRepository postRepo;
 
+    /** 비공개글을 나타내는 visibility 값. */
+    private static final String PRIVATE = "private";
+
     // ── 전체 트리 조회 ───────────────────────────────
+    /**
+     * @param includePrivate 관리자면 true. false 면 비공개글을 아예 제외한다.
+     *                       본문을 비우는 게 아니라 목록에서 빼므로, 제목조차 노출되지 않는다.
+     */
     @Transactional(value = "journalTransactionManager", readOnly = true)
-    public ContentTreeResponse tree() {
+    public ContentTreeResponse tree(boolean includePrivate) {
         List<ContentTreeResponse.Category> categories = categoryRepo.findAll().stream()
                 .sorted(Comparator.comparingInt(JournalCategory::getSortOrder))
                 .map(c -> new ContentTreeResponse.Category(c.getId(), c.getPersona(), c.getName(), c.getSortOrder()))
@@ -46,6 +53,7 @@ public class JournalContentService {
                 .map(s -> new ContentTreeResponse.SubMenu(s.getId(), s.getCategoryId(), s.getName(), s.getSortOrder()))
                 .toList();
         List<ContentTreeResponse.Post> posts = postRepo.findAll().stream()
+                .filter(p -> includePrivate || !PRIVATE.equalsIgnoreCase(p.getVisibility()))
                 .map(this::toPostDto)
                 .toList();
         return new ContentTreeResponse(categories, subs, posts);

@@ -83,8 +83,9 @@ public class ActivityCore {
     @Column(columnDefinition = "longtext")
     private String polyline;
 
-    @Column(name = "gear_name")
-    private String gearName;
+    // ★ 자동매칭된 자전거 (bike 테이블 FK)
+    @Column(name = "bike_id")
+    private Long bikeId;
 
     @Column(name = "uphill_distance")
     private Double uphillDistance;

@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import Layout from "@/components/common/Layout";
+import { RequireAdmin } from "@/components/common/AdminOnly";
 import BodyRecordPage from "@/pages/ride/body/BodyRecordPage";
+import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
@@ -9,6 +11,7 @@ import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
 import BrevePlanPage from "@/pages/ride/plan/BrevePlanPage";
 import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
 import ActivityDetailPage from "@/pages/ride/riding/ActivityDetailPage";
+import PersonaPortfolioPage from "@/pages/persona/PersonaPortfolioPage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
 import BlogHomePage from "@/pages/blog/BlogHomePage";
@@ -34,6 +37,7 @@ export default function App() {
 
             <Route element={<Layout />}>
                 <Route path="/records/body" element={<BodyRecordPage />} />
+                <Route path="/records/body/weight-loss" element={<WeightLossAnalysisPage />} />
                 <Route path="/records/health" element={<Navigate to="/records/health/history" replace />} />
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />
@@ -44,22 +48,25 @@ export default function App() {
                 <Route path="/plan/touring" element={<div style={{ padding: 24 }}>🏕️ 투어링 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
                 <Route path="/persona" element={<Navigate to="/" replace />} />
-                <Route path="/persona/developer" element={<PersonaChatPage />} />
+                <Route path="/persona/developer" element={<PersonaPortfolioPage />} />
+                <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
 
                 {/* 개발자 / 인간 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}
                 {["developer", "human"].map((p) => (
                     <Route key={p}>
                         <Route path={`/${p}`} element={<BlogHomePage />} />
-                        <Route path={`/${p}/manage`} element={<MenuManagePage />} />
+                        {p === "human" && (
+                            <Route path={`/${p}/manage`} element={<RequireAdmin><MenuManagePage /></RequireAdmin>} />
+                        )}
                         <Route path={`/${p}/sub/:subId`} element={<SubCategoryPage />} />
-                        <Route path={`/${p}/post/new`} element={<PostEditorPage />} />
+                        <Route path={`/${p}/post/new`} element={<RequireAdmin><PostEditorPage /></RequireAdmin>} />
                         <Route path={`/${p}/post/:postId`} element={<PostDetailPage />} />
-                        <Route path={`/${p}/post/:postId/edit`} element={<PostEditorPage />} />
+                        <Route path={`/${p}/post/:postId/edit`} element={<RequireAdmin><PostEditorPage /></RequireAdmin>} />
                     </Route>
                 ))}
 
                 <Route path="/bikes" element={<BikeListPage />} />
-                <Route path="/bikes/register" element={<BikeRegisterPage />} />
+                <Route path="/bikes/register" element={<RequireAdmin><BikeRegisterPage /></RequireAdmin>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

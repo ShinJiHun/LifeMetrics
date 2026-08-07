@@ -27,6 +27,7 @@ public class PersonaChatService {
     private final BlogPostRepository blogPostRepository;
     private final PersonaProfileService personaProfileService;
     private final GeminiService geminiService;          // ✅ ClaudeClient 대체
+    private final OllamaService ollamaService;           // Gemini ADC 없는 로컬 개발용 대체
     private final PersonaDocService personaDocService;
 
     private static final int MAX_HISTORY = 20;
@@ -36,8 +37,10 @@ public class PersonaChatService {
     private static final int MAX_TOKENS = 2048;
 
     public String chat(List<PersonaChatRequest.Message> messages) {
-        if (!geminiService.hasApiKey()) {
-            return "AI 서비스가 설정되지 않았습니다. (ADC / Vertex 프로젝트 확인 필요)";
+        boolean useGemini = geminiService.hasApiKey();
+        boolean useOllama = !useGemini && ollamaService.isAvailable();
+        if (!useGemini && !useOllama) {
+            return "AI 서비스가 설정되지 않았습니다. (ADC / Vertex 프로젝트 확인 필요, 또는 로컬 Ollama 미기동)";
         }
         if (messages == null || messages.isEmpty()) {
             return "메시지가 비어 있습니다.";
@@ -74,7 +77,9 @@ public class PersonaChatService {
             return "질문 메시지가 없습니다.";
         }
 
-        String reply = geminiService.chat(systemPrompt, history, MAX_TOKENS);
+        String reply = useGemini
+                ? geminiService.chat(systemPrompt, history, MAX_TOKENS)
+                : ollamaService.chat(systemPrompt, history);
         return (reply != null && !reply.isBlank()) ? reply
                 : "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
     }

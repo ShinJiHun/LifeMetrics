@@ -9,9 +9,15 @@ import com.lifemetrics.backend.service.BlogCrawlerService;
 import com.lifemetrics.backend.service.PersonaChatService;
 import com.lifemetrics.backend.service.PersonaDocService;
 import com.lifemetrics.backend.service.PersonaProfileService;
+import com.lifemetrics.backend.service.SttService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -26,6 +32,7 @@ public class PersonaController {
     private final PersonaChatService personaChatService;
     private final BlogPostRepository blogPostRepository;
     private final PersonaDocService personaDocService;
+    private final SttService sttService;
 
     /** 블로그 재크롤링 + 이력서 재로딩 + 페르소나 프로필 재생성 (수동 트리거). */
     @PostMapping("/refresh")
@@ -44,6 +51,25 @@ public class PersonaController {
     public PersonaChatResponse chat(@RequestBody PersonaChatRequest request) {
         String reply = personaChatService.chat(request.getMessages());
         return new PersonaChatResponse(reply);
+    }
+
+    /** 녹음된 음성을 로컬 Whisper 서버로 보내 텍스트로 변환한다. */
+    @PostMapping(value = "/transcribe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> transcribe(@RequestParam("audio") MultipartFile audio) {
+        byte[] bytes;
+        try {
+            bytes = audio.getBytes();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "오디오 파일을 읽을 수 없습니다."));
+        }
+
+        String text = sttService.transcribe(bytes, audio.getContentType());
+        if (text == null) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "음성 인식 서버에 연결할 수 없습니다. (로컬 Whisper 서버 미기동)"));
+        }
+        return ResponseEntity.ok(Map.of("text", text));
     }
 
     /** 현재 적재 상태 확인. */

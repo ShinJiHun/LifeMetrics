@@ -70,7 +70,7 @@ public class ActivityService {
 
         List<ActivityPoint> points = pointRepository.findByActivityCoreIdOrderBySeqAsc(id);
         ActivityWeather weather = weatherRepository.findByActivityCoreId(id).orElse(null);
-        GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime());
+        GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime(), core.getBikeId());
 
         return ActivityDetailDto.builder()
                 .id(core.getId())
@@ -100,7 +100,6 @@ public class ActivityService {
                 .endLat(core.getEndLat())
                 .endLon(core.getEndLon())
                 .polyline(core.getPolyline())
-                .gearName(core.getGearName())
                 .gearContext(gearContext)
                 .locationName(core.getLocationName())
                 .relativeEffort(core.getRelativeEffort())
@@ -251,7 +250,7 @@ public class ActivityService {
         WeatherDto weather = weatherRepository.findByActivityCoreId(core.getId())
                 .map(this::toWeatherDto)
                 .orElse(null);
-        GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime());
+        GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime(), core.getBikeId());
 
         return ActivitySummaryDto.builder()
                 .id(core.getId())
@@ -266,7 +265,6 @@ public class ActivityService {
                 .maxSpeed(core.getMaxSpeed())
                 .totalAscent(core.getTotalAscent())
                 .totalDescent(core.getTotalDescent())
-                .gearName(core.getGearName())
                 .startLat(core.getStartLat())
                 .startLon(core.getStartLon())
                 .endLat(core.getEndLat())

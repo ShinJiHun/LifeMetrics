@@ -100,6 +100,7 @@ public class BodyService {
         dto.setWeight(curr.getWeight());
         dto.setSkeletalMuscleMass(curr.getSkeletalMuscleMass());
         dto.setBodyFatMass(curr.getBodyFatMass());
+        dto.setFatFreeMass(fatFreeMass(curr));
         dto.setBodyFatPercentage(curr.getBodyFatPercentage());
         dto.setBmi(curr.getBmi());
         dto.setVisceralFatLevel(curr.getVisceralFatLevel());
@@ -114,8 +115,20 @@ public class BodyService {
                 prev != null ? prev.getSkeletalMuscleMass() : null));
         dto.setBodyFatPercentageDelta(calc(curr.getBodyFatPercentage(),
                 prev != null ? prev.getBodyFatPercentage() : null));
+        dto.setFatFreeMassDelta(calc(fatFreeMass(curr),
+                prev != null ? fatFreeMass(prev) : null));
 
         return dto;
+    }
+
+    /**
+     * 제지방량. 저장된 값을 우선하고, 없으면 체중 - 체지방량으로 채운다.
+     * 인바디 기록지의 제지방량과 일치하는 항등식이다.
+     */
+    private Double fatFreeMass(UserBodyRecord r) {
+        if (r.getFatFreeMass() != null) return r.getFatFreeMass();
+        if (r.getWeight() == null || r.getBodyFatMass() == null) return null;
+        return Math.round((r.getWeight() - r.getBodyFatMass()) * 10) / 10.0;
     }
 
     private Double calc(Double curr, Double prev) {

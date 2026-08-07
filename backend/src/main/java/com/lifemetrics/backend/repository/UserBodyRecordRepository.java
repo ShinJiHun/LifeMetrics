@@ -20,6 +20,10 @@ public interface UserBodyRecordRepository extends JpaRepository<UserBodyRecord, 
 
     Optional<UserBodyRecord> findTopByUserIdOrderByRecordDateDesc(Long userId);
 
+    /** 감량 분석은 체지방량이 있는 인바디 측정만 쓴다. FitDays 체중계는 체성분 정확도가 떨어진다. */
+    Optional<UserBodyRecord> findTopByUserIdAndMeasurementTypeOrderByRecordDateDesc(
+            Long userId, MeasurementType measurementType);
+
     // UserBodyRecordRepository.java에 추가
     @Query("""
         SELECT r FROM UserBodyRecord r

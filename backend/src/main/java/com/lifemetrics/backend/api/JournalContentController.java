@@ -3,6 +3,8 @@ package com.lifemetrics.backend.api;
 import com.lifemetrics.backend.persona.dto.ContentRequests.*;
 import com.lifemetrics.backend.persona.dto.ContentTreeResponse;
 import com.lifemetrics.backend.persona.service.JournalContentService;
+import com.lifemetrics.backend.security.AdminWriteFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,10 +18,12 @@ import org.springframework.web.bind.annotation.*;
 public class JournalContentController {
 
     private final JournalContentService service;
+    private final AdminWriteFilter adminWriteFilter;
 
+    /** 비공개글은 관리자에게만 내려보낸다. 방문자 응답에는 아예 포함되지 않는다. */
     @GetMapping
-    public ContentTreeResponse tree() {
-        return service.tree();
+    public ContentTreeResponse tree(HttpServletRequest request) {
+        return service.tree(adminWriteFilter.isAdmin(request));
     }
 
     // ── 대메뉴 ──

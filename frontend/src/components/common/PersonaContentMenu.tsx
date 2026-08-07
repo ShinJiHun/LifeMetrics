@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import type { Persona } from "@/types/content";
-import { categoriesOf, subMenusOf, useContent } from "@/lib/contentStore";
+import { categoriesOf, findPostByCategoryName, subMenusOf, useContent } from "@/lib/contentStore";
+
+const ABOUT_CATEGORY = "자기소개";
 
 const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "8px 14px 8px 28px",
@@ -22,6 +24,7 @@ export default function PersonaContentMenu({
     const data = useContent();
     const categories = categoriesOf(data, persona);
     const base = `/${persona}`;
+    const aboutPost = persona === "developer" ? findPostByCategoryName(data, persona, ABOUT_CATEGORY) : undefined;
 
     return (
         <>
@@ -30,17 +33,25 @@ export default function PersonaContentMenu({
                 <NavLink to={base} end style={linkRoot(accent)}>
                     🏠 홈
                 </NavLink>
-                <NavLink to={`${base}/manage`} style={linkRoot(accent)}>
-                    ✏️ 메뉴·글 관리
-                </NavLink>
+                {persona === "developer" ? (
+                    aboutPost && (
+                        <NavLink to={`${base}/post/${aboutPost.id}`} style={linkRoot(accent)}>
+                            🙋 자기소개
+                        </NavLink>
+                    )
+                ) : (
+                    <NavLink to={`${base}/manage`} style={linkRoot(accent)}>
+                        ✏️ 메뉴·글 관리
+                    </NavLink>
+                )}
                 {persona === "developer" && (
                     <NavLink to="/persona/developer" style={linkRoot(accent)}>
-                        💬 페르소나 챗
+                        📁 포트폴리오
                     </NavLink>
                 )}
             </nav>
 
-            {categories.length === 0 ? (
+            {persona === "developer" ? null : categories.length === 0 ? (
                 <div style={{ fontSize: 13, color: "#9aa0b2", padding: "8px 14px", lineHeight: 1.7 }}>
                     아직 메뉴가 없어요.
                     <br />

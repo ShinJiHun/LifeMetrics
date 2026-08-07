@@ -7,6 +7,7 @@ import com.lifemetrics.backend.entity.ActivityCore;
 import com.lifemetrics.backend.entity.ActivityWeatherPoint;
 import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
+import com.lifemetrics.backend.repository.BikeRepository;
 import com.lifemetrics.backend.repository.ActivityWeatherPointRepository;
 import com.lifemetrics.backend.repository.AiAnalysisRepository;
 import com.lifemetrics.backend.repository.UserBodyRecordRepository;
@@ -23,6 +24,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ActivityChatService {
     private final ActivityCoreRepository activityRepo;
+    private final BikeRepository bikeRepo;
     private final ActivityWeatherPointRepository weatherPointRepo;
     private final AiAnalysisRepository analysisRepo;
     private final UserBodyRecordRepository bodyRecordRepo;
@@ -137,8 +139,11 @@ public class ActivityChatService {
         if (a.getLocationName() != null && !a.getLocationName().isEmpty()) {
             sb.append("- 출발지: ").append(a.getLocationName()).append("\n");
         }
-        if (a.getGearName() != null && !a.getGearName().isEmpty()) {
-            sb.append("- 장비: ").append(a.getGearName()).append("\n");
+        if (a.getBikeId() != null) {
+            bikeRepo.findById(a.getBikeId())
+                    .map(b -> b.getName())
+                    .filter(n -> n != null && !n.isEmpty())
+                    .ifPresent(n -> sb.append("- 장비: ").append(n).append("\n"));
         }
 
         sb.append(String.format("""

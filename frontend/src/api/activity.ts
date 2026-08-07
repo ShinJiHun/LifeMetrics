@@ -21,7 +21,6 @@ export interface Activity {
     maxSpeed: number;
     totalAscent: number;
     totalDescent: number;
-    gearName: string;
     polyline?: string;
     avgHeartRate?: number;
     maxHeartRate?: number;

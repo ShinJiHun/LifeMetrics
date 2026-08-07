@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Getter;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Getter
 @Builder
@@ -15,7 +16,9 @@ public class ActivityDetailDto {
     // ★ 라이드 제목 (사용자 입력 또는 자동 생성)
     private String name;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime startTime;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime endTime;
 
     // 거리/시간
@@ -59,9 +62,6 @@ public class ActivityDetailDto {
 
     // 칼로리
     private Integer calories;
-
-    // 장비
-    private String gearName;
 
     // 자전거 / 구동계 (활동일 기준 effective 컴포넌트)
     private GearContext gearContext;

@@ -37,6 +37,11 @@ const domainMap: Record<MetricKey, DomainConfig> = {
         INBODY:  [5, 40],
         tickCount: 9,
     },
+    fatFreeMass: {
+        FITDAYS: [40, 80],
+        INBODY:  [45, 75],
+        tickCount: 8,
+    },
     bodyFatPercentage: {
         FITDAYS: [5, 45],
         INBODY:  [5, 40],
@@ -58,6 +63,7 @@ const unitMap: Record<MetricKey, string> = {
     weight:             "kg",
     skeletalMuscleMass: "kg",
     bodyFatMass:        "kg",
+    fatFreeMass:        "kg",
     bodyFatPercentage:  "%",
     bmi:                "",
     visceralFatLevel:   "",
@@ -67,6 +73,7 @@ const titleMap: Record<MetricKey, string> = {
     weight:             "체중",
     skeletalMuscleMass: "골격근량",
     bodyFatMass:        "체지방량",
+    fatFreeMass:        "제지방량",
     bodyFatPercentage:  "체지방률",
     bmi:                "BMI",
     visceralFatLevel:   "내장지방",

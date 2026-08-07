@@ -9,6 +9,8 @@ import com.lifemetrics.backend.service.RelativeEffortCalculator;
 import com.lifemetrics.backend.service.ReverseGeocodingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import java.util.List;
 
@@ -62,7 +64,6 @@ public class ActivityDetailMapper {
                 .maxSpeed(activity.getMaxSpeed())
                 .totalAscent(activity.getTotalAscent())
                 .totalDescent(activity.getTotalDescent())
-                .gearName(activity.getGearName())
                 .startLat(activity.getStartLat())
                 .startLon(activity.getStartLon())
                 .endLat(activity.getEndLat())
@@ -141,7 +142,10 @@ public class ActivityDetailMapper {
 
         // 시간대
         if (activity.getStartTime() != null) {
-            int hour = activity.getStartTime().getHour();
+            int hour = activity.getStartTime()
+                    .atZone(ZoneOffset.UTC)                    // 저장값은 UTC
+                    .withZoneSameInstant(ZoneId.of("Asia/Seoul"))  // KST로 변환
+                    .getHour();                                 // 이제 07시
             if (hour < 6) sb.append("새벽");
             else if (hour < 12) sb.append("아침");
             else if (hour < 18) sb.append("오후");

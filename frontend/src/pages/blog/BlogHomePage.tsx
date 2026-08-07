@@ -1,3 +1,4 @@
+import AdminOnly from "@/components/common/AdminOnly";
 import type { CSSProperties } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PERSONA_META, blogPersonaFromPath } from "@/lib/persona";
@@ -21,19 +22,27 @@ export default function BlogHomePage() {
                 <div style={{ ...S.kicker, color: accent }}>{heading.kicker}</div>
                 <h1 style={S.title}>{heading.title}</h1>
                 <p style={S.subtitle}>{heading.sub}</p>
-                <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-                    <Link to={`/${persona}/manage`} style={{ ...S.btn, background: accent }}>
-                        ✏️ 메뉴·글 관리
-                    </Link>
-                </div>
+                {persona === "human" && (
+                    <AdminOnly>
+                        <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+                            <Link to={`/${persona}/manage`} style={{ ...S.btn, background: accent }}>
+                                ✏️ 메뉴·글 관리
+                            </Link>
+                        </div>
+                    </AdminOnly>
+                )}
             </header>
 
             {categories.length === 0 ? (
                 <div style={S.empty}>
                     아직 메뉴가 없습니다.{" "}
-                    <Link to={`/${persona}/manage`} style={{ color: accent, fontWeight: 600 }}>
-                        메뉴 만들기 →
-                    </Link>
+                    {persona === "human" && (
+                        <AdminOnly>
+                            <Link to={`/${persona}/manage`} style={{ color: accent, fontWeight: 600 }}>
+                                메뉴 만들기 →
+                            </Link>
+                        </AdminOnly>
+                    )}
                 </div>
             ) : (
                 categories.map((cat) => {

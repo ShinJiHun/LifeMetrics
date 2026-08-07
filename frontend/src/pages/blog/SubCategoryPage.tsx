@@ -1,3 +1,4 @@
+import AdminOnly from "@/components/common/AdminOnly";
 import type { CSSProperties } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { PERSONA_META, blogPersonaFromPath } from "@/lib/persona";
@@ -32,12 +33,14 @@ export default function SubCategoryPage() {
             </div>
             <header style={S.head}>
                 <h1 style={S.title}>{sub.name}</h1>
-                <Link
-                    to={`/${persona}/post/new?sub=${subId}`}
-                    style={{ ...S.btn, background: accent }}
-                >
-                    + 새 글
-                </Link>
+                <AdminOnly>
+                    <Link
+                        to={`/${persona}/post/new?sub=${subId}`}
+                        style={{ ...S.btn, background: accent }}
+                    >
+                        + 새 글
+                    </Link>
+                </AdminOnly>
             </header>
 
             {posts.length === 0 ? (
@@ -63,10 +66,16 @@ export default function SubCategoryPage() {
 }
 
 function summarize(body: string): string {
-    const text = body.replace(/\s+/g, " ").trim();
+    const text = body
+        .replace(/<[^>]*>/g, " ")   // HTML 태그 제거
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/\s+/g, " ")
+        .trim();
     return text.length > 120 ? text.slice(0, 120) + "…" : text;
 }
-
 const S: Record<string, CSSProperties> = {
     page: { maxWidth: 760, margin: "0 auto", padding: "40px 24px 64px" },
     crumb: { fontSize: 13, color: "#9aa0b2", marginBottom: 8 },

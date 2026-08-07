@@ -1,3 +1,4 @@
+import AdminOnly from "@/components/common/AdminOnly";
 import {useState, useEffect, useRef} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import mapboxgl from "mapbox-gl";
@@ -21,7 +22,7 @@ interface ActivitySummary {
     maxSpeed: number;
     totalAscent: number;
     totalDescent: number;
-    gearName?: string;
+    gearContext?: { bikeLabel?: string };
     startLat?: number;
     startLon?: number;
     endLat?: number;
@@ -418,10 +419,10 @@ export default function ActivityDetailPage() {
                                 <span>{activity.locationName}</span>
                             </div>
                         )}
-                        {activity.gearName && (
+                        {activity.gearContext?.bikeLabel && (
                             <div style={S.metaItem}>
                                 <span style={S.metaIcon}>🚴</span>
-                                <span>{activity.gearName}</span>
+                                <span>{activity.gearContext.bikeLabel}</span>
                             </div>
                         )}
                         <div style={S.metaItem}>
@@ -431,15 +432,17 @@ export default function ActivityDetailPage() {
                     </div>
 
                     {!editingName && (
-                        <button
-                            style={S.editBtn}
-                            onClick={() => {
-                                setNameInput(activity.name || "");
-                                setEditingName(true);
-                            }}
-                        >
-                            ✏️ 제목 편집
-                        </button>
+                        <AdminOnly>
+                            <button
+                                style={S.editBtn}
+                                onClick={() => {
+                                    setNameInput(activity.name || "");
+                                    setEditingName(true);
+                                }}
+                            >
+                                ✏️ 제목 편집
+                            </button>
+                        </AdminOnly>
                     )}
                 </div>
 

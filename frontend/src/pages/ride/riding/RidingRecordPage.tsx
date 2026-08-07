@@ -1,3 +1,4 @@
+import AdminOnly from "@/components/common/AdminOnly";
 import {useState, useEffect, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
 import {fetchActivities} from "@/api/activity";
@@ -49,7 +50,7 @@ function ActivityCard({activity, selected, onClick}: {
             <div className="activity-header">
                 <div className="activity-date">{formatDate(activity.startTime)}</div>
                 <div style={{display: "flex", alignItems: "center", gap: 8}}>
-                    <div className="activity-gear">{activity.gearContext?.bikeLabel || activity.gearName || ""}</div>
+                    <div className="activity-gear">{activity.gearContext?.bikeLabel || ""}</div>
                     <button
                         style={{
                             padding: "3px 10px",
@@ -456,15 +457,17 @@ export default function RidingRecordPage() {
 
             <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16}}>
                 <h2 style={{margin: 0}}>🚴 라이딩 기록</h2>
-                <button
-                    onClick={() => setShowUpload(true)}
-                    style={{
-                        padding: "6px 14px", background: "#1e3a5f", border: "1px solid #2563eb",
-                        borderRadius: 8, color: "#93c5fd", cursor: "pointer", fontSize: 13
-                    }}
-                >
-                    📁 FIT 업로드
-                </button>
+                <AdminOnly>
+                    <button
+                        onClick={() => setShowUpload(true)}
+                        style={{
+                            padding: "6px 14px", background: "#1e3a5f", border: "1px solid #2563eb",
+                            borderRadius: 8, color: "#93c5fd", cursor: "pointer", fontSize: 13
+                        }}
+                    >
+                        📁 FIT 업로드
+                    </button>
+                </AdminOnly>
             </div>
 
             <div className="riding-layout">

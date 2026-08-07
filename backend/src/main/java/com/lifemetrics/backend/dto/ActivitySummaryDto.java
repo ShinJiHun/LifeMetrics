@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 // dto/ActivitySummaryDto.java
 @Getter
@@ -15,7 +16,10 @@ public class ActivitySummaryDto {
     // ★ 라이드 제목 (사용자 입력 또는 자동 생성)
     private String name;
 
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime startTime;
+
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private LocalDateTime endTime;
     private Double totalDistance;
     private Integer movingTime;
@@ -24,7 +28,6 @@ public class ActivitySummaryDto {
     private Double maxSpeed;
     private Double totalAscent;
     private Double totalDescent;
-    private String gearName;
     private Double startLat;
     private Double startLon;
     private Double endLat;

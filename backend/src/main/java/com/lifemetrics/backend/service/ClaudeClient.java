@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -39,8 +40,34 @@ public class ClaudeClient {
         return complete(systemPrompt, List.of(Map.of("role", "user", "content", userText)), maxTokens);
     }
 
+    /**
+     * 이미지 1장 + 지시문 호출. 이미지는 base64 로 인라인 전송한다.
+     *
+     * @param mediaType image/png, image/jpeg 등
+     */
+    public String completeWithImage(String systemPrompt, String userText,
+                                    byte[] image, String mediaType, int maxTokens) {
+        Map<String, Object> imageBlock = Map.of(
+                "type", "image",
+                "source", Map.of(
+                        "type", "base64",
+                        "media_type", mediaType,
+                        "data", Base64.getEncoder().encodeToString(image)));
+
+        Map<String, Object> message = Map.of(
+                "role", "user",
+                "content", List.of(imageBlock, Map.of("type", "text", "text", userText)));
+
+        return callApi(systemPrompt, List.of(message), maxTokens);
+    }
+
     /** 멀티턴 메시지 호출. 실패 시 null 반환(호출부에서 fallback 처리). */
     public String complete(String systemPrompt, List<Map<String, String>> messages, int maxTokens) {
+        return callApi(systemPrompt, messages, maxTokens);
+    }
+
+    /** 실제 호출부. 메시지 content 가 문자열이든 블록 배열이든 그대로 실어 보낸다. */
+    private String callApi(String systemPrompt, List<?> messages, int maxTokens) {
         if (!hasApiKey()) {
             return null;
         }
@@ -61,7 +88,15 @@ public class ClaudeClient {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(API_URL, request, String.class);
             JsonNode json = objectMapper.readTree(response.getBody());
-            return json.get("content").get(0).get("text").asText();
+            // content 는 블록 배열이고 첫 블록이 항상 text 는 아니다.
+            // 확장 사고를 켠 모델은 thinking 블록을 먼저 넣으므로 text 블록을 찾아 써야 한다.
+            for (JsonNode block : json.path("content")) {
+                if ("text".equals(block.path("type").asText())) {
+                    return block.path("text").asText();
+                }
+            }
+            System.out.println("⚠️ [ClaudeClient] text 블록 없음: " + json.path("content"));
+            return null;
         } catch (Exception e) {
             System.out.println("❌ [ClaudeClient] Claude API 에러: " + e.getMessage());
             return null;

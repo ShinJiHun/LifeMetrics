@@ -39,6 +39,33 @@ public interface ActivityCoreRepository extends JpaRepository<ActivityCore, Long
             @Param("endDate") LocalDateTime endDate);
 
     /**
+     * 자전거별 누적 주행. 이동시간(moving_time)과 총시간(elapsed_time)을 따로 집계한다.
+     * bike.total_time / total_distance 컬럼은 갱신되지 않으므로 조회 시점에 여기서 집계한다.
+     */
+    @Query("SELECT a.bikeId AS bikeId, " +
+            "COALESCE(SUM(a.movingTime), 0) AS totalMovingTime, " +
+            "COALESCE(SUM(a.elapsedTime), 0) AS totalElapsedTime, " +
+            "COALESCE(SUM(a.totalDistance), 0.0) AS totalDistance " +
+            "FROM ActivityCore a WHERE a.bikeId IS NOT NULL GROUP BY a.bikeId")
+    List<BikeTotals> sumTotalsByBike();
+
+    /**
+     * 파워미터가 달린 라이드만 모아 소비열량 추정에 쓸 통계를 낸다.
+     *
+     * has_power = false 인 기록은 avg_power 가 2000~3800W 로 깨져 있어 반드시 제외해야 한다.
+     * 상·하한(30~400W)은 has_power 가 true 인데도 값이 튀는 경우에 대한 안전장치다.
+     */
+    @Query("SELECT COUNT(a) AS rideCount, " +
+            "COALESCE(SUM(a.movingTime), 0) AS movingSeconds, " +
+            "COALESCE(SUM(a.totalDistance), 0.0) AS distanceMeters, " +
+            "COALESCE(SUM(a.avgPower * a.movingTime), 0.0) AS workJoules, " +
+            "COALESCE(SUM(a.calories), 0) AS reportedCalories " +
+            "FROM ActivityCore a " +
+            "WHERE a.userId = :userId AND a.hasPower = true " +
+            "AND a.avgPower BETWEEN 30 AND 400 AND a.movingTime > 0")
+    PowerRideStats getPowerRideStats(@Param("userId") Long userId);
+
+    /**
      * 거리/고도 유사도 기반 상위 N개 기록 조회
      * 유사도 = 거리차이비율 * 0.4 + 고도차이비율 * 0.6
      * 최소 거리 50km 이상만 대상

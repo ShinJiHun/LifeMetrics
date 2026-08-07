@@ -19,6 +19,8 @@ public class BodyRecordResponse {
     private Double bmi;
     private Double bodyFatPercentage;
     private Double bodyFatMass;
+    private Double fatFreeMass;
+    private Double fatFreeMassDelta;
 
     // ===== INBODY 전용 =====
     private Double skeletalMuscleMass;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import SettingsTodoModal from "./SettingsTodoModal";
+import AdminBadge from "@/components/common/AdminBadge";
 
 // ── 페르소나 정의 ─────────────────────────────
 // route 는 실제 라우터 경로로 바꿔서 쓰세요 (예: navigate(p.route))
@@ -209,6 +210,7 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
       `}</style>
 
             <div className="lm-gate">
+                <AdminBadge style={{ position: "absolute", top: 32, right: 82 }} />
                 <button
                     type="button"
                     className="lm-gear"

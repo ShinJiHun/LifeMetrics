@@ -100,6 +100,45 @@ export function findPost(data: ContentDB, postId: string): Post | undefined {
     return data.posts.find((p) => p.id === postId);
 }
 
+// 대메뉴 이름으로 그 안의 첫 글을 찾는다 (예: "자기소개", "포트폴리오" 같은
+// 고정 슬롯 콘텐츠를 사이드바에서 바로 링크하기 위함).
+export function findPostByCategoryName(
+    data: ContentDB,
+    persona: Persona,
+    categoryName: string,
+): Post | undefined {
+    return findPostsByCategoryName(data, persona, categoryName)[0];
+}
+
+// 이름으로 찾은 대메뉴 안의 모든 글을 오래된 순으로 반환한다 (예: 포트폴리오
+// 카테고리 아래 "프로젝트 1, 2, 3…" 처럼 순서대로 페이지 넘기는 콘텐츠용).
+export function findPostsByCategoryName(
+    data: ContentDB,
+    persona: Persona,
+    categoryName: string,
+): Post[] {
+    const cat = data.categories.find((c) => c.persona === persona && c.name === categoryName);
+    if (!cat) return [];
+    const sub = data.subMenus.find((s) => s.categoryId === cat.id);
+    if (!sub) return [];
+    return [...postsOf(data, sub.id)].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
+// 대메뉴 이름 + 소메뉴 이름으로 그 안의 모든 글을 오래된 순으로 반환한다
+// (예: "포트폴리오 / 개인", "포트폴리오 / 회사" 처럼 소메뉴별로 나뉜 콘텐츠용).
+export function findPostsBySubMenuName(
+    data: ContentDB,
+    persona: Persona,
+    categoryName: string,
+    subMenuName: string,
+): Post[] {
+    const cat = data.categories.find((c) => c.persona === persona && c.name === categoryName);
+    if (!cat) return [];
+    const sub = data.subMenus.find((s) => s.categoryId === cat.id && s.name === subMenuName);
+    if (!sub) return [];
+    return [...postsOf(data, sub.id)].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 function byOrder(a: { order: number }, b: { order: number }): number {
     return a.order - b.order;
 }

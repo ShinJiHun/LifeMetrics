@@ -1,6 +1,7 @@
 // src/components/Layout.tsx
 import { Outlet } from "react-router-dom";
 import SideBar from "@/components/common/SideBar.tsx";
+import AdminBadge from "@/components/common/AdminBadge";
 
 export default function Layout() {
     return (
@@ -17,6 +18,10 @@ export default function Layout() {
                     background: "#ffffff",
                 }}
             >
+                {/* 현재 모드 표시 + 관리자 로그인 진입점 */}
+                <div style={{display: "flex", justifyContent: "flex-end", marginBottom: 8}}>
+                    <AdminBadge/>
+                </div>
                 <Outlet/>
             </main>
         </div>

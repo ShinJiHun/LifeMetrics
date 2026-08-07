@@ -1,0 +1,215 @@
+.wl-page {
+    padding: 24px 32px;
+    max-width: 1000px;
+}
+
+.wl-page h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+}
+
+.wl-subtitle {
+    color: #64748b;
+    font-size: 13px;
+    margin-bottom: 24px;
+}
+
+/* 결과 강조 박스 */
+.wl-headline {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.wl-headline-label {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 10px;
+}
+
+.wl-headline-value {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.wl-headline-value strong {
+    font-size: 34px;
+    font-weight: 700;
+    color: #2563eb;
+    line-height: 1.1;
+}
+
+.wl-headline-sep {
+    color: #cbd5e1;
+    font-size: 22px;
+}
+
+.wl-headline-note {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 12px;
+    line-height: 1.6;
+}
+
+/* 지표 카드 */
+.wl-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 10px;
+}
+
+.wl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.wl-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+    background: #fff;
+}
+
+.wl-card-title {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-bottom: 6px;
+}
+
+.wl-card-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.wl-card-unit {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-left: 3px;
+    font-weight: 400;
+}
+
+/* 시나리오 표 */
+.wl-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 12px;
+}
+
+.wl-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 520px;
+}
+
+.wl-table th,
+.wl-table td {
+    text-align: right;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.wl-table th:first-child,
+.wl-table td:first-child {
+    text-align: left;
+}
+
+.wl-table th {
+    color: #94a3b8;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.wl-table tr.primary td {
+    background: #eff6ff;
+    font-weight: 600;
+}
+
+.wl-basis {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+/* AI 코칭 */
+.wl-ai {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    background: #fff;
+    margin-bottom: 24px;
+}
+
+.wl-ai-btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.wl-ai-btn:disabled {
+    background: #93c5fd;
+    cursor: default;
+}
+
+.wl-ai-hint {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-left: 10px;
+}
+
+.wl-ai-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.8;
+    color: #334155;
+    white-space: pre-wrap;
+}
+
+.wl-ai-error {
+    margin-top: 10px;
+    font-size: 13px;
+    color: #b91c1c;
+}
+
+/* 주의 문구 */
+.wl-notes {
+    border-left: 3px solid #f59e0b;
+    background: #fffbeb;
+    padding: 14px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #78350f;
+}
+
+.wl-notes ul {
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+
+.wl-warn {
+    background: #fef2f2;
+    border-left-color: #ef4444;
+    color: #7f1d1d;
+    margin-bottom: 20px;
+}
+
+.wl-state {
+    padding: 40px;
+    color: #64748b;
+    font-size: 14px;
+}
