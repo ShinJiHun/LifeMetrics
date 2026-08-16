@@ -28,6 +28,7 @@ public class ActivityService {
     private final ActivityCoreRepository coreRepository;
     private final ActivityPointRepository pointRepository;
     private final ActivityWeatherRepository weatherRepository;
+    private final WeatherService weatherService;
     private final AiAnalysisRepository analysisRepo;
     private final ObjectMapper objectMapper;
     private final SegmentEffortRepository segmentEffortRepository;
@@ -70,6 +71,7 @@ public class ActivityService {
 
         List<ActivityPoint> points = pointRepository.findByActivityCoreIdOrderBySeqAsc(id);
         ActivityWeather weather = weatherRepository.findByActivityCoreId(id).orElse(null);
+        weather = ensureWindDeg(id, core, weather);
         GearContext gearContext = gearResolveService.resolve(core.getUserId(), core.getStartTime(), core.getBikeId());
 
         return ActivityDetailDto.builder()
@@ -308,6 +310,37 @@ public class ActivityService {
                 .humidity(weather.getHumidity())
                 .windSpeed(weather.getWindSpeed())
                 .pressure(weather.getPressure())
+                .windDeg(weather.getWindDeg())
                 .build();
+    }
+
+    // 라이딩 시작 시점 풍향이 없으면 Open-Meteo Archive API로 조회해 activity_weather 에 캐싱한다.
+    // (다음 조회부터는 이 캐시된 값을 그대로 쓰고 외부 API를 다시 부르지 않는다)
+    private ActivityWeather ensureWindDeg(Long activityCoreId, ActivityCore core, ActivityWeather weather) {
+        if (weather != null && weather.getWindDeg() != null) return weather;
+        if (core.getStartLat() == null || core.getStartLon() == null || core.getStartTime() == null) return weather;
+
+        WeatherService.HistoricalWind wind =
+                weatherService.getHistoricalWind(core.getStartLat(), core.getStartLon(), core.getStartTime());
+        if (wind == null || wind.windDeg() == null) return weather;
+
+        ActivityWeather updated = weather == null
+                ? ActivityWeather.builder()
+                    .activityCoreId(activityCoreId)
+                    .temperature(wind.temperature())
+                    .windSpeed(wind.windSpeed())
+                    .windDeg(wind.windDeg())
+                    .build()
+                : ActivityWeather.builder()
+                    .id(weather.getId())
+                    .activityCoreId(weather.getActivityCoreId())
+                    .temperature(weather.getTemperature())
+                    .humidity(weather.getHumidity())
+                    .windSpeed(weather.getWindSpeed())
+                    .pressure(weather.getPressure())
+                    .windDeg(wind.windDeg())
+                    .build();
+
+        return weatherRepository.save(updated);
     }
 }

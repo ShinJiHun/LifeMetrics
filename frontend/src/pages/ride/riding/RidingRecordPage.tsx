@@ -55,6 +55,34 @@ function ActivityCard({activity, selected, onClick}: {
                         style={{
                             padding: "3px 10px",
                             fontSize: 11,
+                            background: "#3a1e1e",
+                            border: "1px solid #ef4444",
+                            borderRadius: 6,
+                            color: "#fca5a5",
+                            cursor: "pointer",
+                            flexShrink: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4
+                        }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/records/riding/${activity.id}/live`);
+                        }}
+                    >
+                        <span style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: "#ef4444",
+                            display: "inline-block"
+                        }}/>
+                        라이브
+                    </button>
+                    <button
+                        style={{
+                            padding: "3px 10px",
+                            fontSize: 11,
                             background: "#1e3a5f",
                             border: "1px solid #2563eb",
                             borderRadius: 6,

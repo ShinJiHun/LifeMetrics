@@ -11,7 +11,9 @@ import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
 import BrevePlanPage from "@/pages/ride/plan/BrevePlanPage";
 import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
 import ActivityDetailPage from "@/pages/ride/riding/ActivityDetailPage";
+import RideLivePage from "@/pages/ride/riding/RideLivePage";
 import PersonaPortfolioPage from "@/pages/persona/PersonaPortfolioPage";
+import ProfileManagePage from "@/pages/persona/ProfileManagePage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
 import BlogHomePage from "@/pages/blog/BlogHomePage";
@@ -47,8 +49,10 @@ export default function App() {
                 <Route path="/plan/live" element={<LiveRidePage />} />
                 <Route path="/plan/touring" element={<div style={{ padding: 24 }}>🏕️ 투어링 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
+                <Route path="/records/riding/:id/live" element={<RideLivePage />} />
                 <Route path="/persona" element={<Navigate to="/" replace />} />
                 <Route path="/persona/developer" element={<PersonaPortfolioPage />} />
+                <Route path="/persona/developer/manage" element={<RequireAdmin><ProfileManagePage /></RequireAdmin>} />
                 <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
 
                 {/* 개발자 / 인간 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}

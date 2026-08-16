@@ -11,4 +11,5 @@ public class WeatherDto {
     private Double humidity;     // 습도 (%)
     private Double windSpeed;    // 풍속
     private Double pressure;     // 기압 (hPa)
+    private Integer windDeg;     // 풍향 (도, 0~360, 북풍=0)
 }

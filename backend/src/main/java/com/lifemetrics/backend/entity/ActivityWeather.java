@@ -2,11 +2,17 @@
 package com.lifemetrics.backend.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "activity_weather")
 @Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ActivityWeather {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,4 +28,7 @@ public class ActivityWeather {
     private Double windSpeed;
 
     private Double pressure;
+
+    @Column(name = "wind_deg")
+    private Integer windDeg;
 }

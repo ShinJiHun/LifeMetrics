@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,57 @@ public class WeatherService {
                     "&hourly=temperature_2m,wind_speed_10m,wind_direction_10m,precipitation" +
                     "&timezone=Asia%2FSeoul" +
                     "&forecast_days=16";
+
+    private static final String OPEN_METEO_ARCHIVE_URL =
+            "https://archive-api.open-meteo.com/v1/archive" +
+                    "?latitude={lat}&longitude={lon}" +
+                    "&start_date={date}&end_date={date}" +
+                    "&hourly=temperature_2m,wind_speed_10m,wind_direction_10m" +
+                    "&wind_speed_unit=ms" +
+                    "&timezone=Asia/Seoul";
+
+    // 라이딩 "당시"(과거 시점) 풍향/풍속/기온 — Archive API(ERA5 재분석, 통상 최근 며칠 지연)
+    public HistoricalWind getHistoricalWind(double lat, double lon, LocalDateTime rideStart) {
+        String date = rideStart.toLocalDate().toString();
+        try {
+            Map response = restTemplate.getForObject(
+                    OPEN_METEO_ARCHIVE_URL, Map.class,
+                    Map.of("lat", lat, "lon", lon, "date", date)
+            );
+            return parseArchiveResponse(response, date, rideStart.getHour());
+        } catch (Exception e) {
+            log.warn("Open-Meteo Archive API 호출 실패 lat={} lon={} date={}: {}", lat, lon, date, e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private HistoricalWind parseArchiveResponse(Map<String, Object> data, String date, int hour) {
+        if (data == null) return null;
+
+        Map<String, Object> hourlyData = (Map<String, Object>) data.get("hourly");
+        if (hourlyData == null) return null;
+
+        List<String> times = (List<String>) hourlyData.get("time");
+        List<Number> temps = (List<Number>) hourlyData.get("temperature_2m");
+        List<Number> windSpeeds = (List<Number>) hourlyData.get("wind_speed_10m");
+        List<Number> windDirs = (List<Number>) hourlyData.get("wind_direction_10m");
+
+        if (times == null || windSpeeds == null || windDirs == null) return null;
+
+        String timeKey = String.format("%sT%02d:00", date, hour);
+        int idx = times.indexOf(timeKey);
+        if (idx < 0) return null;
+
+        return new HistoricalWind(
+                windDirs.get(idx).intValue(),
+                round(windSpeeds.get(idx).doubleValue()),
+                temps != null ? round(temps.get(idx).doubleValue()) : null
+        );
+    }
+
+    public record HistoricalWind(Integer windDeg, Double windSpeed, Double temperature) {
+    }
 
     public WindyWeatherDto getWeatherForPoint(double lat, double lon, String date) {
         try {
