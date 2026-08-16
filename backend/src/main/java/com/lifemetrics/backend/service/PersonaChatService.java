@@ -1,5 +1,6 @@
 package com.lifemetrics.backend.service;
 
+import com.lifemetrics.backend.client.RunPodClient;
 import com.lifemetrics.backend.dto.PersonaChatRequest;
 import com.lifemetrics.backend.persona.entity.BlogPost;
 import com.lifemetrics.backend.persona.entity.PersonaProfile;
@@ -18,7 +19,7 @@ import java.util.Optional;
  * 캐시된 페르소나 프로필 + 질문과 키워드가 겹치는 상위 글 본문을 프롬프트에 주입한다.
  * 글 수가 적어(~50개) in-memory 점수화로 충분하다.
  *
- * LLM 호출은 Vertex(Gemini). 개인 문서/블로그를 다루므로 입력을 학습에 쓰지 않는 Vertex가 적합.
+ * LLM 호출 우선순위: Gemini(Vertex) → 로컬 Ollama → RunPod(클라우드 서버리스 Ollama).
  */
 @Service
 @RequiredArgsConstructor
@@ -28,7 +29,9 @@ public class PersonaChatService {
     private final PersonaProfileService personaProfileService;
     private final GeminiService geminiService;          // ✅ ClaudeClient 대체
     private final OllamaService ollamaService;           // Gemini ADC 없는 로컬 개발용 대체
+    private final RunPodClient runPodClient;              // 클라우드 서버리스 Ollama (RunPod)
     private final PersonaDocService personaDocService;
+    private final CareerDataService careerDataService;
 
     private static final int MAX_HISTORY = 20;
     private static final int TOP_K = 4;
@@ -39,7 +42,9 @@ public class PersonaChatService {
     public String chat(List<PersonaChatRequest.Message> messages) {
         boolean useGemini = geminiService.hasApiKey();
         boolean useOllama = !useGemini && ollamaService.isAvailable();
-        if (!useGemini && !useOllama) {
+        boolean useRunPod = !useGemini && !useOllama;
+
+        if (!useGemini && !useOllama && !useRunPod) {
             return "AI 서비스가 설정되지 않았습니다. (ADC / Vertex 프로젝트 확인 필요, 또는 로컬 Ollama 미기동)";
         }
         if (messages == null || messages.isEmpty()) {
@@ -77,11 +82,31 @@ public class PersonaChatService {
             return "질문 메시지가 없습니다.";
         }
 
-        String reply = useGemini
-                ? geminiService.chat(systemPrompt, history, MAX_TOKENS)
-                : ollamaService.chat(systemPrompt, history);
+        String reply;
+        if (useGemini) {
+            reply = geminiService.chat(systemPrompt, history, MAX_TOKENS);
+        } else if (useOllama) {
+            reply = ollamaService.chat(systemPrompt, history);
+        } else {
+            // RunPod(Ollama)은 단일 프롬프트 문자열만 받으므로 systemPrompt + 이력을 합친다.
+            String combinedPrompt = buildCombinedPrompt(systemPrompt, history);
+            reply = runPodClient.ask(combinedPrompt);
+        }
+
         return (reply != null && !reply.isBlank()) ? reply
                 : "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    }
+
+    /** systemPrompt + 대화 이력을 RunPod(Ollama)에 보낼 단일 프롬프트 문자열로 합친다. */
+    private String buildCombinedPrompt(String systemPrompt, List<GeminiService.ChatMessage> history) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(systemPrompt).append("\n\n");
+        for (GeminiService.ChatMessage m : history) {
+            String role = "user".equalsIgnoreCase(m.role()) ? "사용자" : "어시스턴트";
+            sb.append(role).append(": ").append(m.content()).append("\n");
+        }
+        sb.append("어시스턴트:");
+        return sb.toString();
     }
 
     private String buildSystemPrompt(String query) {
@@ -89,6 +114,9 @@ public class PersonaChatService {
         sb.append("""
                 당신은 신지훈의 "페르소나 비서"입니다. 아래 본인 문서(이력서·포트폴리오 등), 페르소나 프로필, 신지훈의 블로그 글 발췌를
                 근거로 신지훈이 어떤 사람인지 방문자에게 친절하고 자연스럽게 설명하세요.
+        
+                [매우 중요] 반드시 순수 한국어로만 답변하세요. 한자, 중국어, 영어 단어를 단 한 글자도 섞지 마세요.
+                한글 자모와 기본 문장부호만 사용하세요. 이 규칙을 어기면 안 됩니다.
 
                 규칙:
                 - 반드시 아래 제공된 정보(본인 문서/프로필/글 발췌)에 근거해서만 답하세요. 모르면 "그 내용은 자료에 없네요"라고 솔직히 말하세요.
@@ -98,6 +126,12 @@ public class PersonaChatService {
                 - 답변은 보통 2~5문장으로 간결하게. 관련 블로그 글이 있으면 글 제목을 자연스럽게 언급해도 좋습니다.
 
                 """);
+
+        if (careerDataService.isLoaded()) {
+            sb.append("## 경력 (가장 정확한 최신 정보, 최우선으로 신뢰할 것)\n")
+                    .append(careerDataService.getText())
+                    .append("\n\n");
+        }
 
         if (personaDocService.isAnyLoaded()) {
             sb.append(personaDocService.getCombinedText());

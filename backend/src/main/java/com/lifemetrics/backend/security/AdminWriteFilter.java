@@ -41,12 +41,12 @@ public class AdminWriteFilter extends OncePerRequestFilter {
     private static final List<String> PUBLIC_WRITE_PATHS = List.of(
             "/api/admin/login",
             "/api/admin/logout",
-            // 챗봇 · 예측: 조회성 POST (방문자 허용)
             "/api/persona/chat",
+            "/api/persona/runpod/chat",
             "/api/persona/transcribe",
+            "/api/persona/runpod/chat",
             "/api/ai/chat/activity/**",
             "/api/activity/predict",
-            // 자체 비밀번호 검증을 이미 수행하는 설정 기능
             "/api/todos/verify",
             "/api/todos/notify"
     );
