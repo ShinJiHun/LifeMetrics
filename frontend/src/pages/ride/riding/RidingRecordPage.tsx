@@ -1,7 +1,7 @@
 import AdminOnly from "@/components/common/AdminOnly";
 import {useState, useEffect, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
-import {fetchActivities} from "@/api/activity";
+import {fetchActivities, mergeActivities} from "@/api/activity";
 import type {Activity} from "@/api/activity";
 import ActivityMap from "@/pages/ride/riding/ActivityMap";
 import {useDropzone} from "react-dropzone";
@@ -38,65 +38,97 @@ interface AnalysisData {
 }
 
 // ── 좌측 카드 ────────────────────────────────────────────────────
-function ActivityCard({activity, selected, onClick}: {
+function ActivityCard({activity, selected, onClick, mergeMode, mergeRank}: {
     activity: Activity;
     selected: boolean;
     onClick: () => void;
+    mergeMode?: boolean;
+    mergeRank?: 1 | 2;
 }) {
     const navigate = useNavigate();
 
+    const cardStyle = mergeMode && mergeRank
+        ? {
+            outline: `2px solid ${mergeRank === 1 ? "#22c55e" : "#f59e0b"}`,
+            outlineOffset: -2,
+        }
+        : undefined;
+
     return (
-        <div className={`activity-card ${selected ? "selected" : ""}`} onClick={onClick}>
+        <div
+            className={`activity-card ${selected ? "selected" : ""} ${mergeMode ? "merge-mode" : ""}`}
+            style={cardStyle}
+            onClick={onClick}
+        >
             <div className="activity-header">
                 <div className="activity-date">{formatDate(activity.startTime)}</div>
                 <div style={{display: "flex", alignItems: "center", gap: 8}}>
                     <div className="activity-gear">{activity.gearContext?.bikeLabel || ""}</div>
-                    <button
-                        style={{
-                            padding: "3px 10px",
-                            fontSize: 11,
-                            background: "#3a1e1e",
-                            border: "1px solid #ef4444",
-                            borderRadius: 6,
-                            color: "#fca5a5",
-                            cursor: "pointer",
-                            flexShrink: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4
-                        }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/records/riding/${activity.id}/live`);
-                        }}
-                    >
-                        <span style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: "#ef4444",
-                            display: "inline-block"
-                        }}/>
-                        라이브
-                    </button>
-                    <button
-                        style={{
-                            padding: "3px 10px",
-                            fontSize: 11,
-                            background: "#1e3a5f",
-                            border: "1px solid #2563eb",
-                            borderRadius: 6,
-                            color: "#93c5fd",
-                            cursor: "pointer",
-                            flexShrink: 0
-                        }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/records/riding/${activity.id}`);
-                        }}
-                    >
-                        자세히
-                    </button>
+                    {mergeMode ? (
+                        mergeRank && (
+                            <span style={{
+                                padding: "3px 10px",
+                                fontSize: 11,
+                                fontWeight: 600,
+                                background: mergeRank === 1 ? "#14532d" : "#78350f",
+                                border: `1px solid ${mergeRank === 1 ? "#22c55e" : "#f59e0b"}`,
+                                borderRadius: 6,
+                                color: mergeRank === 1 ? "#86efac" : "#fcd34d",
+                                flexShrink: 0
+                            }}>
+                                {mergeRank === 1 ? "① 유지됨" : "② 병합 후 삭제"}
+                            </span>
+                        )
+                    ) : (
+                        <>
+                            <button
+                                style={{
+                                    padding: "3px 10px",
+                                    fontSize: 11,
+                                    background: "#3a1e1e",
+                                    border: "1px solid #ef4444",
+                                    borderRadius: 6,
+                                    color: "#fca5a5",
+                                    cursor: "pointer",
+                                    flexShrink: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 4
+                                }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/records/riding/${activity.id}/live`);
+                                }}
+                            >
+                                <span style={{
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: "50%",
+                                    background: "#ef4444",
+                                    display: "inline-block"
+                                }}/>
+                                라이브
+                            </button>
+                            <button
+                                style={{
+                                    padding: "3px 10px",
+                                    fontSize: 11,
+                                    background: "#1e3a5f",
+                                    border: "1px solid #2563eb",
+                                    borderRadius: 6,
+                                    color: "#93c5fd",
+                                    cursor: "pointer",
+                                    flexShrink: 0
+                                }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/records/riding/${activity.id}`);
+                                }}
+                            >
+                                자세히
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
             <div className="activity-map">
@@ -323,6 +355,78 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
     );
 }
 
+// ── 병합 확인 모달 ───────────────────────────────────────────────
+function MergeConfirmModal({parent, target, onCancel, onConfirm, merging, error}: {
+    parent: Activity;
+    target: Activity;
+    onCancel: () => void;
+    onConfirm: () => void;
+    merging: boolean;
+    error: string | null;
+}) {
+    return (
+        <div style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1001
+        }}>
+            <div style={{background: "#1e293b", borderRadius: 12, padding: 24, width: 460, maxWidth: "90vw"}}>
+                <h3 style={{color: "#e2e8f0", marginTop: 0}}>🔗 라이딩 병합</h3>
+                <p style={{color: "#94a3b8", fontSize: 13, lineHeight: 1.6}}>
+                    <b style={{color: "#fcd34d"}}>{formatDate(target.startTime)}</b> 활동을{" "}
+                    <b style={{color: "#86efac"}}>{formatDate(parent.startTime)}</b> 활동에 합칩니다.
+                </p>
+
+                <div style={{
+                    background: "#0f172a", borderRadius: 8, padding: 12,
+                    fontSize: 13, color: "#cbd5e1", margin: "12px 0", lineHeight: 1.8
+                }}>
+                    <div>
+                        거리: {formatDistance(parent.totalDistance)} + {formatDistance(target.totalDistance)} km
+                        → <b>{formatDistance(parent.totalDistance + target.totalDistance)} km</b>
+                    </div>
+                    <div>
+                        이동시간: {formatTime(parent.movingTime)} + {formatTime(target.movingTime)}
+                        → <b>{formatTime(parent.movingTime + target.movingTime)}</b>
+                    </div>
+                    <div>
+                        획득고도: {(parent.totalAscent || 0).toFixed(0)} + {(target.totalAscent || 0).toFixed(0)} m
+                        → <b>{((parent.totalAscent || 0) + (target.totalAscent || 0)).toFixed(0)} m</b>
+                    </div>
+                </div>
+
+                <p style={{color: "#f87171", fontSize: 12}}>
+                    ⚠️ "{formatDate(target.startTime)}" 활동은 병합 후 영구적으로 삭제되며 되돌릴 수 없습니다.
+                </p>
+
+                {error && <p style={{color: "#f87171", fontSize: 12}}>{error}</p>}
+
+                <div style={{display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16}}>
+                    <button
+                        onClick={onCancel}
+                        disabled={merging}
+                        style={{
+                            padding: "8px 16px", background: "transparent", border: "1px solid #334155",
+                            borderRadius: 8, color: "#94a3b8", cursor: merging ? "not-allowed" : "pointer"
+                        }}
+                    >
+                        취소
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={merging}
+                        style={{
+                            padding: "8px 16px", background: "#7f1d1d", border: "1px solid #ef4444",
+                            borderRadius: 8, color: "#fca5a5", cursor: merging ? "not-allowed" : "pointer"
+                        }}
+                    >
+                        {merging ? "병합 중..." : "병합 실행"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function FitUploadModal({onClose, onSuccess}: {
     onClose: () => void;
     onSuccess: () => void;
@@ -457,6 +561,50 @@ export default function RidingRecordPage() {
     const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
     const [showUpload, setShowUpload] = useState(false);
 
+    const [mergeMode, setMergeMode] = useState(false);
+    const [mergeSelection, setMergeSelection] = useState<Activity[]>([]);
+    const [showMergeConfirm, setShowMergeConfirm] = useState(false);
+    const [merging, setMerging] = useState(false);
+    const [mergeError, setMergeError] = useState<string | null>(null);
+
+    const toggleMergeMode = () => {
+        setMergeMode((m) => !m);
+        setMergeSelection([]);
+        setMergeError(null);
+    };
+
+    const handleMergeCardClick = (activity: Activity) => {
+        setMergeError(null);
+        setMergeSelection((prev) => {
+            if (prev.some((a) => a.id === activity.id)) {
+                return prev.filter((a) => a.id !== activity.id);
+            }
+            if (prev.length >= 2) return prev;
+            return [...prev, activity];
+        });
+    };
+
+    const swapMergeOrder = () => {
+        setMergeSelection((prev) => (prev.length === 2 ? [prev[1], prev[0]] : prev));
+    };
+
+    const handleConfirmMerge = async () => {
+        if (mergeSelection.length !== 2) return;
+        setMerging(true);
+        setMergeError(null);
+        try {
+            await mergeActivities(mergeSelection[0].id, mergeSelection[1].id);
+            setShowMergeConfirm(false);
+            setMergeMode(false);
+            setMergeSelection([]);
+            loadActivities();
+        } catch (e) {
+            setMergeError(e instanceof Error ? e.message : "병합에 실패했습니다.");
+        } finally {
+            setMerging(false);
+        }
+    };
+
     const loadActivities = () => {
         setLoading(true);
         fetchActivities()
@@ -483,34 +631,102 @@ export default function RidingRecordPage() {
                 />
             )}
 
+            {showMergeConfirm && mergeSelection.length === 2 && (
+                <MergeConfirmModal
+                    parent={mergeSelection[0]}
+                    target={mergeSelection[1]}
+                    onCancel={() => setShowMergeConfirm(false)}
+                    onConfirm={handleConfirmMerge}
+                    merging={merging}
+                    error={mergeError}
+                />
+            )}
+
             <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16}}>
                 <h2 style={{margin: 0}}>🚴 라이딩 기록</h2>
-                <AdminOnly>
-                    <button
-                        onClick={() => setShowUpload(true)}
-                        style={{
-                            padding: "6px 14px", background: "#1e3a5f", border: "1px solid #2563eb",
-                            borderRadius: 8, color: "#93c5fd", cursor: "pointer", fontSize: 13
-                        }}
-                    >
-                        📁 FIT 업로드
-                    </button>
-                </AdminOnly>
+                <div style={{display: "flex", gap: 8}}>
+                    <AdminOnly>
+                        <button
+                            onClick={() => setShowUpload(true)}
+                            style={{
+                                padding: "6px 14px", background: "#1e3a5f", border: "1px solid #2563eb",
+                                borderRadius: 8, color: "#93c5fd", cursor: "pointer", fontSize: 13
+                            }}
+                        >
+                            📁 FIT 업로드
+                        </button>
+                        <button
+                            onClick={toggleMergeMode}
+                            style={{
+                                padding: "6px 14px",
+                                background: mergeMode ? "#7f1d1d" : "#3f2d1e",
+                                border: `1px solid ${mergeMode ? "#ef4444" : "#f59e0b"}`,
+                                borderRadius: 8,
+                                color: mergeMode ? "#fca5a5" : "#fcd34d",
+                                cursor: "pointer",
+                                fontSize: 13
+                            }}
+                        >
+                            {mergeMode ? "✕ 병합 취소" : "🔗 라이딩 병합"}
+                        </button>
+                    </AdminOnly>
+                </div>
             </div>
+
+            {mergeMode && (
+                <div style={{
+                    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                    background: "#1e293b", border: "1px solid #334155", borderRadius: 8,
+                    padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#94a3b8"
+                }}>
+                    <span>병합할 라이딩 2개를 순서대로 선택하세요 ({mergeSelection.length}/2) — 첫번째가 유지되고 두번째가 합쳐진 뒤 삭제됩니다.</span>
+                    {mergeSelection.length === 2 && (
+                        <>
+                            <button
+                                onClick={swapMergeOrder}
+                                style={{
+                                    padding: "4px 10px", background: "transparent", border: "1px solid #475569",
+                                    borderRadius: 6, color: "#cbd5e1", cursor: "pointer", fontSize: 12
+                                }}
+                            >
+                                ⇄ 순서 바꾸기
+                            </button>
+                            <button
+                                onClick={() => setShowMergeConfirm(true)}
+                                style={{
+                                    padding: "4px 12px", background: "#1e3a5f", border: "1px solid #2563eb",
+                                    borderRadius: 6, color: "#93c5fd", cursor: "pointer", fontSize: 12
+                                }}
+                            >
+                                합치기 →
+                            </button>
+                        </>
+                    )}
+                    {mergeError && <span style={{color: "#f87171"}}>{mergeError}</span>}
+                </div>
+            )}
 
             <div className="riding-layout">
                 <div className="activity-feed">
                     {activities.length === 0 ? <p>라이딩 기록이 없습니다.</p> : (
-                        activities.map((activity) => (
-                            <ActivityCard
-                                key={activity.id}
-                                activity={activity}
-                                selected={selectedActivity?.id === activity.id}
-                                onClick={() => setSelectedActivity(
-                                    selectedActivity?.id === activity.id ? null : activity
-                                )}
-                            />
-                        ))
+                        activities.map((activity) => {
+                            const mergeIdx = mergeSelection.findIndex((a) => a.id === activity.id);
+                            return (
+                                <ActivityCard
+                                    key={activity.id}
+                                    activity={activity}
+                                    selected={selectedActivity?.id === activity.id}
+                                    mergeMode={mergeMode}
+                                    mergeRank={mergeIdx === -1 ? undefined : ((mergeIdx + 1) as 1 | 2)}
+                                    onClick={() => mergeMode
+                                        ? handleMergeCardClick(activity)
+                                        : setSelectedActivity(
+                                            selectedActivity?.id === activity.id ? null : activity
+                                        )
+                                    }
+                                />
+                            );
+                        })
                     )}
                 </div>
                 <AnalysisPanel activity={selectedActivity}/>

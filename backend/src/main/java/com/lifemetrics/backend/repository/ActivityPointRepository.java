@@ -4,6 +4,9 @@ package com.lifemetrics.backend.repository;
 import com.lifemetrics.backend.entity.ActivityPoint;
 import com.lifemetrics.backend.entity.ActivityPointId;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -29,4 +32,22 @@ public interface ActivityPointRepository
      * 필요할 때만 사용.
      */
     List<ActivityPoint> findByActivityCoreIdAndHeartRateNotNullOrderBySeqAsc(Long activityCoreId);
+
+    /**
+     * 활동 병합(mergeActivities)에서 사용.
+     * <p>
+     * activityCoreId + seq가 복합 PK라서 엔티티를 로드해 필드를 바꾸는 방식은
+     * Hibernate가 "identifier was altered" 예외를 던진다. 그래서 벌크 UPDATE로 직접 이동시킨다.
+     */
+    @Query("SELECT MAX(p.seq) FROM ActivityPoint p WHERE p.activityCoreId = :activityCoreId")
+    Integer findMaxSeqByActivityCoreId(@Param("activityCoreId") Long activityCoreId);
+
+    // clearAutomatically는 쓰지 않는다 - mergeActivities에서 이미 로드해둔 parent/target
+    // ActivityCore 엔티티가 detach되어 이후 필드 변경분이 커밋 시 flush되지 않는다.
+    @Modifying
+    @Query("UPDATE ActivityPoint p SET p.activityCoreId = :parentId, p.seq = p.seq + :offset " +
+            "WHERE p.activityCoreId = :targetId")
+    int reassignToParent(@Param("targetId") Long targetId,
+                          @Param("parentId") Long parentId,
+                          @Param("offset") int offset);
 }
