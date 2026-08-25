@@ -72,6 +72,7 @@ ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
     --add-host=host.docker.internal:host-gateway \
     --env-file /mnt/200gb/apps/.env \
     -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw \
+    -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media \
     -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
     -e SPRING_PROFILES_ACTIVE=prod \
     --restart unless-stopped \

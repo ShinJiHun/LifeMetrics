@@ -87,6 +87,10 @@ inbody:
   upload:
     path: /tmp/inbody/raw/
 
+career:
+  media:
+    path: /tmp/career-media/
+
 exercise:
   gif:
     path: /tmp/exercise-gifs/   # 로컬은 안 씀

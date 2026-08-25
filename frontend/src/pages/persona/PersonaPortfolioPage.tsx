@@ -64,7 +64,6 @@ export default function PersonaPortfolioPage() {
     const section = normalizeSection(sectionParam);
 
     const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
-    const [openCompanyId, setOpenCompanyId] = useState<number | null>(null);
     const [openTs, setOpenTs] = useState(0);
     const [profile, setProfile] = useState<BasicProfile | null>(null);
 
@@ -92,21 +91,15 @@ export default function PersonaPortfolioPage() {
         return profile.career.filter((c) => (c.domain?.trim() || "기타") === selectedDomain);
     }, [profile, selectedDomain]);
 
-    // 최초 로딩 시 첫 도메인 + 그 안의 첫 회사를 기본 선택
+    // 최초 로딩 시 첫 도메인을 기본 선택
     useEffect(() => {
         if (!profile || domains.length === 0) return;
         if (selectedDomain && domains.includes(selectedDomain)) return;
-        const d = domains[0];
-        const first = profile.career.find((c) => (c.domain?.trim() || "기타") === d);
-        setSelectedDomain(d);
-        setOpenCompanyId(first?.id ?? null);
+        setSelectedDomain(domains[0]);
     }, [profile, domains, selectedDomain]);
 
     const selectDomain = (d: string) => {
-        if (!profile) return;
         setSelectedDomain(d);
-        const first = profile.career.find((c) => (c.domain?.trim() || "기타") === d);
-        setOpenCompanyId(first?.id ?? null);
     };
 
     if (!profile) {
@@ -222,7 +215,7 @@ export default function PersonaPortfolioPage() {
             {/* 04 경력기술서 */}
             {section === "career-detail" && (
                 <section className="pp-section">
-                    <SecHead num="04 · Career Detail" title="경력 기술서" desc="좌측에서 도메인을 고르면 그 도메인을 거쳐온 회사가 나열됩니다. 회사를 클릭하면 프로젝트별 요약·역할·성과와 사용 기술 스택이 펼쳐집니다." />
+                    <SecHead num="04 · Career Detail" title="경력 기술서" desc="좌측에서 도메인을 고르면 그 도메인을 거쳐온 회사가 나열됩니다. 회사를 클릭하면 프로젝트별 개요·기간·업무와 화면을 상세 페이지에서 확인할 수 있습니다." />
                     <div className="pp-cd-layout">
                         <nav className="pp-cd-nav" aria-label="경력 도메인">
                             {domains.map((d) => {
@@ -244,49 +237,22 @@ export default function PersonaPortfolioPage() {
                             })}
                         </nav>
                         <div className="pp-cd-content">
-                            {companiesInDomain.map((cd) => {
-                                const open = openCompanyId === cd.id;
-                                return (
-                                    <div key={cd.path} className={`pp-cd-card ${open ? "open" : ""}`}>
-                                        <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", padding: "8px 22px 0" }}>{cd.path}</div>
-                                        <button
-                                            type="button"
-                                            className="pp-cd-head"
-                                            onClick={() => setOpenCompanyId(open ? null : cd.id)}
-                                            aria-expanded={open}
-                                        >
-                                            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-                                                <span style={{ fontWeight: 700, fontSize: 16 }}>{cd.companyName}</span>
-                                                <span className="pp-commit-hash">{cd.periodLabel}</span>
-                                                <span style={{ fontSize: 12, color: "#6B7280" }}>{cd.role}</span>
-                                            </div>
-                                            <span className="pp-cd-toggle">+</span>
-                                        </button>
-                                        <div className="pp-cd-body">
-                                            <div className="pp-cd-body-inner">
-                                                {cd.projects.map((p) => (
-                                                    <div key={p.id} className="pp-proj-item">
-                                                        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-                                                            {p.title}
-                                                            {p.periodLabel && <span className="pp-commit-hash" style={{ fontSize: 10.5 }}>{p.periodLabel}</span>}
-                                                        </div>
-                                                        {p.paragraphs.map((para, idx) => (
-                                                            <p key={idx} style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>
-                                                                {para}
-                                                            </p>
-                                                        ))}
-                                                    </div>
-                                                ))}
-                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 16 }}>
-                                                    {cd.stack.map((s) => (
-                                                        <span key={s} className="pp-tag">{s}</span>
-                                                    ))}
-                                                </div>
-                                            </div>
+                            {companiesInDomain.map((cd) => (
+                                <Link key={cd.path} to={`/persona/developer/career-detail/${cd.id}/1`} className="pp-cd-card-btn">
+                                    <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", marginBottom: 6 }}>{cd.path}</div>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                                        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+                                            <span style={{ fontWeight: 700, fontSize: 16 }}>{cd.companyName}</span>
+                                            <span className="pp-commit-hash">{cd.periodLabel}</span>
+                                            <span style={{ fontSize: 12, color: "#6B7280" }}>{cd.role}</span>
                                         </div>
+                                        <span className="pp-cd-arrow">→</span>
                                     </div>
-                                );
-                            })}
+                                    <div style={{ fontSize: 12, color: "#9CA1B5", marginTop: 8 }}>
+                                        프로젝트 {cd.projects.length}건 보기
+                                    </div>
+                                </Link>
+                            ))}
                         </div>
                     </div>
                 </section>
@@ -567,15 +533,10 @@ const CSS = `
   .pp-cd-nav-item.active .pp-cd-nav-count{ color:${accent}; }
   .pp-cd-content{ flex:1; min-width:0; display:flex; flex-direction:column; gap:14px; }
 
-  .pp-cd-card{ background:#fff; border:1px solid #E3E6F0; border-radius:8px; overflow:hidden; }
-  .pp-cd-head{ width:100%; padding:12px 22px 18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; gap:16px; background:none; border:none; font-family:inherit; text-align:left; }
-  .pp-cd-toggle{ font-family: var(--pp-mono); color:#9CA1B5; font-size:17px; transition: transform .2s; flex-shrink:0; }
-  .pp-cd-card.open .pp-cd-toggle{ transform: rotate(45deg); color:${accent}; }
-  .pp-cd-body{ max-height:0; overflow:hidden; transition: max-height .35s ease; }
-  .pp-cd-card.open .pp-cd-body{ max-height: 3400px; }
-  .pp-cd-body-inner{ padding:6px 22px 22px; border-top:1px solid #ECEEF6; }
-  .pp-proj-item{ padding-top:18px; border-bottom:1px solid #ECEEF6; padding-bottom:18px; }
-  .pp-proj-item:last-of-type{ border-bottom:none; }
+  .pp-cd-card-btn{ display:block; background:#fff; border:1px solid #E3E6F0; border-radius:8px; padding:16px 22px; text-decoration:none; color:inherit; transition: border-color .15s, transform .15s, box-shadow .15s; }
+  .pp-cd-card-btn:hover{ border-color:${accent}; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.08); }
+  .pp-cd-arrow{ font-family: var(--pp-mono); color:#9CA1B5; font-size:17px; transition: transform .15s, color .15s; flex-shrink:0; }
+  .pp-cd-card-btn:hover .pp-cd-arrow{ transform: translateX(3px); color:${accent}; }
 
   .pp-tag{ font-family: var(--pp-mono); font-size:10.5px; color:#6B7280; border:1px solid #E3E6F0; padding:3px 9px; border-radius:12px; background:#F0F1F8; }
 

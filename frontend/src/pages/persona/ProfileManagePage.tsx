@@ -4,25 +4,32 @@ import { Link } from "react-router-dom";
 import {
     addCareerCompany,
     addCareerProject,
+    addCareerProjectTask,
     addEducation,
     addIntroSection,
     deleteCareerCompany,
     deleteCareerProject,
+    deleteCareerProjectTask,
+    deleteCareerTaskMedia,
     deleteEducation,
     deleteIntroSection,
     fetchProfile,
     updateCareerCompany,
     updateCareerProject,
+    updateCareerProjectTask,
     updateContact,
     updateEducation,
     updateIntro,
     updateIntroSection,
+    uploadCareerTaskMedia,
     type BasicProfile,
     type CareerCompany,
     type CareerProject,
+    type CareerProjectTask,
     type Education,
     type IntroSection,
 } from "@/api/profile";
+import RichTextEditor from "@/components/common/RichTextEditor";
 
 const accent = "#6366F1";
 
@@ -387,7 +394,7 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
 function CareerProjectRow({ project, onChange }: { project: CareerProject; onChange: () => void }) {
     const [title, setTitle] = useState(project.title);
     const [periodLabel, setPeriodLabel] = useState(project.periodLabel ?? "");
-    const [paragraphsText, setParagraphsText] = useState(project.paragraphs.join("\n\n"));
+    const [overview, setOverview] = useState(project.overview);
     const [sortOrder, setSortOrder] = useState(project.sortOrder);
     const [busy, setBusy] = useState(false);
 
@@ -398,7 +405,7 @@ function CareerProjectRow({ project, onChange }: { project: CareerProject; onCha
                 companyId: project.companyId,
                 title,
                 periodLabel: periodLabel.trim() || null,
-                paragraphs: paragraphsText.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+                overview,
                 sortOrder,
             });
             onChange();
@@ -430,16 +437,151 @@ function CareerProjectRow({ project, onChange }: { project: CareerProject; onCha
                     onChange={(e) => setSortOrder(Number(e.target.value))}
                 />
             </div>
-            <textarea
-                style={{ ...S.input, minHeight: 90, marginTop: 8 }}
-                value={paragraphsText}
-                onChange={(e) => setParagraphsText(e.target.value)}
-                placeholder="설명 문단 (문단 사이는 빈 줄로 구분)"
-            />
+            <div style={{ marginTop: 8 }}>
+                <RichTextEditor value={overview} onChange={setOverview} accent={accent} placeholder="프로젝트 개요 — 블로그 글처럼 자유롭게 작성하세요" />
+            </div>
             <div style={S.rowActions}>
                 <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>저장</button>
                 <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>삭제</button>
             </div>
+
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed #e3e6f0" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#8a90a3", marginBottom: 8 }}>업무 (개요/기간/화면 이미지·GIF·영상)</div>
+                {project.tasks.map((t) => (
+                    <CareerTaskRow key={t.id} task={t} onChange={onChange} />
+                ))}
+                <CareerTaskForm projectId={project.id} nextSortOrder={project.tasks.length} onChange={onChange} />
+            </div>
+        </div>
+    );
+}
+
+function CareerTaskRow({ task, onChange }: { task: CareerProjectTask; onChange: () => void }) {
+    const [description, setDescription] = useState(task.description);
+    const [sortOrder, setSortOrder] = useState(task.sortOrder);
+    const [busy, setBusy] = useState(false);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            await updateCareerProjectTask(task.id, { projectId: task.projectId, description, sortOrder });
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async () => {
+        if (!confirm("이 업무 항목을 삭제할까요? (첨부된 미디어도 함께 삭제됩니다)")) return;
+        setBusy(true);
+        try {
+            await deleteCareerProjectTask(task.id);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const uploadFile = async (file: File) => {
+        setBusy(true);
+        try {
+            await uploadCareerTaskMedia(task.id, file);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const removeMedia = async (mediaId: number) => {
+        setBusy(true);
+        try {
+            await deleteCareerTaskMedia(mediaId);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ ...S.subCard, background: "#fff" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8a90a3" }}>
+                    정렬순서
+                    <input
+                        type="number"
+                        style={{ ...S.input, marginBottom: 0, width: 70 }}
+                        value={sortOrder}
+                        onChange={(e) => setSortOrder(Number(e.target.value))}
+                    />
+                </label>
+            </div>
+            <RichTextEditor value={description} onChange={setDescription} accent={accent} placeholder="업무 설명 — 블로그 글처럼 자유롭게 작성하세요" />
+
+            {task.media.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                    {task.media.map((m) => (
+                        <div key={m.id} style={{ position: "relative" }}>
+                            {m.mediaKind === "VIDEO" ? (
+                                <video src={m.url} style={S.mediaThumb} controls muted />
+                            ) : (
+                                <img src={m.url} style={S.mediaThumb} alt="" />
+                            )}
+                            <button
+                                type="button"
+                                onClick={() => removeMedia(m.id)}
+                                disabled={busy}
+                                style={S.mediaDelBtn}
+                                aria-label="미디어 삭제"
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div style={S.rowActions}>
+                <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>저장</button>
+                <label style={{ ...S.miniSaveBtn, background: "#eef7ee", color: "#1a7f37", cursor: "pointer" }}>
+                    + 이미지/GIF/영상 업로드
+                    <input
+                        type="file"
+                        accept="image/*,video/*"
+                        style={{ display: "none" }}
+                        disabled={busy}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file);
+                            e.target.value = "";
+                        }}
+                    />
+                </label>
+                <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>업무 삭제</button>
+            </div>
+        </div>
+    );
+}
+
+function CareerTaskForm({ projectId, nextSortOrder, onChange }: { projectId: number; nextSortOrder: number; onChange: () => void }) {
+    const [description, setDescription] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const submit = async () => {
+        if (!description.trim()) return;
+        setBusy(true);
+        try {
+            await addCareerProjectTask({ projectId, description: description.trim(), sortOrder: nextSortOrder });
+            setDescription("");
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ ...S.subCard, background: "#f8f9fc" }}>
+            <RichTextEditor value={description} onChange={setDescription} accent={accent} placeholder="새 업무 설명 — 블로그 글처럼 자유롭게 작성하세요" />
+            <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 업무 추가</button>
         </div>
     );
 }
@@ -447,7 +589,7 @@ function CareerProjectRow({ project, onChange }: { project: CareerProject; onCha
 function CareerProjectForm({ companyId, nextSortOrder, onChange }: { companyId: number; nextSortOrder: number; onChange: () => void }) {
     const [title, setTitle] = useState("");
     const [periodLabel, setPeriodLabel] = useState("");
-    const [paragraphsText, setParagraphsText] = useState("");
+    const [overview, setOverview] = useState("");
     const [busy, setBusy] = useState(false);
 
     const submit = async () => {
@@ -458,12 +600,12 @@ function CareerProjectForm({ companyId, nextSortOrder, onChange }: { companyId: 
                 companyId,
                 title: title.trim(),
                 periodLabel: periodLabel.trim() || null,
-                paragraphs: paragraphsText.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+                overview,
                 sortOrder: nextSortOrder,
             });
             setTitle("");
             setPeriodLabel("");
-            setParagraphsText("");
+            setOverview("");
             onChange();
         } finally {
             setBusy(false);
@@ -476,7 +618,7 @@ function CareerProjectForm({ companyId, nextSortOrder, onChange }: { companyId: 
                 <input style={{ ...S.input, marginBottom: 0, flex: 2 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="새 프로젝트 제목" />
                 <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="기간 (선택)" />
             </div>
-            <textarea style={{ ...S.input, minHeight: 60 }} value={paragraphsText} onChange={(e) => setParagraphsText(e.target.value)} placeholder="설명 문단 (빈 줄로 구분)" />
+            <RichTextEditor value={overview} onChange={setOverview} accent={accent} placeholder="프로젝트 개요 — 블로그 글처럼 자유롭게 작성하세요" />
             <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 프로젝트 추가</button>
         </div>
     );
@@ -623,5 +765,13 @@ const S: Record<string, CSSProperties> = {
     miniDelBtn: {
         background: "#fff", border: "1px solid #f3c9c9", color: "#dc2626", fontSize: 13, fontWeight: 600,
         padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+    },
+    mediaThumb: {
+        width: 120, height: 80, objectFit: "cover", borderRadius: 6, border: "1px solid #e3e6f0", background: "#000",
+    },
+    mediaDelBtn: {
+        position: "absolute", top: -6, right: -6, width: 20, height: 20, borderRadius: "50%",
+        background: "#dc2626", color: "#fff", border: "none", fontSize: 13, lineHeight: "20px",
+        padding: 0, cursor: "pointer",
     },
 };

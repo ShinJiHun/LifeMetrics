@@ -3,7 +3,18 @@ package com.lifemetrics.backend.api;
 import com.lifemetrics.backend.dto.*;
 import com.lifemetrics.backend.service.ProfileService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * 개발자 포트폴리오(PersonaPortfolioPage) 프로필 조회/관리(ProfileManagePage) API.
@@ -15,6 +26,9 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
     private final ProfileService profileService;
+
+    @Value("${career.media.path:/tmp/career-media/}")
+    private String careerMediaPath;
 
     @GetMapping
     public ProfileDto getProfile() {
@@ -78,6 +92,51 @@ public class ProfileController {
     @DeleteMapping("/career/projects/{id}")
     public void deleteCareerProject(@PathVariable Long id) {
         profileService.deleteCareerProject(id);
+    }
+
+    // ── 경력(업무) ─────────────────────────────────────────────────
+    @PostMapping("/career/tasks")
+    public CareerProjectTaskDto addCareerProjectTask(@RequestBody CareerProjectTaskRequest req) {
+        return profileService.addCareerProjectTask(req);
+    }
+
+    @PutMapping("/career/tasks/{id}")
+    public void updateCareerProjectTask(@PathVariable Long id, @RequestBody CareerProjectTaskRequest req) {
+        profileService.updateCareerProjectTask(id, req);
+    }
+
+    @DeleteMapping("/career/tasks/{id}")
+    public void deleteCareerProjectTask(@PathVariable Long id) {
+        profileService.deleteCareerProjectTask(id);
+    }
+
+    // ── 경력(업무 미디어) ─────────────────────────────────────────
+    @PostMapping("/career/tasks/{taskId}/media")
+    public ResponseEntity<CareerTaskMediaDto> uploadTaskMedia(@PathVariable Long taskId, @RequestParam("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(profileService.uploadTaskMedia(taskId, file));
+    }
+
+    @DeleteMapping("/career/tasks/media/{mediaId}")
+    public void deleteTaskMedia(@PathVariable Long mediaId) {
+        profileService.deleteTaskMedia(mediaId);
+    }
+
+    // 파일명에 경로 구분자가 없는지(디렉터리 탈출 방지) 확인 후 서빙한다.
+    @GetMapping("/career/media/{filename}")
+    public ResponseEntity<Resource> getTaskMedia(@PathVariable String filename) {
+        if (filename.contains("/") || filename.contains("..")) return ResponseEntity.badRequest().build();
+        Path path = Paths.get(careerMediaPath, filename);
+        if (!Files.exists(path)) return ResponseEntity.notFound().build();
+        MediaType contentType = filename.toLowerCase().endsWith(".mp4") ? MediaType.valueOf("video/mp4")
+                : filename.toLowerCase().endsWith(".mov") ? MediaType.valueOf("video/quicktime")
+                : filename.toLowerCase().endsWith(".webm") ? MediaType.valueOf("video/webm")
+                : filename.toLowerCase().endsWith(".gif") ? MediaType.IMAGE_GIF
+                : filename.toLowerCase().endsWith(".png") ? MediaType.IMAGE_PNG
+                : MediaType.IMAGE_JPEG;
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header("Cache-Control", "public, max-age=86400")
+                .body(new FileSystemResource(path));
     }
 
     // ── 학력 ─────────────────────────────────────────────────────

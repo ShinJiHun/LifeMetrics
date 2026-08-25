@@ -64,6 +64,31 @@ CREATE TABLE IF NOT EXISTS `career_project` (
       REFERENCES `career_company` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
+-- 경력 기술서 프로젝트의 업무 항목 — career_project 에 귀속
+CREATE TABLE IF NOT EXISTS `career_project_task` (
+  `id`           BIGINT   NOT NULL AUTO_INCREMENT,
+  `project_id`   BIGINT   NOT NULL,
+  `description`  TEXT     NOT NULL,
+  `sort_order`   INT      NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_career_project_task_project` (`project_id`),
+  CONSTRAINT `fk_career_project_task_project` FOREIGN KEY (`project_id`)
+      REFERENCES `career_project` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- 업무 항목에 첨부된 화면 이미지/GIF/영상 — 실제 파일은 career.media.path 에 저장
+CREATE TABLE IF NOT EXISTS `career_task_media` (
+  `id`           BIGINT       NOT NULL AUTO_INCREMENT,
+  `task_id`      BIGINT       NOT NULL,
+  `filename`     VARCHAR(255) NOT NULL,
+  `media_kind`   VARCHAR(20)  NOT NULL,  -- IMAGE | VIDEO
+  `sort_order`   INT          NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_career_task_media_task` (`task_id`),
+  CONSTRAINT `fk_career_task_media_task` FOREIGN KEY (`task_id`)
+      REFERENCES `career_project_task` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 -- 학력
 CREATE TABLE IF NOT EXISTS `education` (
   `id`           BIGINT       NOT NULL AUTO_INCREMENT,

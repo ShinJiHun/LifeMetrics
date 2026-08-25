@@ -13,6 +13,7 @@ import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
 import ActivityDetailPage from "@/pages/ride/riding/ActivityDetailPage";
 import RideLivePage from "@/pages/ride/riding/RideLivePage";
 import PersonaPortfolioPage from "@/pages/persona/PersonaPortfolioPage";
+import CareerCompanyDetailPage from "@/pages/persona/CareerCompanyDetailPage";
 import ProfileManagePage from "@/pages/persona/ProfileManagePage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
@@ -55,6 +56,8 @@ export default function App() {
                 <Route path="/persona/developer" element={<PersonaPortfolioPage />} />
                 <Route path="/persona/developer/manage" element={<RequireAdmin><ProfileManagePage /></RequireAdmin>} />
                 <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
+                <Route path="/persona/developer/career-detail/:companyId" element={<CareerCompanyDetailPage />} />
+                <Route path="/persona/developer/career-detail/:companyId/:page" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/:section" element={<PersonaPortfolioPage />} />
 
                 {/* 개발자 / 인간 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}

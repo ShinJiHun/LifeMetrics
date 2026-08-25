@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -20,8 +20,12 @@ export default function RichTextEditor({
     accent: string;
     placeholder?: string;
 }) {
-    const editor = useEditor({
-        extensions: [
+    // extensions는 매 렌더마다 새 인스턴스로 만들면 안 된다 — useEditor가 매 렌더 options를 diff해서
+    // "바뀌었다"고 판단하면 editor.setOptions()로 뷰를 강제 동기화하는데, 이게 한글 IME 조합 중에
+    // 끼어들면 마지막 음절이 커밋되기 전에 View가 재동기화되면서 입력이 씹히는 문제가 있었다.
+    // (증상: 다 쓰고 저장했는데 뒷부분/전체 내용이 비거나 잘려서 저장됨)
+    const extensions = useMemo(
+        () => [
             StarterKit.configure({ link: false }),
             Underline,
             TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -29,8 +33,22 @@ export default function RichTextEditor({
             Image,
             Placeholder.configure({ placeholder: placeholder ?? "내용을 입력하세요" }),
         ],
-        content: value,
-        onUpdate: ({ editor }) => onChange(editor.getHTML()),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [placeholder]
+    );
+
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+
+    // content도 마찬가지 이유로 초기값만 고정해서 넘긴다 — 매 렌더 최신 value를 넘기면
+    // 타이핑할 때마다 options diff에 걸려 위와 같은 재동기화가 반복된다. 이후 값은
+    // 아래 useEffect(setContent)가 "외부에서 바뀐 경우"에만 반영한다.
+    const initialContent = useRef(value).current;
+
+    const editor = useEditor({
+        extensions,
+        content: initialContent,
+        onUpdate: ({ editor }) => onChangeRef.current(editor.getHTML()),
     });
 
     // 편집 중이 아닌 외부 변경(예: 글 불러오기)만 반영. 타이핑 중 커서 튐 방지.

@@ -7,10 +7,8 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class CareerProjectRequest {
-    private Long companyId;
-    private String title;
-    private String periodLabel;
-    private String overview;
+public class CareerProjectTaskRequest {
+    private Long projectId;
+    private String description;
     private Integer sortOrder;
 }

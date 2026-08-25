@@ -79,6 +79,10 @@ inbody:
   upload:
     path: /mnt/200gb/NAS/inbody/raw/
 
+career:
+  media:
+    path: /mnt/200gb/NAS/career-media/
+
 # application-gcp.yml
 exercise:
   gif:

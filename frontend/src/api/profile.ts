@@ -7,13 +7,30 @@ export interface IntroSection {
     sortOrder: number;
 }
 
+export interface CareerTaskMedia {
+    id: number;
+    taskId: number;
+    url: string;
+    mediaKind: "IMAGE" | "VIDEO";
+    sortOrder: number;
+}
+
+export interface CareerProjectTask {
+    id: number;
+    projectId: number;
+    description: string;
+    sortOrder: number;
+    media: CareerTaskMedia[];
+}
+
 export interface CareerProject {
     id: number;
     companyId: number;
     title: string;
     periodLabel: string | null;
-    paragraphs: string[];
+    overview: string;
     sortOrder: number;
+    tasks: CareerProjectTask[];
 }
 
 export interface CareerCompany {
@@ -92,7 +109,13 @@ interface CareerProjectInput {
     companyId: number;
     title: string;
     periodLabel: string | null;
-    paragraphs: string[];
+    overview: string;
+    sortOrder: number;
+}
+
+interface CareerProjectTaskInput {
+    projectId: number;
+    description: string;
     sortOrder: number;
 }
 
@@ -164,6 +187,35 @@ export function updateCareerProject(id: number, input: CareerProjectInput): Prom
 
 export function deleteCareerProject(id: number): Promise<void> {
     return request<void>(`/api/profile/career/projects/${id}`, "DELETE");
+}
+
+// ── 경력(업무) ─────────────────────────────────────
+export function addCareerProjectTask(input: CareerProjectTaskInput): Promise<CareerProjectTask> {
+    return request<CareerProjectTask>("/api/profile/career/tasks", "POST", input);
+}
+
+export function updateCareerProjectTask(id: number, input: CareerProjectTaskInput): Promise<void> {
+    return request<void>(`/api/profile/career/tasks/${id}`, "PUT", input);
+}
+
+export function deleteCareerProjectTask(id: number): Promise<void> {
+    return request<void>(`/api/profile/career/tasks/${id}`, "DELETE");
+}
+
+// ── 경력(업무 미디어) ─────────────────────────────────
+export async function uploadCareerTaskMedia(taskId: number, file: File): Promise<CareerTaskMedia> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${API_BASE}/api/profile/career/tasks/${taskId}/media`, {
+        method: "POST",
+        body: formData,
+    });
+    if (!res.ok) throw new Error(`업로드 실패 (${res.status})`);
+    return res.json();
+}
+
+export function deleteCareerTaskMedia(mediaId: number): Promise<void> {
+    return request<void>(`/api/profile/career/tasks/media/${mediaId}`, "DELETE");
 }
 
 // ── 학력 ─────────────────────────────────────────
