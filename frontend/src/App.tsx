@@ -25,6 +25,7 @@ import PostEditorPage from "@/pages/blog/PostEditorPage";
 import "@/styles/global.css";
 import BikeRegisterPage from "@/pages/ride/riding/Bikeregisterpage.tsx";
 import BikeListPage from "@/pages/ride/riding/BikeListPage.tsx";
+import BikeDetailPage from "@/pages/ride/riding/BikeDetailPage.tsx";
 
 function PersonaGateRoute() {
     const navigate = useNavigate();
@@ -54,6 +55,7 @@ export default function App() {
                 <Route path="/persona/developer" element={<PersonaPortfolioPage />} />
                 <Route path="/persona/developer/manage" element={<RequireAdmin><ProfileManagePage /></RequireAdmin>} />
                 <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
+                <Route path="/persona/developer/:section" element={<PersonaPortfolioPage />} />
 
                 {/* 개발자 / 인간 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}
                 {["developer", "human"].map((p) => (
@@ -71,6 +73,7 @@ export default function App() {
 
                 <Route path="/bikes" element={<BikeListPage />} />
                 <Route path="/bikes/register" element={<RequireAdmin><BikeRegisterPage /></RequireAdmin>} />
+                <Route path="/bikes/:id" element={<BikeDetailPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

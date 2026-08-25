@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { PERSONA_META } from "@/lib/persona";
 import { fetchProfile } from "@/api/profile";
 import type { BasicProfile } from "@/api/profile";
@@ -10,14 +10,12 @@ const accent = PERSONA_META.developer.accent; // #6366f1
 
 // ── 데이터 (DB 연동: 경력/학력/소개/연락처는 /api/profile, 아래 하드코딩은 정적 UI뿐) ──
 
-const TABS = [
-    { id: "overview", label: "소개.tsx", color: "#6366F1" },
-    { id: "career", label: "경력.tsx", color: "#10B981" },
-    { id: "education", label: "학력.tsx", color: "#F2B84B" },
-    { id: "career-detail", label: "경력기술서.tsx", color: "#EF4444" },
-    { id: "projects", label: "프로젝트.tsx", color: "#38BDF8" },
-    { id: "contact", label: "연락처.tsx", color: "#A78BFA" },
-];
+const VALID_SECTIONS = ["overview", "career", "education", "career-detail", "projects", "contact"] as const;
+type Section = (typeof VALID_SECTIONS)[number];
+
+function normalizeSection(raw: string | undefined): Section {
+    return (VALID_SECTIONS as readonly string[]).includes(raw ?? "") ? (raw as Section) : "overview";
+}
 
 interface Troubleshoot {
     id: string;
@@ -62,11 +60,11 @@ const TROUBLESHOOTS: Troubleshoot[] = [
 // ── 컴포넌트 ─────────────────────────────────────────
 
 export default function PersonaPortfolioPage() {
-    const rootRef = useRef<HTMLDivElement>(null);
-    const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
-    const [activeTab, setActiveTab] = useState("overview");
-    const [scrollPct, setScrollPct] = useState(0);
-    const [openCompany, setOpenCompany] = useState(0);
+    const { section: sectionParam } = useParams<{ section?: string }>();
+    const section = normalizeSection(sectionParam);
+
+    const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+    const [openCompanyId, setOpenCompanyId] = useState<number | null>(null);
     const [openTs, setOpenTs] = useState(0);
     const [profile, setProfile] = useState<BasicProfile | null>(null);
 
@@ -74,39 +72,41 @@ export default function PersonaPortfolioPage() {
         fetchProfile().then(setProfile).catch(() => {});
     }, []);
 
-    // Layout.tsx의 <main overflowY:auto> 가 실제 스크롤 컨테이너이므로
-    // window가 아니라 그 요소를 기준으로 스크롤 진행률/활성 탭을 계산합니다.
+    // 경력 도메인(예: 음성인식, 보안(SIEM)) — 등장 순서를 그대로 좌측 메뉴 순서로 사용
+    const domains = useMemo(() => {
+        if (!profile) return [];
+        const seen = new Set<string>();
+        const list: string[] = [];
+        profile.career.forEach((c) => {
+            const d = c.domain?.trim() || "기타";
+            if (!seen.has(d)) {
+                seen.add(d);
+                list.push(d);
+            }
+        });
+        return list;
+    }, [profile]);
+
+    const companiesInDomain = useMemo(() => {
+        if (!profile || !selectedDomain) return [];
+        return profile.career.filter((c) => (c.domain?.trim() || "기타") === selectedDomain);
+    }, [profile, selectedDomain]);
+
+    // 최초 로딩 시 첫 도메인 + 그 안의 첫 회사를 기본 선택
     useEffect(() => {
-        const scrollEl = rootRef.current?.closest("main");
-        if (!scrollEl) return;
+        if (!profile || domains.length === 0) return;
+        if (selectedDomain && domains.includes(selectedDomain)) return;
+        const d = domains[0];
+        const first = profile.career.find((c) => (c.domain?.trim() || "기타") === d);
+        setSelectedDomain(d);
+        setOpenCompanyId(first?.id ?? null);
+    }, [profile, domains, selectedDomain]);
 
-        const onScroll = () => {
-            const max = scrollEl.scrollHeight - scrollEl.clientHeight;
-            setScrollPct(max > 0 ? Math.min(Math.max(scrollEl.scrollTop / max, 0), 1) : 0);
-        };
-        scrollEl.addEventListener("scroll", onScroll, { passive: true });
-        onScroll();
-        return () => scrollEl.removeEventListener("scroll", onScroll);
-    }, []);
-
-    useEffect(() => {
-        const scrollEl = rootRef.current?.closest("main");
-        if (!scrollEl) return;
-
-        const io = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) setActiveTab(entry.target.id);
-                });
-            },
-            { root: scrollEl, rootMargin: "-40% 0px -55% 0px", threshold: 0 }
-        );
-        Object.values(sectionRefs.current).forEach((el) => el && io.observe(el));
-        return () => io.disconnect();
-    }, []);
-
-    const registerSection = (id: string) => (el: HTMLElement | null) => {
-        sectionRefs.current[id] = el;
+    const selectDomain = (d: string) => {
+        if (!profile) return;
+        setSelectedDomain(d);
+        const first = profile.career.find((c) => (c.domain?.trim() || "기타") === d);
+        setOpenCompanyId(first?.id ?? null);
     };
 
     if (!profile) {
@@ -114,296 +114,329 @@ export default function PersonaPortfolioPage() {
     }
 
     return (
-        <div ref={rootRef} style={S.page}>
+        <div style={S.page}>
             <style>{CSS}</style>
 
-            {/* 섹션 이동용 스티키 탭바 (전역 크롬 아님 — SideBar가 그 역할을 담당) */}
-            <div className="pp-tabstrip-wrap">
-                <div className="pp-tabstrip">
-                    {TABS.map((t) => (
-                        <a key={t.id} href={`#${t.id}`} className={`pp-tab ${activeTab === t.id ? "active" : ""}`}>
-                            <span className="pp-sq" style={{ background: t.color }} />
-                            {t.label}
-                        </a>
-                    ))}
-                </div>
-                <div className="pp-scroll-indicator">
-                    <div className="pp-scroll-fill" style={{ width: `${scrollPct * 100}%` }} />
-                </div>
+            {/* 좌측 글로벌 메뉴(SideBar)가 섹션 이동을 담당 — 여기는 선택된 섹션만 렌더링 */}
+            <div style={S.topBar}>
+                <div className="pp-eyebrow">{"// developer persona"}</div>
+                <AdminOnly>
+                    <Link to="/persona/developer/manage" className="pp-btn-ghost" style={{ fontSize: 11.5, padding: "6px 12px" }}>
+                        ✏️ 프로필 관리
+                    </Link>
+                </AdminOnly>
             </div>
 
-            {/* Hero */}
-            <section style={S.hero}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <div className="pp-eyebrow">{"// developer persona"}</div>
-                    <AdminOnly>
-                        <Link to="/persona/developer/manage" className="pp-btn-ghost" style={{ fontSize: 11.5, padding: "6px 12px" }}>
-                            ✏️ 프로필 관리
-                        </Link>
-                    </AdminOnly>
-                </div>
-                <h1 style={S.headline}>
-                    음성 데이터가 서버와 엔진 사이를
-                    <br />
-                    <span style={{ color: accent }}>끊기지 않고</span> 흐르게 만듭니다.
-                </h1>
-                <p style={S.subhead}>
-                    웹 프론트엔드로 시작해 주차 시스템 백엔드, SIEM, 그리고 지금은 STT·gRPC·MRCP 기반 음성인식 인프라까지 — 도메인을 넓혀가며 8년 3개월째 만들고 운영하고 있습니다.
-                </p>
-                <div style={S.statRow}>
-                    <Stat num="8" unit="년 3개월" label="총 경력" />
-                    <Stat num={String(profile.career.length)} label="소속 기업" />
-                    <Stat num="12" unit="+" label="참여 프로젝트" />
-                    <Stat num="STT" label="gRPC · MRCP 전문분야" />
-                </div>
-            </section>
+            {section === "overview" && (
+                <>
+                    {/* Hero */}
+                    <section style={S.hero}>
+                        <h1 style={S.headline}>{renderHeadline(profile.intro.headline)}</h1>
+                        <p style={S.subhead}>{profile.intro.subheadline}</p>
+                        <div style={S.statRow}>
+                            <Stat num="8" unit="년 3개월" label="총 경력" />
+                            <Stat num={String(profile.career.length)} label="소속 기업" />
+                            <Stat num="12" unit="+" label="참여 프로젝트" />
+                            <Stat num="STT" label="gRPC · MRCP 전문분야" />
+                        </div>
+                    </section>
 
-            {/* 01 소개 */}
-            <section id="overview" ref={registerSection("overview")} className="pp-section">
-                <SecHead num="01 · Overview" title="소개" />
-                <div style={S.overviewGrid}>
-                    <div>
-                        {profile.intro.sections.flatMap((sec) =>
-                            sec.lines.map((line, i) => (
-                                <p key={`${sec.id}-${i}`} style={S.p}>
-                                    {line}
-                                </p>
-                            ))
-                        )}
-                        <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 8 }}>
-                            {profile.intro.highlights.map((h) => (
-                                <HChip key={h} text={h} />
-                            ))}
+                    {/* 01 소개 */}
+                    <section className="pp-section">
+                        <SecHead num="01 · Overview" title="소개" />
+                        <div style={S.overviewGrid}>
+                            <div>
+                                {profile.intro.sections.flatMap((sec) =>
+                                    sec.lines.map((line, i) => (
+                                        <p key={`${sec.id}-${i}`} style={S.p}>
+                                            {line}
+                                        </p>
+                                    ))
+                                )}
+                                <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 8 }}>
+                                    {profile.intro.highlights.map((h) => (
+                                        <HChip key={h} text={h} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="pp-code-card">
+                                <div style={{ color: "#6A7290" }}>{"// whoami"}</div>
+                                <div>
+                                    <span style={{ color: "#7C87F7" }}>const</span> <span style={{ color: "#F2B84B" }}>developer</span> = {"{"}
+                                </div>
+                                <div>&nbsp;&nbsp;name: <span style={{ color: "#9ADE9A" }}>"신지훈"</span>,</div>
+                                <div>&nbsp;&nbsp;role: <span style={{ color: "#9ADE9A" }}>"Backend Developer"</span>,</div>
+                                <div>
+                                    &nbsp;&nbsp;focus: [<span style={{ color: "#9ADE9A" }}>"STT"</span>, <span style={{ color: "#9ADE9A" }}>"gRPC"</span>, <span style={{ color: "#9ADE9A" }}>"MRCP"</span>],
+                                </div>
+                                <div>&nbsp;&nbsp;current: <span style={{ color: "#9ADE9A" }}>"TNS Soft"</span>,</div>
+                                <div>&nbsp;&nbsp;since: <span style={{ color: "#9ADE9A" }}>"2024-04"</span>,</div>
+                                <div>&nbsp;&nbsp;sideProject: <span style={{ color: "#9ADE9A" }}>"LifeMetrics"</span>,</div>
+                                <div>{"}"};</div>
+                            </div>
                         </div>
-                    </div>
-                    <div className="pp-code-card">
-                        <div style={{ color: "#6A7290" }}>{"// whoami"}</div>
-                        <div>
-                            <span style={{ color: "#7C87F7" }}>const</span> <span style={{ color: "#F2B84B" }}>developer</span> = {"{"}
-                        </div>
-                        <div>&nbsp;&nbsp;name: <span style={{ color: "#9ADE9A" }}>"신지훈"</span>,</div>
-                        <div>&nbsp;&nbsp;role: <span style={{ color: "#9ADE9A" }}>"Backend Developer"</span>,</div>
-                        <div>
-                            &nbsp;&nbsp;focus: [<span style={{ color: "#9ADE9A" }}>"STT"</span>, <span style={{ color: "#9ADE9A" }}>"gRPC"</span>, <span style={{ color: "#9ADE9A" }}>"MRCP"</span>],
-                        </div>
-                        <div>&nbsp;&nbsp;current: <span style={{ color: "#9ADE9A" }}>"TNS Soft"</span>,</div>
-                        <div>&nbsp;&nbsp;since: <span style={{ color: "#9ADE9A" }}>"2024-04"</span>,</div>
-                        <div>&nbsp;&nbsp;sideProject: <span style={{ color: "#9ADE9A" }}>"LifeMetrics"</span>,</div>
-                        <div>{"}"};</div>
-                    </div>
-                </div>
-            </section>
+                    </section>
+                </>
+            )}
 
             {/* 02 경력 (git log) */}
-            <section id="career" ref={registerSection("career")} className="pp-section">
-                <SecHead num="02 · Career" title="경력" desc="총 8년 3개월, 5개 기업 — git log 형태로 정리했습니다." />
-                <div className="pp-git-log">
-                    {profile.career.map((c) => {
-                        const body =
-                            c.projects.length > 0
-                                ? c.projects[0].title + (c.projects.length > 1 ? ` 외 ${c.projects.length - 1}건` : "")
-                                : c.role;
-                        return (
-                            <div key={c.id} className={`pp-commit ${c.isCurrent ? "current" : ""}`}>
-                                <div className="pp-commit-node" />
-                                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
-                                    {c.commitHash && <span className="pp-commit-hash">{c.commitHash}</span>}
-                                    {c.commitTag && <span className={`pp-commit-tag ${c.isCurrent ? "" : "muted"}`}>{c.commitTag}</span>}
-                                    <span className="pp-commit-hash">{c.periodLabel}</span>
+            {section === "career" && (
+                <section className="pp-section">
+                    <SecHead num="02 · Career" title="경력" desc="총 8년 3개월, 5개 기업 — git log 형태로 정리했습니다." />
+                    <div className="pp-git-log">
+                        {profile.career.map((c) => {
+                            const body =
+                                c.projects.length > 0
+                                    ? c.projects[0].title + (c.projects.length > 1 ? ` 외 ${c.projects.length - 1}건` : "")
+                                    : c.role;
+                            return (
+                                <div key={c.id} className={`pp-commit ${c.isCurrent ? "current" : ""}`}>
+                                    <div className="pp-commit-node" />
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+                                        {c.commitHash && <span className="pp-commit-hash">{c.commitHash}</span>}
+                                        {c.commitTag && <span className={`pp-commit-tag ${c.isCurrent ? "" : "muted"}`}>{c.commitTag}</span>}
+                                        <span className="pp-commit-hash">{c.periodLabel}</span>
+                                    </div>
+                                    <div style={{ fontWeight: 700, fontSize: 16.5, marginBottom: 3 }}>{c.companyName}</div>
+                                    <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>{c.role}</div>
+                                    <div style={{ fontSize: 13, color: "#9CA1B5" }}>{body}</div>
                                 </div>
-                                <div style={{ fontWeight: 700, fontSize: 16.5, marginBottom: 3 }}>{c.companyName}</div>
-                                <div style={{ fontSize: 13, color: "#6B7280", marginBottom: 6 }}>{c.role}</div>
-                                <div style={{ fontSize: 13, color: "#9CA1B5" }}>{body}</div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </section>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
 
             {/* 03 학력 */}
-            <section id="education" ref={registerSection("education")} className="pp-section">
-                <SecHead num="03 · Education" title="학력" />
-                <div style={S.eduGrid}>
-                    {profile.education.map((e) => (
-                        <EduCard key={e.id} period={e.periodLabel} school={e.school} major={e.major} />
-                    ))}
-                </div>
-            </section>
+            {section === "education" && (
+                <section className="pp-section">
+                    <SecHead num="03 · Education" title="학력" />
+                    <div style={S.eduGrid}>
+                        {profile.education.map((e) => (
+                            <EduCard key={e.id} period={e.periodLabel} school={e.school} major={e.major} />
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* 04 경력기술서 */}
-            <section id="career-detail" ref={registerSection("career-detail")} className="pp-section">
-                <SecHead num="04 · Career Detail" title="경력 기술서" desc="회사를 클릭하면 프로젝트별 요약·역할·성과와 사용 기술 스택이 펼쳐집니다." />
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {profile.career.map((cd, i) => {
-                        const open = openCompany === i;
-                        return (
-                            <div key={cd.path} className={`pp-cd-card ${open ? "open" : ""}`}>
-                                <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", padding: "8px 22px 0" }}>{cd.path}</div>
-                                <button
-                                    type="button"
-                                    className="pp-cd-head"
-                                    onClick={() => setOpenCompany(open ? -1 : i)}
-                                    aria-expanded={open}
-                                >
-                                    <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-                                        <span style={{ fontWeight: 700, fontSize: 16 }}>{cd.companyName}</span>
-                                        <span className="pp-commit-hash">{cd.periodLabel}</span>
-                                        <span style={{ fontSize: 12, color: "#6B7280" }}>{cd.role}</span>
-                                    </div>
-                                    <span className="pp-cd-toggle">+</span>
-                                </button>
-                                <div className="pp-cd-body">
-                                    <div className="pp-cd-body-inner">
-                                        {cd.projects.map((p) => (
-                                            <div key={p.id} className="pp-proj-item">
-                                                <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
-                                                    {p.title}
-                                                    {p.periodLabel && <span className="pp-commit-hash" style={{ fontSize: 10.5 }}>{p.periodLabel}</span>}
-                                                </div>
-                                                {p.paragraphs.map((para, idx) => (
-                                                    <p key={idx} style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>
-                                                        {para}
-                                                    </p>
-                                                ))}
+            {section === "career-detail" && (
+                <section className="pp-section">
+                    <SecHead num="04 · Career Detail" title="경력 기술서" desc="좌측에서 도메인을 고르면 그 도메인을 거쳐온 회사가 나열됩니다. 회사를 클릭하면 프로젝트별 요약·역할·성과와 사용 기술 스택이 펼쳐집니다." />
+                    <div className="pp-cd-layout">
+                        <nav className="pp-cd-nav" aria-label="경력 도메인">
+                            {domains.map((d) => {
+                                const count = profile.career.filter((c) => (c.domain?.trim() || "기타") === d).length;
+                                const active = selectedDomain === d;
+                                return (
+                                    <button
+                                        key={d}
+                                        type="button"
+                                        className={`pp-cd-nav-item ${active ? "active" : ""}`}
+                                        onClick={() => selectDomain(d)}
+                                        aria-current={active}
+                                    >
+                                        <span className="pp-cd-nav-dot" />
+                                        <span className="pp-cd-nav-label">{d}</span>
+                                        <span className="pp-cd-nav-count">{count}</span>
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                        <div className="pp-cd-content">
+                            {companiesInDomain.map((cd) => {
+                                const open = openCompanyId === cd.id;
+                                return (
+                                    <div key={cd.path} className={`pp-cd-card ${open ? "open" : ""}`}>
+                                        <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", padding: "8px 22px 0" }}>{cd.path}</div>
+                                        <button
+                                            type="button"
+                                            className="pp-cd-head"
+                                            onClick={() => setOpenCompanyId(open ? null : cd.id)}
+                                            aria-expanded={open}
+                                        >
+                                            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
+                                                <span style={{ fontWeight: 700, fontSize: 16 }}>{cd.companyName}</span>
+                                                <span className="pp-commit-hash">{cd.periodLabel}</span>
+                                                <span style={{ fontSize: 12, color: "#6B7280" }}>{cd.role}</span>
                                             </div>
-                                        ))}
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 16 }}>
-                                            {cd.stack.map((s) => (
-                                                <span key={s} className="pp-tag">{s}</span>
+                                            <span className="pp-cd-toggle">+</span>
+                                        </button>
+                                        <div className="pp-cd-body">
+                                            <div className="pp-cd-body-inner">
+                                                {cd.projects.map((p) => (
+                                                    <div key={p.id} className="pp-proj-item">
+                                                        <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 6, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "baseline" }}>
+                                                            {p.title}
+                                                            {p.periodLabel && <span className="pp-commit-hash" style={{ fontSize: 10.5 }}>{p.periodLabel}</span>}
+                                                        </div>
+                                                        {p.paragraphs.map((para, idx) => (
+                                                            <p key={idx} style={{ fontSize: 13, color: "#6B7280", marginBottom: 4 }}>
+                                                                {para}
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 16 }}>
+                                                    {cd.stack.map((s) => (
+                                                        <span key={s} className="pp-tag">{s}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+            )}
+
+            {/* 05 프로젝트 */}
+            {section === "projects" && (
+                <section className="pp-section">
+                    <SecHead num="05 · Personal Projects" title="개인 프로젝트" desc="업무 밖에서 직접 기획하고 끝까지 만든 프로젝트입니다." />
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, flexWrap: "wrap", gap: 14 }}>
+                        <div>
+                            <div style={{ fontWeight: 800, fontSize: 22 }}>LifeMetrics</div>
+                            <div style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
+                                라이드·체성분·코스 데이터를 하나의 파이프라인으로 묶는 개인 사이클링 데이터 플랫폼 — 지금 보고 있는 이 페이지도 이 프로젝트의 일부입니다.
+                            </div>
+                        </div>
+                        <a className="pp-btn-ghost" href={profile.contact.github || "https://github.com/ShinJiHun"} target="_blank" rel="noopener noreferrer">
+                            GitHub에서 보기 →
+                        </a>
+                    </div>
+
+                    <div style={S.featGrid}>
+                        <FeatCard icon="📐" title="코스-라이드 비교" desc="같은 코스를 여러 번 탄 기록을 이동시간·평균속도·상승고도·평균 파워/심박/케이던스로 비교합니다. JPQL 프로젝션으로 DTO를 직접 구성했습니다." tags={["CourseRideComparisonDto", "JPQL"]} />
+                        <FeatCard icon="🚲" title="자전거 장비 관리" desc="모델명 검색(웹 검색), 스펙 이미지 업로드(비전), 제품 URL(web_fetch) 세 가지 방식으로 자전거를 등록합니다." tags={["Claude Vision", "web_fetch"]} />
+                        <FeatCard icon="🧭" title="퍼소나 게이트웨이" desc="방문자가 개발/라이더/휴먼 중 원하는 페르소나를 골라 각기 다른 DB 기반 데이터로 채팅할 수 있는 라우팅 구조입니다. 지금 이 페이지가 그 결과물입니다." tags={["PersonaGate", "Gemini · Vertex AI"]} />
+                    </div>
+
+                    <div className="pp-arch-diagram">
+                        <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", marginBottom: 18 }}>Architecture · 데이터가 흐르는 경로</div>
+                        <div className="pp-arch-row">
+                            <ArchCol label="수집" boxes={["Garmin FIT", "Samsung Health", "InBody 사진"]} />
+                            <div className="pp-arch-arrow">→</div>
+                            <ArchCol label="파이프라인" boxes={[{ text: "Python / uvicorn :8001", hl: true }, "strava_segment_sync", "Claude OCR"]} />
+                            <div className="pp-arch-arrow">→</div>
+                            <ArchCol label="저장" boxes={[{ text: "MariaDB 11.6 riding_db", hl: true }, "journal_db 10.4"]} />
+                            <div className="pp-arch-arrow">→</div>
+                            <ArchCol label="서빙" boxes={[{ text: "Spring Boot JPA/Hibernate", hl: true }, "React 19 + Vite"]} />
+                        </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 54 }}>
+                        {TROUBLESHOOTS.map((ts, i) => {
+                            const open = openTs === i;
+                            return (
+                                <div key={ts.id} className={`pp-ts-card ${open ? "open" : ""}`}>
+                                    <button type="button" className="pp-ts-head" onClick={() => setOpenTs(open ? -1 : i)} aria-expanded={open}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                            <span className="pp-commit-hash">{ts.id}</span>
+                                            <span style={{ fontWeight: 700, fontSize: 14 }}>{ts.title}</span>
+                                        </div>
+                                        <span className="pp-cd-toggle">+</span>
+                                    </button>
+                                    <div className="pp-ts-body">
+                                        <div className="pp-ts-body-inner">
+                                            {ts.remove.map((line, idx) => (
+                                                <div key={idx} className="pp-diff-line pp-diff-remove">
+                                                    <span className="pp-pfx">-</span>
+                                                    {line}
+                                                </div>
+                                            ))}
+                                            {ts.add.map((line, idx) => (
+                                                <div key={idx} className="pp-diff-line pp-diff-add">
+                                                    <span className="pp-pfx">+</span>
+                                                    {line}
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </section>
+                            );
+                        })}
+                    </div>
 
-            {/* 05 프로젝트 */}
-            <section id="projects" ref={registerSection("projects")} className="pp-section">
-                <SecHead num="05 · Personal Projects" title="개인 프로젝트" desc="업무 밖에서 직접 기획하고 끝까지 만든 프로젝트입니다." />
+                    <div className="pp-dep-block">
+                        <div style={{ color: "#6A7290" }}>{"// backend — package.json"}</div>
+                        <DepLine k='"spring-boot + jpa"' c="관계형 조인이 많은 도메인, JPQL 프로젝션으로 DTO 직접 구성" />
+                        <DepLine k='"mariadb@11.6 / 10.4"' c="riding_db · journal_db를 분리해 스키마 변경 영향 범위를 좁힘" />
+                        <DepLine k='"python + uvicorn"' c="FIT 파싱은 파이썬 생태계가 압도적으로 풍부" />
+                        <div style={{ color: "#6A7290", marginTop: 14 }}>{"// ai-integration"}</div>
+                        <DepLine k='"claude-api"' c="InBody OCR, 자전거 스펙 추출 등 비정형 입력 처리" />
+                        <DepLine k='"gemini + vertex-ai(adc)"' c="개인 문서 RAG — AI Studio 키 대신 ADC로 학습 데이터 사용 방지" />
+                        <div style={{ color: "#6A7290", marginTop: 14 }}>{"// infra"}</div>
+                        <DepLine k='"gcp-vm + docker + nginx"' c="단일 VM 컨테이너 운영, deploy.sh로 배포 표준화" />
+                        <DepLine k='"open-meteo"' c="Windy 무료 티어가 셔플 데이터 반환 확인 후 교체" />
+                    </div>
 
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, flexWrap: "wrap", gap: 14 }}>
-                    <div>
-                        <div style={{ fontWeight: 800, fontSize: 22 }}>LifeMetrics</div>
-                        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
-                            라이드·체성분·코스 데이터를 하나의 파이프라인으로 묶는 개인 사이클링 데이터 플랫폼 — 지금 보고 있는 이 페이지도 이 프로젝트의 일부입니다.
+                    <div className="pp-mini-proj-card" style={{ marginTop: 34 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                            <div style={{ fontWeight: 700, fontSize: 15 }}>청취 음량 수집 애플리케이션</div>
+                            <div className="pp-commit-hash">대학원 논문 주제 · 2016 ~ 2018</div>
+                        </div>
+                        <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
+                            안드로이드 스마트폰에 이어폰을 연결해 음악을 청취하는 동안의 청취 음압(dBA)을 측정하는 앱을 개발했습니다. 시간별·일별·주별·월별 평균 청취 음량을 집계해 청력
+                            손상 위험을 스스로 확인할 수 있게 했습니다.
+                        </p>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {["Java", "Tomcat", "MySQL", "JQuery"].map((s) => (
+                                <span key={s} className="pp-tag">{s}</span>
+                            ))}
                         </div>
                     </div>
-                    <a className="pp-btn-ghost" href={profile.contact.github || "https://github.com/ShinJiHun"} target="_blank" rel="noopener noreferrer">
-                        GitHub에서 보기 →
-                    </a>
-                </div>
-
-                <div style={S.featGrid}>
-                    <FeatCard icon="📐" title="코스-라이드 비교" desc="같은 코스를 여러 번 탄 기록을 이동시간·평균속도·상승고도·평균 파워/심박/케이던스로 비교합니다. JPQL 프로젝션으로 DTO를 직접 구성했습니다." tags={["CourseRideComparisonDto", "JPQL"]} />
-                    <FeatCard icon="🚲" title="자전거 장비 관리" desc="모델명 검색(웹 검색), 스펙 이미지 업로드(비전), 제품 URL(web_fetch) 세 가지 방식으로 자전거를 등록합니다." tags={["Claude Vision", "web_fetch"]} />
-                    <FeatCard icon="🧭" title="퍼소나 게이트웨이" desc="방문자가 개발/라이더/휴먼 중 원하는 페르소나를 골라 각기 다른 DB 기반 데이터로 채팅할 수 있는 라우팅 구조입니다. 지금 이 페이지가 그 결과물입니다." tags={["PersonaGate", "Gemini · Vertex AI"]} />
-                </div>
-
-                <div className="pp-arch-diagram">
-                    <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", marginBottom: 18 }}>Architecture · 데이터가 흐르는 경로</div>
-                    <div className="pp-arch-row">
-                        <ArchCol label="수집" boxes={["Garmin FIT", "Samsung Health", "InBody 사진"]} />
-                        <div className="pp-arch-arrow">→</div>
-                        <ArchCol label="파이프라인" boxes={[{ text: "Python / uvicorn :8001", hl: true }, "strava_segment_sync", "Claude OCR"]} />
-                        <div className="pp-arch-arrow">→</div>
-                        <ArchCol label="저장" boxes={[{ text: "MariaDB 11.6 riding_db", hl: true }, "journal_db 10.4"]} />
-                        <div className="pp-arch-arrow">→</div>
-                        <ArchCol label="서빙" boxes={[{ text: "Spring Boot JPA/Hibernate", hl: true }, "React 19 + Vite"]} />
-                    </div>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 54 }}>
-                    {TROUBLESHOOTS.map((ts, i) => {
-                        const open = openTs === i;
-                        return (
-                            <div key={ts.id} className={`pp-ts-card ${open ? "open" : ""}`}>
-                                <button type="button" className="pp-ts-head" onClick={() => setOpenTs(open ? -1 : i)} aria-expanded={open}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                        <span className="pp-commit-hash">{ts.id}</span>
-                                        <span style={{ fontWeight: 700, fontSize: 14 }}>{ts.title}</span>
-                                    </div>
-                                    <span className="pp-cd-toggle">+</span>
-                                </button>
-                                <div className="pp-ts-body">
-                                    <div className="pp-ts-body-inner">
-                                        {ts.remove.map((line, idx) => (
-                                            <div key={idx} className="pp-diff-line pp-diff-remove">
-                                                <span className="pp-pfx">-</span>
-                                                {line}
-                                            </div>
-                                        ))}
-                                        {ts.add.map((line, idx) => (
-                                            <div key={idx} className="pp-diff-line pp-diff-add">
-                                                <span className="pp-pfx">+</span>
-                                                {line}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <div className="pp-dep-block">
-                    <div style={{ color: "#6A7290" }}>{"// backend — package.json"}</div>
-                    <DepLine k='"spring-boot + jpa"' c="관계형 조인이 많은 도메인, JPQL 프로젝션으로 DTO 직접 구성" />
-                    <DepLine k='"mariadb@11.6 / 10.4"' c="riding_db · journal_db를 분리해 스키마 변경 영향 범위를 좁힘" />
-                    <DepLine k='"python + uvicorn"' c="FIT 파싱은 파이썬 생태계가 압도적으로 풍부" />
-                    <div style={{ color: "#6A7290", marginTop: 14 }}>{"// ai-integration"}</div>
-                    <DepLine k='"claude-api"' c="InBody OCR, 자전거 스펙 추출 등 비정형 입력 처리" />
-                    <DepLine k='"gemini + vertex-ai(adc)"' c="개인 문서 RAG — AI Studio 키 대신 ADC로 학습 데이터 사용 방지" />
-                    <div style={{ color: "#6A7290", marginTop: 14 }}>{"// infra"}</div>
-                    <DepLine k='"gcp-vm + docker + nginx"' c="단일 VM 컨테이너 운영, deploy.sh로 배포 표준화" />
-                    <DepLine k='"open-meteo"' c="Windy 무료 티어가 셔플 데이터 반환 확인 후 교체" />
-                </div>
-
-                <div className="pp-mini-proj-card" style={{ marginTop: 34 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                        <div style={{ fontWeight: 700, fontSize: 15 }}>청취 음량 수집 애플리케이션</div>
-                        <div className="pp-commit-hash">대학원 논문 주제 · 2016 ~ 2018</div>
-                    </div>
-                    <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
-                        안드로이드 스마트폰에 이어폰을 연결해 음악을 청취하는 동안의 청취 음압(dBA)을 측정하는 앱을 개발했습니다. 시간별·일별·주별·월별 평균 청취 음량을 집계해 청력
-                        손상 위험을 스스로 확인할 수 있게 했습니다.
-                    </p>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        {["Java", "Tomcat", "MySQL", "JQuery"].map((s) => (
-                            <span key={s} className="pp-tag">{s}</span>
-                        ))}
-                    </div>
-                </div>
-            </section>
+                </section>
+            )}
 
             {/* 06 연락처 */}
-            <section id="contact" ref={registerSection("contact")} style={{ padding: "60px 0 40px", borderTop: "1px solid #ECEEF6" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 20 }}>
-                    <div>
-                        <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>연락 주세요</div>
-                        <p style={{ color: "#6B7280", fontSize: 13.5, maxWidth: 360 }}>음성인식 백엔드, 데이터 파이프라인, 인프라 운영에 관심 있는 팀이라면 언제든 편하게 연락 주세요.</p>
+            {section === "contact" && (
+                <section className="pp-section" style={{ padding: "12px 0 40px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 20 }}>
+                        <div>
+                            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>연락 주세요</div>
+                            <p style={{ color: "#6B7280", fontSize: 13.5, maxWidth: 360 }}>음성인식 백엔드, 데이터 파이프라인, 인프라 운영에 관심 있는 팀이라면 언제든 편하게 연락 주세요.</p>
+                        </div>
+                        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                            {profile.contact.phone && (
+                                <a className="pp-foot-link" href={`tel:${profile.contact.phone}`}>{profile.contact.phone}</a>
+                            )}
+                            {profile.contact.github && (
+                                <a className="pp-foot-link" href={profile.contact.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+                            )}
+                            {profile.contact.blog && (
+                                <a className="pp-foot-link" href={profile.contact.blog} target="_blank" rel="noopener noreferrer">블로그 ↗</a>
+                            )}
+                        </div>
                     </div>
-                    <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                        {profile.contact.phone && (
-                            <a className="pp-foot-link" href={`tel:${profile.contact.phone}`}>{profile.contact.phone}</a>
-                        )}
-                        {profile.contact.github && (
-                            <a className="pp-foot-link" href={profile.contact.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-                        )}
-                        {profile.contact.blog && (
-                            <a className="pp-foot-link" href={profile.contact.blog} target="_blank" rel="noopener noreferrer">블로그 ↗</a>
-                        )}
-                    </div>
-                </div>
-                <div style={{ marginTop: 40, fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5" }}>신지훈 · Backend Developer · STT / gRPC / MRCP</div>
-            </section>
+                    <div style={{ marginTop: 40, fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5" }}>신지훈 · Backend Developer · STT / gRPC / MRCP</div>
+                </section>
+            )}
         </div>
     );
 }
 
 // ── 서브 컴포넌트 ─────────────────────────────────────────
+
+// 헤드라인의 줄바꿈(\n)을 <br/>로, {{강조문구}}를 accent 색 <span>으로 렌더링
+function renderHeadline(text: string) {
+    return text.split("\n").map((line, i) => (
+        <span key={i}>
+            {i > 0 && <br />}
+            {line.split(/(\{\{[^}]*\}\})/g).map((part, j) => {
+                const m = part.match(/^\{\{([^}]*)\}\}$/);
+                return m ? (
+                    <span key={j} style={{ color: accent }}>{m[1]}</span>
+                ) : (
+                    <span key={j}>{part}</span>
+                );
+            })}
+        </span>
+    ));
+}
 
 function Stat({ num, unit, label }: { num: string; unit?: string; label: string }) {
     return (
@@ -491,7 +524,8 @@ function DepLine({ k, c }: { k: string; c: string }) {
 
 const S: Record<string, CSSProperties> = {
     page: { maxWidth: 1000, margin: "0 auto", fontFamily: "var(--pp-body, inherit)" },
-    hero: { padding: "48px 0 70px" },
+    topBar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "32px 0 0" },
+    hero: { padding: "20px 0 60px" },
     headline: { fontWeight: 800, fontSize: "clamp(28px, 4vw, 42px)", lineHeight: 1.3, letterSpacing: "-0.01em", maxWidth: 720, marginBottom: 18 },
     subhead: { fontSize: 16, color: "#6B7280", maxWidth: 580, marginBottom: 34, lineHeight: 1.65 },
     statRow: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "#E3E6F0", border: "1px solid #E3E6F0", borderRadius: 8, overflow: "hidden", maxWidth: 700 },
@@ -501,20 +535,11 @@ const S: Record<string, CSSProperties> = {
     featGrid: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 46 },
 };
 
-// hover/accordion/sticky처럼 인라인 style로 표현하기 번거로운 부분만 CSS로 (PersonaGate.tsx 패턴과 동일)
+// hover/accordion처럼 인라인 style로 표현하기 번거로운 부분만 CSS로 (PersonaGate.tsx 패턴과 동일)
 const CSS = `
-  .pp-tabstrip-wrap{ position: sticky; top: 0; z-index: 20; background: #fff; margin: 0 -24px 0; padding: 0 24px; border-bottom: 1px solid #ECEEF6; }
-  .pp-tabstrip{ display:flex; overflow-x:auto; }
-  .pp-tab{ font-family: var(--pp-mono); font-size: 12.5px; color:#9CA1B5; padding: 11px 16px; display:flex; align-items:center; gap:7px; white-space:nowrap; text-decoration:none; position:relative; }
-  .pp-tab:hover{ color:#1B2236; }
-  .pp-tab.active{ color:#1B2236; font-weight:600; }
-  .pp-tab.active::after{ content:''; position:absolute; bottom:-1px; left:16px; right:16px; height:2px; background:${accent}; }
-  .pp-sq{ width:8px; height:8px; border-radius:2px; }
-  .pp-scroll-indicator{ height:2px; background:#ECEEF6; }
-  .pp-scroll-fill{ height:100%; background:${accent}; transition: width .1s linear; }
+  .pp-eyebrow{ font-family: var(--pp-mono); font-size:13px; color:${accent}; }
 
-  .pp-section{ padding: 70px 0; border-top: 1px solid #ECEEF6; }
-  .pp-eyebrow{ font-family: var(--pp-mono); font-size:13px; color:${accent}; margin-bottom:20px; }
+  .pp-section{ padding: 12px 0 60px; }
 
   .pp-stat{ background:#fff; padding:16px 18px; }
 
@@ -529,6 +554,18 @@ const CSS = `
   .pp-commit-hash{ font-family: var(--pp-mono); font-size:11.5px; color:#9CA1B5; }
   .pp-commit-tag{ font-family: var(--pp-mono); font-size:10px; background:#EEF0FE; color:${accent}; padding:2px 8px; border-radius:10px; font-weight:600; }
   .pp-commit-tag.muted{ background:#F0F1F8; color:#9CA1B5; }
+
+  .pp-cd-layout{ display:flex; align-items:flex-start; gap:28px; }
+  .pp-cd-nav{ flex:0 0 208px; position:sticky; top:12px; display:flex; flex-direction:column; gap:3px; }
+  .pp-cd-nav-item{ display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:7px; border:1px solid transparent; background:none; cursor:pointer; text-align:left; font-family:inherit; font-size:13.5px; color:#6B7280; transition: background .15s, color .15s, border-color .15s; }
+  .pp-cd-nav-item:hover{ background:#F5F6FB; color:#1B2236; }
+  .pp-cd-nav-item.active{ background:#EEF0FE; border-color:#DEE1FA; color:${accent}; font-weight:700; }
+  .pp-cd-nav-dot{ width:6px; height:6px; border-radius:50%; background:#C7CBDE; flex-shrink:0; }
+  .pp-cd-nav-item.active .pp-cd-nav-dot{ background:${accent}; }
+  .pp-cd-nav-label{ flex:1; }
+  .pp-cd-nav-count{ font-family: var(--pp-mono); font-size:10.5px; color:#9CA1B5; }
+  .pp-cd-nav-item.active .pp-cd-nav-count{ color:${accent}; }
+  .pp-cd-content{ flex:1; min-width:0; display:flex; flex-direction:column; gap:14px; }
 
   .pp-cd-card{ background:#fff; border:1px solid #E3E6F0; border-radius:8px; overflow:hidden; }
   .pp-cd-head{ width:100%; padding:12px 22px 18px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; gap:16px; background:none; border:none; font-family:inherit; text-align:left; }
@@ -578,5 +615,8 @@ const CSS = `
 
   @media (max-width: 860px){
     .pp-featGrid{ grid-template-columns: 1fr; }
+    .pp-cd-layout{ flex-direction: column; }
+    .pp-cd-nav{ position: static; flex-direction: row; overflow-x: auto; width: 100%; gap: 6px; padding-bottom: 4px; }
+    .pp-cd-nav-item{ flex-shrink: 0; }
   }
 `;

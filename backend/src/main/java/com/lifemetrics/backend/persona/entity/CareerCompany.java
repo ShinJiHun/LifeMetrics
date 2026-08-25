@@ -22,6 +22,9 @@ public class CareerCompany {
     @Column(name = "path", nullable = false)
     private String path;
 
+    @Column(name = "domain")
+    private String domain; // 경력기술서 좌측 메뉴 그룹핑 기준 (예: "음성인식", "보안(SIEM)")
+
     @Column(name = "company_name", nullable = false)
     private String companyName;
 

@@ -74,6 +74,8 @@ export default function ProfileManagePage() {
 function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChange: () => void }) {
     const [elevatorPitch, setElevatorPitch] = useState(intro.elevatorPitch);
     const [highlightsText, setHighlightsText] = useState(intro.highlights.join("\n"));
+    const [headline, setHeadline] = useState(intro.headline);
+    const [subheadline, setSubheadline] = useState(intro.subheadline);
     const [saving, setSaving] = useState(false);
 
     const save = async () => {
@@ -82,6 +84,8 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
             await updateIntro({
                 elevatorPitch,
                 highlights: highlightsText.split("\n").map((l) => l.trim()).filter(Boolean),
+                headline,
+                subheadline,
             });
             onChange();
         } finally {
@@ -92,6 +96,14 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
     return (
         <section style={S.card}>
             <h2 style={S.sectionTitle}>소개</h2>
+
+            <label style={S.label}>
+                포트폴리오 첫 화면 제목 (줄바꿈은 그대로 적용, 강조하고 싶은 부분은 <code>{"{{이렇게}}"}</code>로 감싸면 보라색으로 표시됩니다)
+            </label>
+            <textarea style={{ ...S.input, minHeight: 60 }} value={headline} onChange={(e) => setHeadline(e.target.value)} />
+
+            <label style={S.label}>첫 화면 부제</label>
+            <textarea style={{ ...S.input, minHeight: 60 }} value={subheadline} onChange={(e) => setSubheadline(e.target.value)} />
 
             <label style={S.label}>인용구 (elevator pitch)</label>
             <textarea style={{ ...S.input, minHeight: 60 }} value={elevatorPitch} onChange={(e) => setElevatorPitch(e.target.value)} />
@@ -246,6 +258,7 @@ function CareerEditor({ career, onChange }: { career: CareerCompany[]; onChange:
 
 function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onChange: () => void }) {
     const [path, setPath] = useState(company.path);
+    const [domain, setDomain] = useState(company.domain ?? "");
     const [companyName, setCompanyName] = useState(company.companyName);
     const [periodLabel, setPeriodLabel] = useState(company.periodLabel);
     const [role, setRole] = useState(company.role);
@@ -261,6 +274,7 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
         try {
             await updateCareerCompany(company.id, {
                 path,
+                domain: domain.trim() || null,
                 companyName,
                 periodLabel,
                 role,
@@ -291,6 +305,7 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
         <div style={S.subCard}>
             <div style={S.grid2}>
                 <Field label="path"><input style={S.input} value={path} onChange={(e) => setPath(e.target.value)} /></Field>
+                <Field label="도메인 (경력기술서 좌측 메뉴)"><input style={S.input} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="예: 음성인식" /></Field>
                 <Field label="회사명"><input style={S.input} value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></Field>
                 <Field label="기간"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} /></Field>
                 <Field label="직책"><input style={S.input} value={role} onChange={(e) => setRole(e.target.value)} /></Field>
@@ -323,6 +338,7 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
 function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number; onChange: () => void }) {
     const [companyName, setCompanyName] = useState("");
     const [path, setPath] = useState("");
+    const [domain, setDomain] = useState("");
     const [periodLabel, setPeriodLabel] = useState("");
     const [role, setRole] = useState("");
     const [busy, setBusy] = useState(false);
@@ -333,6 +349,7 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
         try {
             await addCareerCompany({
                 path: path.trim(),
+                domain: domain.trim() || null,
                 companyName: companyName.trim(),
                 periodLabel: periodLabel.trim(),
                 role: role.trim(),
@@ -344,6 +361,7 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
             });
             setCompanyName("");
             setPath("");
+            setDomain("");
             setPeriodLabel("");
             setRole("");
             onChange();
@@ -356,6 +374,7 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
         <div style={{ ...S.subCard, background: "#f8f9fc" }}>
             <div style={S.grid2}>
                 <Field label="path"><input style={S.input} value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/career/new-company" /></Field>
+                <Field label="도메인 (경력기술서 좌측 메뉴)"><input style={S.input} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="예: 음성인식" /></Field>
                 <Field label="회사명"><input style={S.input} value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></Field>
                 <Field label="기간"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} /></Field>
                 <Field label="직책"><input style={S.input} value={role} onChange={(e) => setRole(e.target.value)} /></Field>

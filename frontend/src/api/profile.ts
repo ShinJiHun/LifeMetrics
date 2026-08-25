@@ -19,6 +19,7 @@ export interface CareerProject {
 export interface CareerCompany {
     id: number;
     path: string;
+    domain: string | null;
     companyName: string;
     periodLabel: string;
     role: string;
@@ -42,6 +43,8 @@ export interface BasicProfile {
     intro: {
         elevatorPitch: string;
         highlights: string[];
+        headline: string;
+        subheadline: string;
         sections: IntroSection[];
     };
     contact: {
@@ -56,6 +59,8 @@ export interface BasicProfile {
 interface IntroUpdateInput {
     elevatorPitch: string;
     highlights: string[];
+    headline: string;
+    subheadline: string;
 }
 
 interface IntroSectionInput {
@@ -72,6 +77,7 @@ interface ContactUpdateInput {
 
 interface CareerCompanyInput {
     path: string;
+    domain: string | null;
     companyName: string;
     periodLabel: string;
     role: string;

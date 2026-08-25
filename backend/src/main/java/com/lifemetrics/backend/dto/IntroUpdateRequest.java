@@ -12,4 +12,6 @@ import java.util.List;
 public class IntroUpdateRequest {
     private String elevatorPitch;
     private List<String> highlights;
+    private String headline;
+    private String subheadline;
 }

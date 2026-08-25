@@ -11,6 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 public class CareerCompanyRequest {
     private String path;
+    private String domain;
     private String companyName;
     private String periodLabel;
     private String role;

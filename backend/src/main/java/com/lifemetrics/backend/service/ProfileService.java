@@ -34,6 +34,11 @@ public class ProfileService {
     private final CareerProjectRepository careerProjectRepository;
     private final EducationRepository educationRepository;
 
+    // 마이그레이션 전(=headline/subheadline 컬럼이 비어있는) 기존 배포를 위한 기본값
+    private static final String DEFAULT_HEADLINE = "음성 데이터가 서버와 엔진 사이를\n{{끊기지 않고}} 흐르게 만듭니다.";
+    private static final String DEFAULT_SUBHEADLINE =
+            "웹 프론트엔드로 시작해 주차 시스템 백엔드, SIEM, 그리고 지금은 STT·gRPC·MRCP 기반 음성인식 인프라까지 — 도메인을 넓혀가며 8년 3개월째 만들고 운영하고 있습니다.";
+
     // ── 조회 ─────────────────────────────────────────────────────
     @Transactional(value = "journalTransactionManager", readOnly = true)
     public ProfileDto getProfile() {
@@ -57,6 +62,8 @@ public class ProfileService {
                 .intro(ProfileIntroDto.builder()
                         .elevatorPitch(dp != null ? dp.getElevatorPitch() : "")
                         .highlights(dp != null ? splitLines(dp.getHighlights()) : Collections.emptyList())
+                        .headline(dp != null && dp.getHeadline() != null ? dp.getHeadline() : DEFAULT_HEADLINE)
+                        .subheadline(dp != null && dp.getSubheadline() != null ? dp.getSubheadline() : DEFAULT_SUBHEADLINE)
                         .sections(sections)
                         .build())
                 .contact(ProfileContactDto.builder()
@@ -75,6 +82,8 @@ public class ProfileService {
         DeveloperProfile dp = getOrCreateDeveloperProfile();
         dp.setElevatorPitch(req.getElevatorPitch());
         dp.setHighlights(joinLines(req.getHighlights()));
+        dp.setHeadline(req.getHeadline());
+        dp.setSubheadline(req.getSubheadline());
         developerProfileRepository.save(dp);
     }
 
@@ -187,6 +196,7 @@ public class ProfileService {
 
     private void applyCareerCompany(CareerCompany c, CareerCompanyRequest req) {
         c.setPath(req.getPath());
+        c.setDomain(req.getDomain());
         c.setCompanyName(req.getCompanyName());
         c.setPeriodLabel(req.getPeriodLabel());
         c.setRole(req.getRole());
@@ -225,6 +235,7 @@ public class ProfileService {
         return CareerCompanyDto.builder()
                 .id(c.getId())
                 .path(c.getPath())
+                .domain(c.getDomain())
                 .companyName(c.getCompanyName())
                 .periodLabel(c.getPeriodLabel())
                 .role(c.getRole())
