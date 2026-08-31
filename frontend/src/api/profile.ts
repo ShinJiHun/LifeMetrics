@@ -38,7 +38,10 @@ export interface CareerCompany {
     path: string;
     domain: string | null;
     companyName: string;
+    shortName: string | null;
     periodLabel: string;
+    startDate: string | null; // "yyyy-MM-dd"
+    endDate: string | null;   // "yyyy-MM-dd", null = 재직중
     role: string;
     isCurrent: boolean;
     commitHash: string | null;
@@ -63,11 +66,26 @@ export interface BasicProfile {
         headline: string;
         subheadline: string;
         sections: IntroSection[];
+        roleTagline: string;
+        focusTags: string[];
+        contactBlurb: string;
+        sideProject: string;
+        availability: string; // 구직/이직 준비 중일 때 표시할 문구
+        openToWork: boolean;  // 구직/이직 준비 여부
     };
     contact: {
         phone: string;
         github: string;
         blog: string;
+    };
+    stats: {
+        totalCareerMonths: number;
+        totalCareerLabel: string; // "8년 4개월"
+        companyCount: number;
+        projectCount: number;
+        employed: boolean;
+        currentCompany: string; // 재직중이면 회사명, 아니면 ""
+        currentSince: string; // "yyyy-MM", 재직중 아니면 ""
     };
     career: CareerCompany[];
     education: Education[];
@@ -78,6 +96,12 @@ interface IntroUpdateInput {
     highlights: string[];
     headline: string;
     subheadline: string;
+    roleTagline: string;
+    focusTags: string[];
+    contactBlurb: string;
+    sideProject: string;
+    availability: string;
+    openToWork: boolean;
 }
 
 interface IntroSectionInput {
@@ -96,7 +120,10 @@ interface CareerCompanyInput {
     path: string;
     domain: string | null;
     companyName: string;
+    shortName: string | null;
     periodLabel: string;
+    startDate: string | null;
+    endDate: string | null;
     role: string;
     isCurrent: boolean;
     commitHash: string | null;

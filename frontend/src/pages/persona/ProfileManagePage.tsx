@@ -83,6 +83,12 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
     const [highlightsText, setHighlightsText] = useState(intro.highlights.join("\n"));
     const [headline, setHeadline] = useState(intro.headline);
     const [subheadline, setSubheadline] = useState(intro.subheadline);
+    const [roleTagline, setRoleTagline] = useState(intro.roleTagline);
+    const [focusTagsText, setFocusTagsText] = useState(intro.focusTags.join(", "));
+    const [contactBlurb, setContactBlurb] = useState(intro.contactBlurb);
+    const [sideProject, setSideProject] = useState(intro.sideProject);
+    const [availability, setAvailability] = useState(intro.availability);
+    const [openToWork, setOpenToWork] = useState(intro.openToWork);
     const [saving, setSaving] = useState(false);
 
     const save = async () => {
@@ -93,6 +99,12 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
                 highlights: highlightsText.split("\n").map((l) => l.trim()).filter(Boolean),
                 headline,
                 subheadline,
+                roleTagline,
+                focusTags: focusTagsText.split(",").map((t) => t.trim()).filter(Boolean),
+                contactBlurb,
+                sideProject,
+                availability,
+                openToWork,
             });
             onChange();
         } finally {
@@ -117,6 +129,31 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
 
             <label style={S.label}>핵심 성과 (한 줄에 하나씩)</label>
             <textarea style={{ ...S.input, minHeight: 90 }} value={highlightsText} onChange={(e) => setHighlightsText(e.target.value)} />
+
+            <label style={S.label}>직함 태그라인 (whoami 카드 · 푸터에 표시)</label>
+            <input style={S.input} value={roleTagline} onChange={(e) => setRoleTagline(e.target.value)} placeholder="예: Backend Developer" />
+
+            <label style={S.label}>전문분야 태그 (쉼표로 구분)</label>
+            <input style={S.input} value={focusTagsText} onChange={(e) => setFocusTagsText(e.target.value)} placeholder="예: STT, gRPC, MRCP" />
+
+            <label style={S.label}>연락처 섹션 안내 문구</label>
+            <textarea style={{ ...S.input, minHeight: 60 }} value={contactBlurb} onChange={(e) => setContactBlurb(e.target.value)} />
+
+            <label style={S.label}>사이드 프로젝트 이름 (whoami 카드 sideProject)</label>
+            <input style={S.input} value={sideProject} onChange={(e) => setSideProject(e.target.value)} placeholder="예: LifeMetrics" />
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555", marginTop: 12 }}>
+                <input type="checkbox" checked={openToWork} onChange={(e) => setOpenToWork(e.target.checked)} />
+                이직 / 구직 준비 중 (히어로에 초록 뱃지 표시)
+            </label>
+
+            <label style={S.label}>구직 상태 문구 (위 체크 시 뱃지에 표시)</label>
+            <input style={S.input} value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder="예: 이직 준비 중" />
+
+            <p style={{ ...S.label, color: "#9CA1B5", marginTop: 4 }}>
+                ※ 총 경력 연차 · 참여 프로젝트 수 · 재직 상태(재직 중 / 재직 중 아님)는 아래 <b>경력</b> 항목에서 자동 계산됩니다
+                (재직중으로 체크된 회사가 있으면 "재직 중").
+            </p>
 
             <button type="button" onClick={save} disabled={saving} style={{ ...S.saveBtn, background: accent }}>
                 {saving ? "저장 중..." : "소개 저장"}
@@ -267,7 +304,10 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
     const [path, setPath] = useState(company.path);
     const [domain, setDomain] = useState(company.domain ?? "");
     const [companyName, setCompanyName] = useState(company.companyName);
+    const [shortName, setShortName] = useState(company.shortName ?? "");
     const [periodLabel, setPeriodLabel] = useState(company.periodLabel);
+    const [startDate, setStartDate] = useState(company.startDate ?? "");
+    const [endDate, setEndDate] = useState(company.endDate ?? "");
     const [role, setRole] = useState(company.role);
     const [isCurrent, setIsCurrent] = useState(company.isCurrent);
     const [commitHash, setCommitHash] = useState(company.commitHash ?? "");
@@ -283,7 +323,10 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
                 path,
                 domain: domain.trim() || null,
                 companyName,
+                shortName: shortName.trim() || null,
                 periodLabel,
+                startDate: startDate || null,
+                endDate: endDate || null,
                 role,
                 isCurrent,
                 commitHash: commitHash.trim() || null,
@@ -314,8 +357,11 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
                 <Field label="path"><input style={S.input} value={path} onChange={(e) => setPath(e.target.value)} /></Field>
                 <Field label="도메인 (경력기술서 좌측 메뉴)"><input style={S.input} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="예: 음성인식" /></Field>
                 <Field label="회사명"><input style={S.input} value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></Field>
-                <Field label="기간"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} /></Field>
+                <Field label="짧은 표기명 (whoami 카드 등)"><input style={S.input} value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="예: TNS Soft" /></Field>
+                <Field label="기간 표시 문구"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="예: 2024.04 ~ 재직중 · 2년 5개월" /></Field>
                 <Field label="직책"><input style={S.input} value={role} onChange={(e) => setRole(e.target.value)} /></Field>
+                <Field label="입사일 (연차 계산용)"><input type="date" style={S.input} value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+                <Field label="퇴사일 (재직중이면 비움)"><input type="date" style={S.input} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
                 <Field label="commit hash"><input style={S.input} value={commitHash} onChange={(e) => setCommitHash(e.target.value)} /></Field>
                 <Field label="commit tag"><input style={S.input} value={commitTag} onChange={(e) => setCommitTag(e.target.value)} /></Field>
                 <Field label="정렬순서"><input type="number" style={S.input} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} /></Field>
@@ -344,9 +390,12 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
 
 function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number; onChange: () => void }) {
     const [companyName, setCompanyName] = useState("");
+    const [shortName, setShortName] = useState("");
     const [path, setPath] = useState("");
     const [domain, setDomain] = useState("");
     const [periodLabel, setPeriodLabel] = useState("");
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
     const [role, setRole] = useState("");
     const [busy, setBusy] = useState(false);
 
@@ -358,7 +407,10 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
                 path: path.trim(),
                 domain: domain.trim() || null,
                 companyName: companyName.trim(),
+                shortName: shortName.trim() || null,
                 periodLabel: periodLabel.trim(),
+                startDate: startDate || null,
+                endDate: endDate || null,
                 role: role.trim(),
                 isCurrent: false,
                 commitHash: null,
@@ -367,9 +419,12 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
                 sortOrder: nextSortOrder,
             });
             setCompanyName("");
+            setShortName("");
             setPath("");
             setDomain("");
             setPeriodLabel("");
+            setStartDate("");
+            setEndDate("");
             setRole("");
             onChange();
         } finally {
@@ -383,8 +438,11 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
                 <Field label="path"><input style={S.input} value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/career/new-company" /></Field>
                 <Field label="도메인 (경력기술서 좌측 메뉴)"><input style={S.input} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="예: 음성인식" /></Field>
                 <Field label="회사명"><input style={S.input} value={companyName} onChange={(e) => setCompanyName(e.target.value)} /></Field>
-                <Field label="기간"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} /></Field>
+                <Field label="짧은 표기명 (whoami 카드 등)"><input style={S.input} value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="예: TNS Soft" /></Field>
+                <Field label="기간 표시 문구"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="예: 2024.04 ~ 재직중 · 2년 5개월" /></Field>
                 <Field label="직책"><input style={S.input} value={role} onChange={(e) => setRole(e.target.value)} /></Field>
+                <Field label="입사일 (연차 계산용)"><input type="date" style={S.input} value={startDate} onChange={(e) => setStartDate(e.target.value)} /></Field>
+                <Field label="퇴사일 (재직중이면 비움)"><input type="date" style={S.input} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></Field>
             </div>
             <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 회사 추가</button>
         </div>

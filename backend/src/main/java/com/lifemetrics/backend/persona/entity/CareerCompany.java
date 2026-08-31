@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 /**
  * 경력(회사) — 경력 타임라인(git log)과 경력 기술서에서 함께 사용.
  */
@@ -28,8 +30,17 @@ public class CareerCompany {
     @Column(name = "company_name", nullable = false)
     private String companyName;
 
+    @Column(name = "short_name")
+    private String shortName; // whoami 카드 등 좁은 자리에 쓰는 짧은 표기명 (예: "TNS Soft")
+
     @Column(name = "period_label", nullable = false)
-    private String periodLabel;
+    private String periodLabel; // 사람이 읽는 기간 문구 (예: "2024.04 ~ 재직중 · 2년 5개월")
+
+    @Column(name = "start_date")
+    private LocalDate startDate; // 총 경력 연차 계산용 입사일 (매월 1일로 저장)
+
+    @Column(name = "end_date")
+    private LocalDate endDate; // 총 경력 연차 계산용 퇴사일 (재직중이면 NULL)
 
     @Column(name = "role", nullable = false)
     private String role;

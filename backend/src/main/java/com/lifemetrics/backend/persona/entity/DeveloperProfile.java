@@ -31,6 +31,24 @@ public class DeveloperProfile {
     @Column(name = "subheadline", columnDefinition = "TEXT")
     private String subheadline; // 포트폴리오 히어로 부제
 
+    @Column(name = "role_tagline")
+    private String roleTagline; // whoami 카드/푸터에 쓰이는 직함 태그라인 (예: "Backend Developer")
+
+    @Column(name = "focus_tags", columnDefinition = "TEXT")
+    private String focusTags; // 쉼표(,)로 구분된 전문분야 태그 목록
+
+    @Column(name = "contact_blurb", columnDefinition = "TEXT")
+    private String contactBlurb; // 연락처 섹션 안내 문구
+
+    @Column(name = "side_project")
+    private String sideProject; // whoami 카드 sideProject 값 (예: "LifeMetrics")
+
+    @Column(name = "availability")
+    private String availability; // 구직/이직 준비 중일 때 표시할 문구 (예: "이직 준비 중")
+
+    @Column(name = "open_to_work")
+    private Boolean openToWork; // 구직/이직 준비 여부
+
     @Column(name = "phone")
     private String phone;
 

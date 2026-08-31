@@ -124,13 +124,27 @@ export default function PersonaPortfolioPage() {
                 <>
                     {/* Hero */}
                     <section style={S.hero}>
+                        <div style={S.badgeRow}>
+                            <span className={`pp-badge ${profile.stats.employed ? "on" : "muted"}`}>
+                                {profile.stats.employed
+                                    ? `재직 중${profile.stats.currentCompany ? ` · ${profile.stats.currentCompany}` : ""}`
+                                    : "현재 재직 중 아님"}
+                            </span>
+                            <span className={`pp-badge ${profile.intro.openToWork ? "seek" : "muted"}`}>
+                                {profile.intro.openToWork ? profile.intro.availability || "이직 준비 중" : "이직 계획 없음"}
+                            </span>
+                        </div>
                         <h1 style={S.headline}>{renderHeadline(profile.intro.headline)}</h1>
                         <p style={S.subhead}>{profile.intro.subheadline}</p>
                         <div style={S.statRow}>
-                            <Stat num="8" unit="년 3개월" label="총 경력" />
-                            <Stat num={String(profile.career.length)} label="소속 기업" />
-                            <Stat num="12" unit="+" label="참여 프로젝트" />
-                            <Stat num="STT" label="gRPC · MRCP 전문분야" />
+                            <Stat
+                                num={String(Math.floor(profile.stats.totalCareerMonths / 12))}
+                                unit={profile.stats.totalCareerMonths % 12 > 0 ? `년 ${profile.stats.totalCareerMonths % 12}개월` : "년"}
+                                label="총 경력"
+                            />
+                            <Stat num={String(profile.stats.companyCount)} label="소속 기업" />
+                            <Stat num={String(profile.stats.projectCount)} label="참여 프로젝트" />
+                            <Stat num={profile.intro.focusTags[0] ?? ""} label="전문분야" />
                         </div>
                     </section>
 
@@ -158,13 +172,28 @@ export default function PersonaPortfolioPage() {
                                     <span style={{ color: "#7C87F7" }}>const</span> <span style={{ color: "#F2B84B" }}>developer</span> = {"{"}
                                 </div>
                                 <div>&nbsp;&nbsp;name: <span style={{ color: "#9ADE9A" }}>"신지훈"</span>,</div>
-                                <div>&nbsp;&nbsp;role: <span style={{ color: "#9ADE9A" }}>"Backend Developer"</span>,</div>
+                                <div>&nbsp;&nbsp;role: <span style={{ color: "#9ADE9A" }}>"{profile.intro.roleTagline}"</span>,</div>
                                 <div>
-                                    &nbsp;&nbsp;focus: [<span style={{ color: "#9ADE9A" }}>"STT"</span>, <span style={{ color: "#9ADE9A" }}>"gRPC"</span>, <span style={{ color: "#9ADE9A" }}>"MRCP"</span>],
+                                    &nbsp;&nbsp;focus: [
+                                    {profile.intro.focusTags.map((tag, i) => (
+                                        <span key={tag}>
+                                            {i > 0 && ", "}
+                                            <span style={{ color: "#9ADE9A" }}>"{tag}"</span>
+                                        </span>
+                                    ))}
+                                    ],
                                 </div>
-                                <div>&nbsp;&nbsp;current: <span style={{ color: "#9ADE9A" }}>"TNS Soft"</span>,</div>
-                                <div>&nbsp;&nbsp;since: <span style={{ color: "#9ADE9A" }}>"2024-04"</span>,</div>
-                                <div>&nbsp;&nbsp;sideProject: <span style={{ color: "#9ADE9A" }}>"LifeMetrics"</span>,</div>
+                                <div>&nbsp;&nbsp;employed: <span style={{ color: "#F2B84B" }}>{String(profile.stats.employed)}</span>,</div>
+                                {profile.stats.employed && (
+                                    <>
+                                        <div>&nbsp;&nbsp;company: <span style={{ color: "#9ADE9A" }}>"{profile.stats.currentCompany}"</span>,</div>
+                                        {profile.stats.currentSince && (
+                                            <div>&nbsp;&nbsp;since: <span style={{ color: "#9ADE9A" }}>"{profile.stats.currentSince}"</span>,</div>
+                                        )}
+                                    </>
+                                )}
+                                <div>&nbsp;&nbsp;openToWork: <span style={{ color: "#F2B84B" }}>{String(profile.intro.openToWork)}</span>,</div>
+                                <div>&nbsp;&nbsp;sideProject: <span style={{ color: "#9ADE9A" }}>"{profile.intro.sideProject}"</span>,</div>
                                 <div>{"}"};</div>
                             </div>
                         </div>
@@ -175,7 +204,11 @@ export default function PersonaPortfolioPage() {
             {/* 02 경력 (git log) */}
             {section === "career" && (
                 <section className="pp-section">
-                    <SecHead num="02 · Career" title="경력" desc="총 8년 3개월, 5개 기업 — git log 형태로 정리했습니다." />
+                    <SecHead
+                        num="02 · Career"
+                        title="경력"
+                        desc={`총 ${profile.stats.totalCareerLabel}, ${profile.stats.companyCount}개 기업 — git log 형태로 정리했습니다.`}
+                    />
                     <div className="pp-git-log">
                         {profile.career.map((c) => {
                             const body =
@@ -364,7 +397,7 @@ export default function PersonaPortfolioPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 20 }}>
                         <div>
                             <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8 }}>연락 주세요</div>
-                            <p style={{ color: "#6B7280", fontSize: 13.5, maxWidth: 360 }}>음성인식 백엔드, 데이터 파이프라인, 인프라 운영에 관심 있는 팀이라면 언제든 편하게 연락 주세요.</p>
+                            <p style={{ color: "#6B7280", fontSize: 13.5, maxWidth: 360 }}>{profile.intro.contactBlurb}</p>
                         </div>
                         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
                             {profile.contact.phone && (
@@ -378,7 +411,9 @@ export default function PersonaPortfolioPage() {
                             )}
                         </div>
                     </div>
-                    <div style={{ marginTop: 40, fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5" }}>신지훈 · Backend Developer · STT / gRPC / MRCP</div>
+                    <div style={{ marginTop: 40, fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5" }}>
+                        신지훈 · {profile.intro.roleTagline} · {profile.intro.focusTags.join(" / ")}
+                    </div>
                 </section>
             )}
         </div>
@@ -492,6 +527,7 @@ const S: Record<string, CSSProperties> = {
     page: { maxWidth: 1000, margin: "0 auto", fontFamily: "var(--pp-body, inherit)" },
     topBar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "32px 0 0" },
     hero: { padding: "20px 0 60px" },
+    badgeRow: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 },
     headline: { fontWeight: 800, fontSize: "clamp(28px, 4vw, 42px)", lineHeight: 1.3, letterSpacing: "-0.01em", maxWidth: 720, marginBottom: 18 },
     subhead: { fontSize: 16, color: "#6B7280", maxWidth: 580, marginBottom: 34, lineHeight: 1.65 },
     statRow: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "#E3E6F0", border: "1px solid #E3E6F0", borderRadius: 8, overflow: "hidden", maxWidth: 700 },
@@ -504,6 +540,16 @@ const S: Record<string, CSSProperties> = {
 // hover/accordion처럼 인라인 style로 표현하기 번거로운 부분만 CSS로 (PersonaGate.tsx 패턴과 동일)
 const CSS = `
   .pp-eyebrow{ font-family: var(--pp-mono); font-size:13px; color:${accent}; }
+
+  .pp-badge{ display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:999px; font-size:12.5px; font-weight:600; }
+  .pp-badge::before{ content:''; width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .pp-badge.seek{ background:#ECFDF3; border:1px solid #A6F4C5; color:#067647; }
+  .pp-badge.seek::before{ background:#22C55E; box-shadow:0 0 0 3px rgba(34,197,94,0.18); animation: pp-status-pulse 2s ease-in-out infinite; }
+  .pp-badge.on{ background:#EEF0FE; border:1px solid #DEE1FA; color:${accent}; }
+  .pp-badge.on::before{ background:${accent}; }
+  .pp-badge.muted{ background:#F0F1F8; border:1px solid #E3E6F0; color:#9CA1B5; }
+  .pp-badge.muted::before{ background:#C7CBDE; }
+  @keyframes pp-status-pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
 
   .pp-section{ padding: 12px 0 60px; }
 

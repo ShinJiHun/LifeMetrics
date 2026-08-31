@@ -26,6 +26,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -57,11 +61,18 @@ public class ProfileService {
     private static final String DEFAULT_HEADLINE = "음성 데이터가 서버와 엔진 사이를\n{{끊기지 않고}} 흐르게 만듭니다.";
     private static final String DEFAULT_SUBHEADLINE =
             "웹 프론트엔드로 시작해 주차 시스템 백엔드, SIEM, 그리고 지금은 STT·gRPC·MRCP 기반 음성인식 인프라까지 — 도메인을 넓혀가며 8년 3개월째 만들고 운영하고 있습니다.";
+    private static final String DEFAULT_ROLE_TAGLINE = "Backend Developer";
+    private static final String DEFAULT_FOCUS_TAGS = "STT,gRPC,MRCP";
+    private static final String DEFAULT_CONTACT_BLURB =
+            "음성인식 백엔드, 데이터 파이프라인, 인프라 운영에 관심 있는 팀이라면 언제든 편하게 연락 주세요.";
+    private static final String DEFAULT_SIDE_PROJECT = "LifeMetrics";
+    private static final String DEFAULT_AVAILABILITY = "이직 준비 중";
+    private static final DateTimeFormatter SINCE_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
 
     // ── 조회 ─────────────────────────────────────────────────────
     @Transactional(value = "journalTransactionManager", readOnly = true)
     public ProfileDto getProfile() {
-        DeveloperProfile dp = developerProfileRepository.findAll().stream().findFirst().orElse(null);
+        DeveloperProfile dp = developerProfileRepository.findFirstByOrderByIdAsc().orElse(null);
 
         List<ProfileIntroSectionDto> sections = introSectionRepository.findAllByOrderBySortOrderAsc()
                 .stream().map(this::toDto).toList();
@@ -93,15 +104,70 @@ public class ProfileService {
                         .headline(dp != null && dp.getHeadline() != null ? dp.getHeadline() : DEFAULT_HEADLINE)
                         .subheadline(dp != null && dp.getSubheadline() != null ? dp.getSubheadline() : DEFAULT_SUBHEADLINE)
                         .sections(sections)
+                        .roleTagline(dp != null && dp.getRoleTagline() != null ? dp.getRoleTagline() : DEFAULT_ROLE_TAGLINE)
+                        .focusTags(dp != null && dp.getFocusTags() != null ? splitComma(dp.getFocusTags()) : splitComma(DEFAULT_FOCUS_TAGS))
+                        .contactBlurb(dp != null && dp.getContactBlurb() != null ? dp.getContactBlurb() : DEFAULT_CONTACT_BLURB)
+                        .sideProject(dp != null && dp.getSideProject() != null ? dp.getSideProject() : DEFAULT_SIDE_PROJECT)
+                        .availability(dp != null && dp.getAvailability() != null ? dp.getAvailability() : DEFAULT_AVAILABILITY)
+                        .openToWork(dp == null || dp.getOpenToWork() == null || dp.getOpenToWork())
                         .build())
                 .contact(ProfileContactDto.builder()
                         .phone(dp != null ? dp.getPhone() : "")
                         .github(dp != null ? dp.getGithub() : "")
                         .blog(dp != null ? dp.getBlog() : "")
                         .build())
+                .stats(computeStats(career, allProjects.size()))
                 .career(career)
                 .education(education)
                 .build();
+    }
+
+    /**
+     * 히어로/whoami 카드 집계값 계산.
+     * - totalCareerMonths: 회사별 (start_date ~ end_date, 재직중이면 오늘) 개월 수를 시작·종료월 포함으로 합산
+     * - currentCompany/currentSince: is_current=true 인 회사에서 추출
+     */
+    private ProfileStatsDto computeStats(List<CareerCompanyDto> career, int projectCount) {
+        int totalMonths = 0;
+        String currentCompany = null;
+        String currentSince = null;
+
+        for (CareerCompanyDto c : career) {
+            if (c.getStartDate() != null) {
+                LocalDate end = c.getEndDate() != null ? c.getEndDate() : LocalDate.now();
+                YearMonth s = YearMonth.from(c.getStartDate());
+                YearMonth e = YearMonth.from(end);
+                if (!e.isBefore(s)) {
+                    totalMonths += (int) ChronoUnit.MONTHS.between(s, e) + 1; // 시작·종료월 포함
+                }
+            }
+            if (Boolean.TRUE.equals(c.getIsCurrent())) {
+                currentCompany = c.getShortName() != null && !c.getShortName().isBlank()
+                        ? c.getShortName() : c.getCompanyName();
+                if (c.getStartDate() != null) {
+                    currentSince = c.getStartDate().format(SINCE_FMT);
+                }
+            }
+        }
+
+        boolean employed = currentCompany != null;
+        return ProfileStatsDto.builder()
+                .totalCareerMonths(totalMonths)
+                .totalCareerLabel(formatCareerLabel(totalMonths))
+                .companyCount(career.size())
+                .projectCount(projectCount)
+                .employed(employed)
+                .currentCompany(employed ? currentCompany : "")
+                .currentSince(currentSince != null ? currentSince : "")
+                .build();
+    }
+
+    private String formatCareerLabel(int months) {
+        int years = months / 12;
+        int rem = months % 12;
+        if (years == 0) return rem + "개월";
+        if (rem == 0) return years + "년";
+        return years + "년 " + rem + "개월";
     }
 
     // ── 소개 ─────────────────────────────────────────────────────
@@ -112,6 +178,12 @@ public class ProfileService {
         dp.setHighlights(joinLines(req.getHighlights()));
         dp.setHeadline(req.getHeadline());
         dp.setSubheadline(req.getSubheadline());
+        dp.setRoleTagline(req.getRoleTagline());
+        dp.setFocusTags(req.getFocusTags() != null ? String.join(",", req.getFocusTags()) : null);
+        dp.setContactBlurb(req.getContactBlurb());
+        dp.setSideProject(req.getSideProject());
+        dp.setAvailability(req.getAvailability());
+        dp.setOpenToWork(req.getOpenToWork() == null || req.getOpenToWork());
         developerProfileRepository.save(dp);
     }
 
@@ -284,7 +356,7 @@ public class ProfileService {
 
     // ── 내부 헬퍼 ─────────────────────────────────────────────────
     private DeveloperProfile getOrCreateDeveloperProfile() {
-        return developerProfileRepository.findAll().stream().findFirst()
+        return developerProfileRepository.findFirstByOrderByIdAsc()
                 .orElseGet(DeveloperProfile::new);
     }
 
@@ -298,7 +370,10 @@ public class ProfileService {
         c.setPath(req.getPath());
         c.setDomain(req.getDomain());
         c.setCompanyName(req.getCompanyName());
+        c.setShortName(req.getShortName());
         c.setPeriodLabel(req.getPeriodLabel());
+        c.setStartDate(req.getStartDate());
+        c.setEndDate(req.getEndDate());
         c.setRole(req.getRole());
         c.setIsCurrent(Boolean.TRUE.equals(req.getIsCurrent()));
         c.setCommitHash(req.getCommitHash());
@@ -337,7 +412,10 @@ public class ProfileService {
                 .path(c.getPath())
                 .domain(c.getDomain())
                 .companyName(c.getCompanyName())
+                .shortName(c.getShortName())
                 .periodLabel(c.getPeriodLabel())
+                .startDate(c.getStartDate())
+                .endDate(c.getEndDate())
                 .role(c.getRole())
                 .isCurrent(c.getIsCurrent())
                 .commitHash(c.getCommitHash())
