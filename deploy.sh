@@ -34,17 +34,18 @@ case "$1" in
 esac
 
 if [ "$BUILD_BACKEND" = true ]; then
-    echo "[1/5] Backend 빌드 중..."
+    echo "[1/5] Backend 클린 빌드 중..."
     cd backend
-    ./gradlew bootJar --no-daemon
+    ./gradlew clean bootJar --no-daemon
     cd ..
 else
     echo "[1/5] Backend 빌드 스킵"
 fi
 
 if [ "$BUILD_FRONTEND" = true ]; then
-    echo "[2/5] Frontend 빌드 중..."
+    echo "[2/5] Frontend 클린 빌드 중..."
     cd frontend
+    rm -rf dist
     npm run build
     cd ..
 else
@@ -55,7 +56,8 @@ fi
 echo "[3/5] 파일 전송 중..."
 scp -i ${SSH_KEY} backend/build/libs/lifemetrics.jar ${USER}@${SERVER}:${REMOTE_PATH}/lifemetrics.jar
 rsync -avz --progress -e "ssh -i ${SSH_KEY}" frontend/dist/ ${USER}@${SERVER}:${REMOTE_PATH}/static/
-scp -i ${SSH_KEY} backend/src/main/resources/.env ${USER}@${SERVER}:${REMOTE_PATH}/.env
+# .env는 더 이상 로컬에서 복사하지 않음 — 서버의 /mnt/200gb/project/data_pipeline/.env를
+# 단일 소스로 사용 (Python 파이프라인과 공유, 중복 관리로 인한 불일치 방지)
 
 # 4. Docker 재시작
 echo "[4/5] Docker 재시작 중..."
@@ -70,10 +72,11 @@ ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
     --name lifemetrics \
     -p 8080:8080 \
     --add-host=host.docker.internal:host-gateway \
-    --env-file /mnt/200gb/apps/.env \
+    --env-file /mnt/200gb/project/data_pipeline/.env \
     -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw \
     -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media \
     -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
+    -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent \
     -e SPRING_PROFILES_ACTIVE=prod \
     --restart unless-stopped \
     lifemetrics:latest'

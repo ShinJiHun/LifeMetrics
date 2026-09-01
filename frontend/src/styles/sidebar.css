@@ -158,14 +158,28 @@
     opacity: 1;
 }
 
+/* 메인 영역 (Layout.tsx의 <main>) */
+.app-main {
+    flex: 1;
+    padding: 24px 24px 24px 0;  /* 좌측 패딩 0 */
+    margin-left: -30px;
+    overflow-y: auto;
+    background: #ffffff;
+}
+
 /* 모바일 */
 @media (max-width: 768px) {
     .menu-toggle {
         display: flex;
     }
 
-    .sidebar-overlay {
+    .sidebar-overlay.visible {
         display: block;
+    }
+
+    .app-main {
+        margin-left: 0;
+        padding: 72px 16px 24px 16px;
     }
 
     .sidebar {

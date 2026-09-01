@@ -34,7 +34,7 @@ public class ActivityUploadService {
     private final ActivityPointRepository pointRepository;
     private final GearUsageRepository gearUsageRepository;
 
-    public UploadResultDto.FileResult processFile(MultipartFile file) {
+    public UploadResultDto.FileResult processFile(MultipartFile file, String rideType, String permanentNo, String permanentGpxFile) {
         String filename = file.getOriginalFilename();
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -49,6 +49,18 @@ public class ActivityUploadService {
 
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("file", resource);
+            // ★ 라이딩 타입(퍼머넌트/브레베/...) 선택값을 파서 마이크로서비스로 함께 전달
+            // (parser 쪽에서 activity_core.ride_type / permanent_no / permanent_gpx_file 로 저장 —
+            //  parser 쪽도 permanent_gpx_file 컬럼을 받아 저장하도록 맞춰야 함)
+            if (rideType != null && !rideType.isBlank()) {
+                body.add("rideType", rideType);
+            }
+            if (permanentNo != null && !permanentNo.isBlank()) {
+                body.add("permanentNo", permanentNo);
+            }
+            if (permanentGpxFile != null && !permanentGpxFile.isBlank()) {
+                body.add("permanentGpxFile", permanentGpxFile);
+            }
 
             HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
 

@@ -14,15 +14,21 @@ public final class PolylineEncoder {
     }
 
     public static String encode(List<ActivityPoint> points) {
+        return encodeLatLng(points.stream()
+                .filter(p -> p.getLat() != null && p.getLon() != null)
+                .map(p -> new double[]{p.getLat(), p.getLon()})
+                .toList());
+    }
+
+    /** GPX 등 ActivityPoint가 아닌 단순 [lat, lon] 목록을 인코딩할 때 사용 */
+    public static String encodeLatLng(List<double[]> latLngs) {
         StringBuilder result = new StringBuilder();
         long lastLat = 0;
         long lastLng = 0;
 
-        for (ActivityPoint p : points) {
-            if (p.getLat() == null || p.getLon() == null) continue;
-
-            long lat = Math.round(p.getLat() * 1e5);
-            long lng = Math.round(p.getLon() * 1e5);
+        for (double[] p : latLngs) {
+            long lat = Math.round(p[0] * 1e5);
+            long lng = Math.round(p[1] * 1e5);
 
             encodeSignedNumber(lat - lastLat, result);
             encodeSignedNumber(lng - lastLng, result);

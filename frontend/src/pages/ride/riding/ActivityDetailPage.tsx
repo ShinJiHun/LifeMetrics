@@ -5,6 +5,9 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import * as polylineLib from "@mapbox/polyline";
 import ActivityChatPopover from "@/components/riding/ActivityChatPopover";
+import {fetchPermanentCourses} from "@/api/permanent";
+import type {PermanentCourse} from "@/api/permanent";
+import {RIDE_TYPES, RIDE_TYPE_LABEL, RIDE_TYPE_COLOR} from "@/constants/rideType";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
@@ -23,6 +26,8 @@ interface ActivitySummary {
     totalAscent: number;
     totalDescent: number;
     gearContext?: { bikeLabel?: string };
+    rideType?: string;
+    permanentNo?: string;
     startLat?: number;
     startLon?: number;
     endLat?: number;
@@ -277,6 +282,11 @@ export default function ActivityDetailPage() {
     const [selectedSegId, setSelectedSegId] = useState<number | null>(null);
     const [editingName, setEditingName] = useState(false);
     const [nameInput, setNameInput] = useState("");
+    const [editingType, setEditingType] = useState(false);
+    const [rideTypeInput, setRideTypeInput] = useState("GENERAL");
+    const [permanentNoInput, setPermanentNoInput] = useState("");
+    const [permanentCourses, setPermanentCourses] = useState<PermanentCourse[]>([]);
+    const [coursesLoading, setCoursesLoading] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -299,6 +309,16 @@ export default function ActivityDetailPage() {
             .then(ai => setAnalysis(ai))
             .catch(() => setAnalysis(null));
     }, [id]);
+
+    // 퍼머넌트 선택 시에만 코스 목록을 불러온다 (매번 로드할 필요 없음)
+    useEffect(() => {
+        if (!editingType || rideTypeInput !== "PERMANENT" || permanentCourses.length > 0) return;
+        setCoursesLoading(true);
+        fetchPermanentCourses()
+            .then(setPermanentCourses)
+            .catch(e => console.error("퍼머넌트 코스 목록 로드 실패", e))
+            .finally(() => setCoursesLoading(false));
+    }, [editingType, rideTypeInput, permanentCourses.length]);
 
     const handleAnalyze = async () => {
         setAnalyzing(true);
@@ -353,6 +373,45 @@ export default function ActivityDetailPage() {
         } catch (e) {
             console.error("[제목 저장 네트워크 에러]", e);
             alert("제목 저장 중 네트워크 에러. 콘솔을 확인해주세요.");
+        }
+    };
+
+    const handleSaveType = async () => {
+        const newRideType = rideTypeInput;
+        const newPermanentNo = newRideType === "PERMANENT" ? permanentNoInput : "";
+
+        // 1) 일단 로컬 state 즉시 업데이트 (낙관적 UI)
+        setActivity(prev => prev ? {...prev, rideType: newRideType, permanentNo: newPermanentNo || undefined} : prev);
+        setEditingType(false);
+
+        // 2) 서버 저장 — PATCH 시도, 403/405면 POST로 폴백
+        const body = JSON.stringify({rideType: newRideType, permanentNo: newPermanentNo});
+        const headers = {"Content-Type": "application/json"};
+
+        try {
+            let res = await fetch(`/api/activity/${id}`, {method: "PATCH", headers, body});
+
+            if (res.status === 403 || res.status === 405) {
+                console.warn(`[타입 저장] PATCH ${res.status} → POST 우회 시도`);
+                res = await fetch(`/api/activity/${id}/update`, {method: "POST", headers, body});
+            }
+
+            if (!res.ok) {
+                console.error(`[타입 저장 실패] HTTP ${res.status}`, await res.text());
+                alert(`타입 저장 실패: HTTP ${res.status}\nNetwork 탭의 Response를 확인해주세요.`);
+                return;
+            }
+
+            const ct = res.headers.get("content-type") || "";
+            if (ct.includes("application/json")) {
+                const updated = await res.json();
+                if (updated && typeof updated === "object" && "id" in updated) {
+                    setActivity(updated);
+                }
+            }
+        } catch (e) {
+            console.error("[타입 저장 네트워크 에러]", e);
+            alert("타입 저장 중 네트워크 에러. 콘솔을 확인해주세요.");
         }
     };
 
@@ -427,22 +486,86 @@ export default function ActivityDetailPage() {
                         )}
                         <div style={S.metaItem}>
                             <span style={S.metaIcon}>🏷️</span>
-                            <span>{rideTypeLabel(activity.totalDistance)}</span>
+                            {editingType ? (
+                                <div style={{display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap"}}>
+                                    <select
+                                        value={rideTypeInput}
+                                        onChange={e => {
+                                            setRideTypeInput(e.target.value);
+                                            if (e.target.value !== "PERMANENT") setPermanentNoInput("");
+                                        }}
+                                        style={S.typeSelect}
+                                    >
+                                        {RIDE_TYPES.map(t => (
+                                            <option key={t.code} value={t.code}>{t.label}</option>
+                                        ))}
+                                    </select>
+                                    {rideTypeInput === "PERMANENT" && (
+                                        <select
+                                            value={permanentNoInput}
+                                            onChange={e => setPermanentNoInput(e.target.value)}
+                                            disabled={coursesLoading}
+                                            style={S.typeSelect}
+                                        >
+                                            <option value="">
+                                                {coursesLoading ? "불러오는 중..." : "코스 선택 안 함"}
+                                            </option>
+                                            {Array.from(
+                                                new Map(permanentCourses.map(c => [c.permanentNo, c])).values()
+                                            ).map(c => (
+                                                <option key={c.permanentNo} value={c.permanentNo}>
+                                                    {c.permanentNo} · {c.name}
+                                                    {c.distanceKm ? ` (${c.distanceKm}km)` : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <button style={S.smallBtn} onClick={handleSaveType}>저장</button>
+                                </div>
+                            ) : activity.rideType ? (
+                                <span style={{
+                                    padding: "2px 8px",
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    borderRadius: 999,
+                                    color: "#fff",
+                                    background: RIDE_TYPE_COLOR[activity.rideType] ?? "#475569",
+                                }}>
+                                    {RIDE_TYPE_LABEL[activity.rideType] ?? activity.rideType}
+                                    {activity.rideType === "PERMANENT" && activity.permanentNo ? ` · ${activity.permanentNo}` : ""}
+                                </span>
+                            ) : (
+                                <span>{rideTypeLabel(activity.totalDistance)}</span>
+                            )}
                         </div>
                     </div>
 
-                    {!editingName && (
-                        <AdminOnly>
-                            <button
-                                style={S.editBtn}
-                                onClick={() => {
-                                    setNameInput(activity.name || "");
-                                    setEditingName(true);
-                                }}
-                            >
-                                ✏️ 제목 편집
-                            </button>
-                        </AdminOnly>
+                    {!editingName && !editingType && (
+                        <div style={{display: "flex", gap: 8, marginTop: 14}}>
+                            <AdminOnly>
+                                <button
+                                    style={{...S.editBtn, marginTop: 0}}
+                                    onClick={() => {
+                                        setNameInput(activity.name || "");
+                                        setEditingName(true);
+                                    }}
+                                >
+                                    ✏️ 제목 편집
+                                </button>
+                            </AdminOnly>
+                            <AdminOnly>
+                                <button
+                                    style={{...S.editBtn, marginTop: 0}}
+                                    onClick={() => {
+                                        setRideTypeInput(activity.rideType || "GENERAL");
+                                        setPermanentNoInput(activity.permanentNo || "");
+                                        setEditingType(true);
+                                    }}
+                                >
+                                    🏷️ 타입 편집
+                                </button>
+                            </AdminOnly>
+                        </div>
                     )}
                 </div>
 
@@ -894,6 +1017,14 @@ const S: Record<string, React.CSSProperties> = {
         cursor: "pointer",
     },
     gearLine: {margin: "4px 0 0", fontSize: 12, color: "#94a3b8"},
+    typeSelect: {
+        padding: "4px 8px",
+        background: "#0f172a",
+        border: "1px solid #475569",
+        borderRadius: 6,
+        color: "#f1f5f9",
+        fontSize: 12,
+    },
     editBtn: {
         marginTop: 14,
         padding: "5px 12px",

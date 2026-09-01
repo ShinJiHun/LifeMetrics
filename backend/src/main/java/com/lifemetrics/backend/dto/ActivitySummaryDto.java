@@ -53,4 +53,10 @@ public class ActivitySummaryDto {
 
     // 자전거 / 구동계 (활동일 기준 effective 컴포넌트)
     private GearContext gearContext;
+
+    // ★ 라이딩 타입: PERMANENT/BREVET/FLECHE/POPULAIRE/TOURING/GENERAL
+    private String rideType;
+
+    // ★ rideType=PERMANENT일 때 참조한 permanent_courses.permanent_no
+    private String permanentNo;
 }

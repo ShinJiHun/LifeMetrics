@@ -118,6 +118,9 @@ google:
 brevet:
   nas-path: /data/home/tho881/project/NAS/brevet
 
+permanent:
+  nas-path: /mnt/200gb/NAS/data/permanent
+
 app:
   base-url: https://ride.tho881.me
 

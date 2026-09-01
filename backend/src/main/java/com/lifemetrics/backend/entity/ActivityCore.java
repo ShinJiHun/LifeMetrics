@@ -138,4 +138,19 @@ public class ActivityCore {
     @Setter
     @Column(name = "relative_effort")
     private Integer relativeEffort;
+
+    // ★ 라이딩 타입: PERMANENT/BREVET/FLECHE/POPULAIRE/TOURING/GENERAL (업로드 시 선택 → Setter 추가)
+    @Setter
+    @Column(name = "ride_type")
+    private String rideType;
+
+    // ★ rideType=PERMANENT일 때 permanent_courses.permanent_no 참조 (업로드 시 선택 → Setter 추가)
+    @Setter
+    @Column(name = "permanent_no")
+    private String permanentNo;
+
+    // ★ permanentNo 폴더 안에 gpx가 여러 개일 때(본코스/Plan B 등) 실제로 탄 파일명 (업로드 시 선택 → Setter 추가)
+    @Setter
+    @Column(name = "permanent_gpx_file")
+    private String permanentGpxFile;
 }

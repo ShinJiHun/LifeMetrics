@@ -59,14 +59,14 @@ public class ActivityController {
         return activityService.getActivitySummary(id);
     }
 
-    // ★ 신규: 라이딩 부분 수정 (현재는 제목만)
-    //   PATCH /api/activity/{id}   Body: { "name": "새 제목" }
+    // ★ 신규: 라이딩 부분 수정 (제목 / 라이딩 타입 / 퍼머넌트 코스번호)
+    //   PATCH /api/activity/{id}   Body: { "name": "새 제목", "rideType": "TOURING", "permanentNo": "PT-01" }
     @PatchMapping("/{id}")
     public ResponseEntity<ActivitySummaryDto> updateActivity(
             @PathVariable Long id,
             @RequestBody UpdateActivityRequest request) {
         try {
-            ActivitySummaryDto updated = activityService.updateActivityName(id, request.getName());
+            ActivitySummaryDto updated = activityService.updateActivity(id, request);
             return ResponseEntity.ok(updated);
         } catch (RuntimeException e) {
             e.printStackTrace();

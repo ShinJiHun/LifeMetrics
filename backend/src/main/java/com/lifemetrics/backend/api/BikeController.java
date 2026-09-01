@@ -5,6 +5,8 @@ import com.lifemetrics.backend.entity.Bike;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.BikeRepository;
 import com.lifemetrics.backend.repository.BikeTotals;
+import com.lifemetrics.backend.repository.GearUsageRepository;
+import com.lifemetrics.backend.repository.GearUsageSummary;
 import com.lifemetrics.backend.service.BikeSpecExtractService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -25,6 +27,7 @@ public class BikeController {
     private final BikeSpecExtractService extractService;
     private final BikeRepository bikeRepository;
     private final ActivityCoreRepository activityCoreRepository;
+    private final GearUsageRepository gearUsageRepository;
 
     /**
      * 가동중 + 종료 전부 반환한다. 화면에서 is_retired 로 두 그룹으로 나눈다.
@@ -48,6 +51,34 @@ public class BikeController {
             bike.setTotalDistance(t == null ? 0.0 : t.getTotalDistance());
         }
         return bikes;
+    }
+
+    /** 자전거 한 대의 상세 정보. 누적거리/시간은 list()와 동일하게 activity_core 집계로 덮어쓴다. */
+    @GetMapping("/{id}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Bike> get(@PathVariable Long id) {
+        return bikeRepository.findById(id)
+                .map(bike -> {
+                    BikeTotals t = activityCoreRepository.sumTotalsByBike().stream()
+                            .filter(x -> x.getBikeId().equals(id))
+                            .findFirst().orElse(null);
+                    bike.setTotalTime(t == null ? 0 : t.getTotalMovingTime().intValue());
+                    bike.setTotalElapsedTime(t == null ? 0 : t.getTotalElapsedTime().intValue());
+                    bike.setTotalDistance(t == null ? 0.0 : t.getTotalDistance());
+                    return ResponseEntity.ok(bike);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * 자전거 한 대가 사용된 모든 활동의 기어 사용량을 (앞기어, 뒷기어, 지형)별로 합산해 반환한다.
+     * front_gear/rear_gear는 FIT에서 관측된 실제 체인링/코그 톱니수(T)라 인덱스가 아니다 —
+     * 프론트에서 앞기어 값 중 큰 쪽을 아우터, 작은 쪽을 이너로 나눠 쓰면 된다.
+     */
+    @GetMapping("/{id}/gear-usage")
+    @Transactional(readOnly = true)
+    public List<GearUsageSummary> gearUsage(@PathVariable Long id) {
+        return gearUsageRepository.summarizeByBikeId(id);
     }
 
     // 모델명 검색 → 사양 prefill JSON (저장 안 함)

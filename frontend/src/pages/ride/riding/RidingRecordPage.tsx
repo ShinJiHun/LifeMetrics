@@ -5,6 +5,9 @@ import {fetchActivities, mergeActivities} from "@/api/activity";
 import type {Activity} from "@/api/activity";
 import ActivityMap from "@/pages/ride/riding/ActivityMap";
 import {useDropzone} from "react-dropzone";
+import {fetchPermanentCourses} from "@/api/permanent";
+import type {PermanentCourse} from "@/api/permanent";
+import {RIDE_TYPES, RIDE_TYPE_LABEL, RIDE_TYPE_COLOR} from "@/constants/rideType";
 import "@/styles/riding-record.css";
 
 const formatDistance = (meters: number) => (meters / 1000).toFixed(1);
@@ -61,8 +64,24 @@ function ActivityCard({activity, selected, onClick, mergeMode, mergeRank}: {
             onClick={onClick}
         >
             <div className="activity-header">
-                <div className="activity-date">{formatDate(activity.startTime)}</div>
                 <div style={{display: "flex", alignItems: "center", gap: 8}}>
+                    <div className="activity-date">{formatDate(activity.startTime)}</div>
+                    {activity.rideType && (
+                        <span style={{
+                            padding: "2px 8px",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            borderRadius: 999,
+                            color: "#fff",
+                            background: RIDE_TYPE_COLOR[activity.rideType] ?? "#475569",
+                            flexShrink: 0,
+                        }}>
+                            {RIDE_TYPE_LABEL[activity.rideType] ?? activity.rideType}
+                            {activity.rideType === "PERMANENT" && activity.permanentNo ? ` · ${activity.permanentNo}` : ""}
+                        </span>
+                    )}
+                </div>
+                <div style={{display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end"}}>
                     <div className="activity-gear">{activity.gearContext?.bikeLabel || ""}</div>
                     {mergeMode ? (
                         mergeRank && (
@@ -433,6 +452,27 @@ function FitUploadModal({onClose, onSuccess}: {
 }) {
     const [results, setResults] = useState<Array<{ filename: string; status: string; error?: string }>>([]);
     const [uploading, setUploading] = useState(false);
+    const [rideType, setRideType] = useState("GENERAL");
+    const [permanentNo, setPermanentNo] = useState("");
+    const [permanentGpxFile, setPermanentGpxFile] = useState("");
+    const [permanentCourses, setPermanentCourses] = useState<PermanentCourse[]>([]);
+    const [coursesLoading, setCoursesLoading] = useState(false);
+
+    // 같은 permanentNo가 여러 번 나오면(폴더에 gpx가 여러 개, 예: 본코스/Plan B) 옵션에 구분 표시
+    const gpxCountByPermanentNo = permanentCourses.reduce<Record<string, number>>((acc, c) => {
+        acc[c.permanentNo] = (acc[c.permanentNo] ?? 0) + 1;
+        return acc;
+    }, {});
+
+    // 퍼머넌트 선택 시에만 코스 목록을 불러온다 (매번 로드할 필요 없음)
+    useEffect(() => {
+        if (rideType !== "PERMANENT" || permanentCourses.length > 0) return;
+        setCoursesLoading(true);
+        fetchPermanentCourses()
+            .then(setPermanentCourses)
+            .catch(e => console.error("퍼머넌트 코스 목록 로드 실패", e))
+            .finally(() => setCoursesLoading(false));
+    }, [rideType, permanentCourses.length]);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const fitFiles = acceptedFiles.filter(f => f.name.toLowerCase().endsWith(".fit"));
@@ -443,6 +483,13 @@ function FitUploadModal({onClose, onSuccess}: {
 
         const formData = new FormData();
         fitFiles.forEach(f => formData.append("files", f));
+        formData.append("rideType", rideType);
+        if (rideType === "PERMANENT" && permanentNo) {
+            formData.append("permanentNo", permanentNo);
+            if (permanentGpxFile) {
+                formData.append("permanentGpxFile", permanentGpxFile);
+            }
+        }
 
         try {
             const res = await fetch("/api/activities/upload", {
@@ -459,7 +506,7 @@ function FitUploadModal({onClose, onSuccess}: {
         } finally {
             setUploading(false);
         }
-    }, [onSuccess]);
+    }, [onSuccess, rideType, permanentNo, permanentGpxFile]);
 
     const {getRootProps, getInputProps, isDragActive} = useDropzone({
         onDrop,
@@ -489,6 +536,68 @@ function FitUploadModal({onClose, onSuccess}: {
                         fontSize: 20, cursor: "pointer"
                     }}>✕
                     </button>
+                </div>
+
+                <div style={{marginBottom: 16}}>
+                    <label style={{color: "#94a3b8", fontSize: 13, display: "block", marginBottom: 6}}>
+                        라이딩 타입
+                    </label>
+                    <select
+                        value={rideType}
+                        onChange={e => {
+                            setRideType(e.target.value);
+                            if (e.target.value !== "PERMANENT") {
+                                setPermanentNo("");
+                                setPermanentGpxFile("");
+                            }
+                        }}
+                        style={{
+                            width: "100%", padding: "8px 10px", borderRadius: 8,
+                            background: "#0f172a", border: "1px solid #334155",
+                            color: "#e2e8f0", fontSize: 14
+                        }}
+                    >
+                        {RIDE_TYPES.map(t => (
+                            <option key={t.code} value={t.code}>{t.label}</option>
+                        ))}
+                    </select>
+
+                    {rideType === "PERMANENT" && (
+                        <div style={{marginTop: 10}}>
+                            <label style={{color: "#94a3b8", fontSize: 13, display: "block", marginBottom: 6}}>
+                                퍼머넌트 코스 {coursesLoading && "(불러오는 중...)"}
+                            </label>
+                            <select
+                                value={`${permanentNo}::${permanentGpxFile}`}
+                                onChange={e => {
+                                    const [no, gpxFile] = e.target.value.split("::");
+                                    setPermanentNo(no);
+                                    setPermanentGpxFile(gpxFile ?? "");
+                                }}
+                                disabled={coursesLoading}
+                                style={{
+                                    width: "100%", padding: "8px 10px", borderRadius: 8,
+                                    background: "#0f172a", border: "1px solid #334155",
+                                    color: "#e2e8f0", fontSize: 14
+                                }}
+                            >
+                                <option value="::">코스 선택 안 함</option>
+                                {permanentCourses.map(c => {
+                                    // 폴더에 gpx가 여러 개인 코스는 어느 gpx인지(본코스/Plan B 등) 라벨로 구분
+                                    const hasMultipleGpx = gpxCountByPermanentNo[c.permanentNo] > 1;
+                                    const label = `${c.permanentNo} · ${c.name}${c.distanceKm ? ` (${c.distanceKm}km)` : ""}${hasMultipleGpx && c.gpxLabel ? ` - ${c.gpxLabel}` : ""}`;
+                                    return (
+                                        <option
+                                            key={`${c.permanentNo}::${c.gpxFileName ?? ""}`}
+                                            value={`${c.permanentNo}::${c.gpxFileName ?? ""}`}
+                                        >
+                                            {label}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 <div {...getRootProps()} style={{
@@ -642,9 +751,9 @@ export default function RidingRecordPage() {
                 />
             )}
 
-            <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16}}>
+            <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8}}>
                 <h2 style={{margin: 0}}>🚴 라이딩 기록</h2>
-                <div style={{display: "flex", gap: 8}}>
+                <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
                     <AdminOnly>
                         <button
                             onClick={() => setShowUpload(true)}

@@ -193,20 +193,38 @@ public class ActivityService {
     }
 
     /**
-     * 라이드 제목 편집 — 가볍게 처리.
+     * 라이드 부분 편집 (제목 / 라이딩 타입 / 퍼머넌트 코스번호) — 가볍게 처리.
      * <p>
-     * 보강 로직(RE/위치 재계산)을 건너뛰고 name 컬럼만 update.
+     * 보강 로직(RE/위치 재계산)을 건너뛰고 요청에 담긴 필드만 update.
      * 이렇게 하지 않으면 동시 요청(getActivitySummary와 PATCH가 같은 row의 update 트리거)으로
      * MariaDB optimistic lock 충돌 ('Record has changed') 발생.
+     * <p>
+     * 요청 필드가 null이면 "수정하지 않음"으로 간주한다.
      */
     @Transactional
-    public ActivitySummaryDto updateActivityName(Long id, String name) {
+    public ActivitySummaryDto updateActivity(Long id, UpdateActivityRequest request) {
         ActivityCore core = coreRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Activity not found: " + id));
 
-        // 제목만 업데이트 (자동 생성 이름은 null 저장 시 다음 summary 호출 때 채워짐)
-        String trimmed = (name != null && !name.isBlank()) ? name.trim() : null;
-        core.setName(trimmed);
+        if (request.getName() != null) {
+            // 제목만 업데이트 (자동 생성 이름은 null 저장 시 다음 summary 호출 때 채워짐)
+            String trimmed = request.getName().isBlank() ? null : request.getName().trim();
+            core.setName(trimmed);
+        }
+
+        if (request.getRideType() != null) {
+            String rideType = request.getRideType().isBlank() ? null : request.getRideType().trim();
+            core.setRideType(rideType);
+
+            if ("PERMANENT".equals(rideType)) {
+                String permanentNo = request.getPermanentNo();
+                core.setPermanentNo(permanentNo != null && !permanentNo.isBlank() ? permanentNo.trim() : null);
+            } else {
+                // PERMANENT가 아니면 이전에 연결된 코스 정보는 의미가 없으므로 같이 정리
+                core.setPermanentNo(null);
+                core.setPermanentGpxFile(null);
+            }
+        }
 
         // dirty checking으로 자동 저장 (RE/locationName 등 다른 필드는 건드리지 않음)
         coreRepository.save(core);
@@ -284,6 +302,8 @@ public class ActivityService {
                 .relativeEffort(core.getRelativeEffort())
                 .weather(weather)
                 .gearContext(gearContext)
+                .rideType(core.getRideType())
+                .permanentNo(core.getPermanentNo())
                 .build();
     }
 

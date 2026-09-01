@@ -28,6 +28,8 @@ export interface Activity {
     avgCadence?: number;
     calories?: number;
     gearContext?: GearContext;
+    rideType?: string;
+    permanentNo?: string;
 }
 
 export async function fetchActivities(userId = 1): Promise<Activity[]> {

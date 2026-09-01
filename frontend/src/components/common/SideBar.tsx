@@ -17,13 +17,14 @@ const subLinkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) =
     fontSize: 14,
 });
 
-export default function SideBar() {
+export default function SideBar({ open = false }: { open?: boolean }) {
     const { pathname } = useLocation();
     const persona = resolvePersonaFromPath(pathname);
     const meta = PERSONA_META[persona];
 
     return (
         <aside
+            className={`sidebar${open ? " open" : ""}`}
             style={{
                 width: 220,
                 borderRight: "1px solid #e5e7eb",
@@ -123,22 +124,24 @@ function AthleteMenu({ accent }: { accent: string }) {
                         </NavLink>
                     </nav>
                 </div>
-
-                <NavLink to="/records/riding" style={linkStyle(accent)}>
-                    🚴 라이딩 기록
-                </NavLink>
             </nav>
 
-            <h3 style={{ marginTop: 24 }}>🗺️ 계획</h3>
+            <h3 style={{ marginTop: 24 }}>🚴 라이딩</h3>
             <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <NavLink to="/records/riding" style={linkStyle(accent)}>
+                    📋 라이딩 기록
+                </NavLink>
                 <NavLink to="/plan/brevet" style={linkStyle(accent)}>
                     🏅 랜도너스 계획
                 </NavLink>
-                <NavLink to="/plan/live" style={linkStyle(accent)}>
-                    🛰️ 라이브 라이딩
+                <NavLink to="/plan/permanent" style={linkStyle(accent)}>
+                    🗺️ 퍼머넌트 코스
                 </NavLink>
                 <NavLink to="/plan/touring" style={linkStyle(accent)}>
                     🏕️ 투어링 계획
+                </NavLink>
+                <NavLink to="/plan/live" style={linkStyle(accent)}>
+                    🛰️ 라이브 라이딩
                 </NavLink>
             </nav>
 

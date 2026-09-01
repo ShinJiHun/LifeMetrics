@@ -20,10 +20,13 @@ public class ActivityUploadController {
 
     @PostMapping("/upload")
     public ResponseEntity<UploadResultDto> upload(
-            @RequestParam("files") List<MultipartFile> files) {
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "rideType", required = false) String rideType,
+            @RequestParam(value = "permanentNo", required = false) String permanentNo,
+            @RequestParam(value = "permanentGpxFile", required = false) String permanentGpxFile) {
 
         List<UploadResultDto.FileResult> results = files.stream()
-                .map(uploadService::processFile)
+                .map(file -> uploadService.processFile(file, rideType, permanentNo, permanentGpxFile))
                 .toList();
 
         slackNotifier.send(buildUploadSummary(results));

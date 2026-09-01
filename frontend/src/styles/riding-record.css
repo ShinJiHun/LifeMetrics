@@ -48,8 +48,10 @@
 
 .activity-header {
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
+    gap: 6px 8px;
     padding: 14px 16px 10px;
 }
 .activity-date {
@@ -152,6 +154,29 @@
     margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 1px solid #f1f5f9;
+}
+
+/* ── 반응형 ──────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .riding-layout {
+        flex-direction: column;
+    }
+
+    .analysis-panel {
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .riding-page {
+        padding: 16px;
+    }
+
+    .activity-stats-main {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 /* 빈 상태 */

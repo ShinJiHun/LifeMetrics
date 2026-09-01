@@ -80,6 +80,7 @@ replay_pid*.log
 backend/templates/*.pdf
 backend/src/main/resources/templates/*.pdf
 backend/bootrun.log
+.dev-logs/
 
 ### Claude Code 로컬 설정 ###
 .claude/
