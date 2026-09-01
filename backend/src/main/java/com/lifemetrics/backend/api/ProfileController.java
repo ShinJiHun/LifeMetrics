@@ -154,4 +154,67 @@ public class ProfileController {
     public void deleteEducation(@PathVariable Long id) {
         profileService.deleteEducation(id);
     }
+
+    // ── 개인 프로젝트(05 섹션) ────────────────────────────────────
+    @PostMapping("/personal-projects")
+    public PersonalProjectDto addPersonalProject(@RequestBody PersonalProjectRequest req) {
+        return profileService.addPersonalProject(req);
+    }
+
+    @PutMapping("/personal-projects/{id}")
+    public void updatePersonalProject(@PathVariable Long id, @RequestBody PersonalProjectRequest req) {
+        profileService.updatePersonalProject(id, req);
+    }
+
+    @DeleteMapping("/personal-projects/{id}")
+    public void deletePersonalProject(@PathVariable Long id) {
+        profileService.deletePersonalProject(id);
+    }
+
+    @PostMapping("/personal-projects/features")
+    public PersonalProjectFeatureDto addPersonalProjectFeature(@RequestBody PersonalProjectFeatureRequest req) {
+        return profileService.addPersonalProjectFeature(req);
+    }
+
+    @PutMapping("/personal-projects/features/{id}")
+    public void updatePersonalProjectFeature(@PathVariable Long id, @RequestBody PersonalProjectFeatureRequest req) {
+        profileService.updatePersonalProjectFeature(id, req);
+    }
+
+    @DeleteMapping("/personal-projects/features/{id}")
+    public void deletePersonalProjectFeature(@PathVariable Long id) {
+        profileService.deletePersonalProjectFeature(id);
+    }
+
+    // ── 트러블슈팅 로그(05 섹션) ─────────────────────────────────
+    @PostMapping("/troubleshoots")
+    public PortfolioTroubleshootDto addTroubleshoot(@RequestBody PortfolioTroubleshootRequest req) {
+        return profileService.addTroubleshoot(req);
+    }
+
+    @PutMapping("/troubleshoots/{id}")
+    public void updateTroubleshoot(@PathVariable Long id, @RequestBody PortfolioTroubleshootRequest req) {
+        profileService.updateTroubleshoot(id, req);
+    }
+
+    @DeleteMapping("/troubleshoots/{id}")
+    public void deleteTroubleshoot(@PathVariable Long id) {
+        profileService.deleteTroubleshoot(id);
+    }
+
+    // ── 의존성 목록(05 섹션) ─────────────────────────────────────
+    @PostMapping("/dependencies")
+    public PortfolioDependencyDto addDependency(@RequestBody PortfolioDependencyRequest req) {
+        return profileService.addDependency(req);
+    }
+
+    @PutMapping("/dependencies/{id}")
+    public void updateDependency(@PathVariable Long id, @RequestBody PortfolioDependencyRequest req) {
+        profileService.updateDependency(id, req);
+    }
+
+    @DeleteMapping("/dependencies/{id}")
+    public void deleteDependency(@PathVariable Long id) {
+        profileService.deleteDependency(id);
+    }
 }

@@ -7,6 +7,10 @@ import com.lifemetrics.backend.persona.entity.CareerProjectTask;
 import com.lifemetrics.backend.persona.entity.CareerTaskMedia;
 import com.lifemetrics.backend.persona.entity.DeveloperProfile;
 import com.lifemetrics.backend.persona.entity.Education;
+import com.lifemetrics.backend.persona.entity.PersonalProject;
+import com.lifemetrics.backend.persona.entity.PersonalProjectFeature;
+import com.lifemetrics.backend.persona.entity.PortfolioDependency;
+import com.lifemetrics.backend.persona.entity.PortfolioTroubleshoot;
 import com.lifemetrics.backend.persona.entity.ProfileIntroSection;
 import com.lifemetrics.backend.persona.repository.CareerCompanyRepository;
 import com.lifemetrics.backend.persona.repository.CareerProjectRepository;
@@ -14,6 +18,10 @@ import com.lifemetrics.backend.persona.repository.CareerProjectTaskRepository;
 import com.lifemetrics.backend.persona.repository.CareerTaskMediaRepository;
 import com.lifemetrics.backend.persona.repository.DeveloperProfileRepository;
 import com.lifemetrics.backend.persona.repository.EducationRepository;
+import com.lifemetrics.backend.persona.repository.PersonalProjectFeatureRepository;
+import com.lifemetrics.backend.persona.repository.PersonalProjectRepository;
+import com.lifemetrics.backend.persona.repository.PortfolioDependencyRepository;
+import com.lifemetrics.backend.persona.repository.PortfolioTroubleshootRepository;
 import com.lifemetrics.backend.persona.repository.ProfileIntroSectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +59,10 @@ public class ProfileService {
     private final CareerProjectTaskRepository careerProjectTaskRepository;
     private final CareerTaskMediaRepository careerTaskMediaRepository;
     private final EducationRepository educationRepository;
+    private final PersonalProjectRepository personalProjectRepository;
+    private final PersonalProjectFeatureRepository personalProjectFeatureRepository;
+    private final PortfolioTroubleshootRepository portfolioTroubleshootRepository;
+    private final PortfolioDependencyRepository portfolioDependencyRepository;
 
     @Value("${career.media.path:/tmp/career-media/}")
     private String careerMediaPath;
@@ -97,6 +109,20 @@ public class ProfileService {
         List<EducationDto> education = educationRepository.findAllByOrderBySortOrderAsc()
                 .stream().map(this::toDto).toList();
 
+        List<PersonalProjectFeature> allFeatures = personalProjectFeatureRepository.findAllByOrderBySortOrderAsc();
+        List<PersonalProjectDto> personalProjects = personalProjectRepository.findAllByOrderBySortOrderAsc().stream()
+                .map(p -> toDto(p, allFeatures.stream()
+                        .filter(f -> f.getProjectId().equals(p.getId()))
+                        .map(this::toDto)
+                        .toList()))
+                .toList();
+
+        List<PortfolioTroubleshootDto> troubleshoots = portfolioTroubleshootRepository.findAllByOrderBySortOrderAsc()
+                .stream().map(this::toDto).toList();
+
+        List<PortfolioDependencyDto> dependencies = portfolioDependencyRepository.findAllByOrderBySortOrderAsc()
+                .stream().map(this::toDto).toList();
+
         return ProfileDto.builder()
                 .intro(ProfileIntroDto.builder()
                         .elevatorPitch(dp != null ? dp.getElevatorPitch() : "")
@@ -119,6 +145,9 @@ public class ProfileService {
                 .stats(computeStats(career, allProjects.size()))
                 .career(career)
                 .education(education)
+                .personalProjects(personalProjects)
+                .troubleshoots(troubleshoots)
+                .dependencies(dependencies)
                 .build();
     }
 
@@ -354,6 +383,90 @@ public class ProfileService {
         educationRepository.deleteById(id);
     }
 
+    // ── 개인 프로젝트(05 섹션) ────────────────────────────────────
+    @Transactional("journalTransactionManager")
+    public PersonalProjectDto addPersonalProject(PersonalProjectRequest req) {
+        PersonalProject p = new PersonalProject();
+        applyPersonalProject(p, req);
+        return toDto(personalProjectRepository.save(p), Collections.emptyList());
+    }
+
+    @Transactional("journalTransactionManager")
+    public void updatePersonalProject(Long id, PersonalProjectRequest req) {
+        PersonalProject p = personalProjectRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("개인 프로젝트를 찾을 수 없습니다: " + id));
+        applyPersonalProject(p, req);
+        personalProjectRepository.save(p);
+    }
+
+    @Transactional("journalTransactionManager")
+    public void deletePersonalProject(Long id) {
+        personalProjectFeatureRepository.deleteByProjectId(id);
+        personalProjectRepository.deleteById(id);
+    }
+
+    @Transactional("journalTransactionManager")
+    public PersonalProjectFeatureDto addPersonalProjectFeature(PersonalProjectFeatureRequest req) {
+        PersonalProjectFeature f = new PersonalProjectFeature();
+        applyPersonalProjectFeature(f, req);
+        return toDto(personalProjectFeatureRepository.save(f));
+    }
+
+    @Transactional("journalTransactionManager")
+    public void updatePersonalProjectFeature(Long id, PersonalProjectFeatureRequest req) {
+        PersonalProjectFeature f = personalProjectFeatureRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("기능 카드를 찾을 수 없습니다: " + id));
+        applyPersonalProjectFeature(f, req);
+        personalProjectFeatureRepository.save(f);
+    }
+
+    @Transactional("journalTransactionManager")
+    public void deletePersonalProjectFeature(Long id) {
+        personalProjectFeatureRepository.deleteById(id);
+    }
+
+    // ── 트러블슈팅 로그(05 섹션) ─────────────────────────────────
+    @Transactional("journalTransactionManager")
+    public PortfolioTroubleshootDto addTroubleshoot(PortfolioTroubleshootRequest req) {
+        PortfolioTroubleshoot t = new PortfolioTroubleshoot();
+        applyTroubleshoot(t, req);
+        return toDto(portfolioTroubleshootRepository.save(t));
+    }
+
+    @Transactional("journalTransactionManager")
+    public void updateTroubleshoot(Long id, PortfolioTroubleshootRequest req) {
+        PortfolioTroubleshoot t = portfolioTroubleshootRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("트러블슈팅 항목을 찾을 수 없습니다: " + id));
+        applyTroubleshoot(t, req);
+        portfolioTroubleshootRepository.save(t);
+    }
+
+    @Transactional("journalTransactionManager")
+    public void deleteTroubleshoot(Long id) {
+        portfolioTroubleshootRepository.deleteById(id);
+    }
+
+    // ── 의존성 목록(05 섹션) ─────────────────────────────────────
+    @Transactional("journalTransactionManager")
+    public PortfolioDependencyDto addDependency(PortfolioDependencyRequest req) {
+        PortfolioDependency d = new PortfolioDependency();
+        applyDependency(d, req);
+        return toDto(portfolioDependencyRepository.save(d));
+    }
+
+    @Transactional("journalTransactionManager")
+    public void updateDependency(Long id, PortfolioDependencyRequest req) {
+        PortfolioDependency d = portfolioDependencyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("의존성 항목을 찾을 수 없습니다: " + id));
+        applyDependency(d, req);
+        portfolioDependencyRepository.save(d);
+    }
+
+    @Transactional("journalTransactionManager")
+    public void deleteDependency(Long id) {
+        portfolioDependencyRepository.deleteById(id);
+    }
+
     // ── 내부 헬퍼 ─────────────────────────────────────────────────
     private DeveloperProfile getOrCreateDeveloperProfile() {
         return developerProfileRepository.findFirstByOrderByIdAsc()
@@ -473,6 +586,88 @@ public class ProfileService {
                 .school(e.getSchool())
                 .major(e.getMajor())
                 .displayOrder(e.getSortOrder())
+                .build();
+    }
+
+    // ── 05 섹션 apply / toDto ────────────────────────────────────
+    private void applyPersonalProject(PersonalProject p, PersonalProjectRequest req) {
+        p.setKind(req.getKind() != null && !req.getKind().isBlank() ? req.getKind().trim() : "MINI");
+        p.setTitle(req.getTitle());
+        p.setBlurb(req.getBlurb());
+        p.setRepoUrl(req.getRepoUrl() != null && !req.getRepoUrl().isBlank() ? req.getRepoUrl().trim() : null);
+        p.setPeriodLabel(req.getPeriodLabel() != null && !req.getPeriodLabel().isBlank() ? req.getPeriodLabel().trim() : null);
+        p.setTags(req.getTags() != null ? String.join(",", req.getTags()) : null);
+        p.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
+    }
+
+    private void applyPersonalProjectFeature(PersonalProjectFeature f, PersonalProjectFeatureRequest req) {
+        f.setProjectId(req.getProjectId());
+        f.setIcon(req.getIcon());
+        f.setTitle(req.getTitle());
+        f.setDescription(req.getDescription());
+        f.setTags(req.getTags() != null ? String.join(",", req.getTags()) : null);
+        f.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
+    }
+
+    private void applyTroubleshoot(PortfolioTroubleshoot t, PortfolioTroubleshootRequest req) {
+        t.setRefLabel(req.getRefLabel());
+        t.setTitle(req.getTitle());
+        t.setRemovedLines(joinLines(req.getRemoved()));
+        t.setAddedLines(joinLines(req.getAdded()));
+        t.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
+    }
+
+    private void applyDependency(PortfolioDependency d, PortfolioDependencyRequest req) {
+        d.setCategory(req.getCategory());
+        d.setDepKey(req.getDepKey());
+        d.setNote(req.getNote());
+        d.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : 0);
+    }
+
+    private PersonalProjectDto toDto(PersonalProject p, List<PersonalProjectFeatureDto> features) {
+        return PersonalProjectDto.builder()
+                .id(p.getId())
+                .kind(p.getKind())
+                .title(p.getTitle())
+                .blurb(p.getBlurb())
+                .repoUrl(p.getRepoUrl())
+                .periodLabel(p.getPeriodLabel())
+                .tags(splitComma(p.getTags()))
+                .sortOrder(p.getSortOrder())
+                .features(features)
+                .build();
+    }
+
+    private PersonalProjectFeatureDto toDto(PersonalProjectFeature f) {
+        return PersonalProjectFeatureDto.builder()
+                .id(f.getId())
+                .projectId(f.getProjectId())
+                .icon(f.getIcon())
+                .title(f.getTitle())
+                .description(f.getDescription())
+                .tags(splitComma(f.getTags()))
+                .sortOrder(f.getSortOrder())
+                .build();
+    }
+
+    private PortfolioTroubleshootDto toDto(PortfolioTroubleshoot t) {
+        return PortfolioTroubleshootDto.builder()
+                .id(t.getId())
+                .refLabel(t.getRefLabel())
+                .title(t.getTitle())
+                .removed(splitLines(t.getRemovedLines()))
+                .added(splitLines(t.getAddedLines()))
+                .sortOrder(t.getSortOrder())
+                .build();
+    }
+
+    private PortfolioDependencyDto toDto(PortfolioDependency d) {
+        return PortfolioDependencyDto.builder()
+                .id(d.getId())
+                .category(d.getCategory())
+                .depKey(d.getDepKey())
+                .note(d.getNote())
+                .sortOrder(d.getSortOrder())
                 .build();
     }
 

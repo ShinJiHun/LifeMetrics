@@ -22,12 +22,28 @@ import {
     updateIntro,
     updateIntroSection,
     uploadCareerTaskMedia,
+    addPersonalProject,
+    updatePersonalProject,
+    deletePersonalProject,
+    addPersonalProjectFeature,
+    updatePersonalProjectFeature,
+    deletePersonalProjectFeature,
+    addTroubleshoot,
+    updateTroubleshoot,
+    deleteTroubleshoot,
+    addDependency,
+    updateDependency,
+    deleteDependency,
     type BasicProfile,
     type CareerCompany,
     type CareerProject,
     type CareerProjectTask,
     type Education,
     type IntroSection,
+    type PersonalProject,
+    type PersonalProjectFeature,
+    type PortfolioTroubleshoot,
+    type PortfolioDependency,
 } from "@/api/profile";
 import RichTextEditor from "@/components/common/RichTextEditor";
 
@@ -72,6 +88,12 @@ export default function ProfileManagePage() {
             <ContactEditor contact={profile.contact} onChange={reload} />
             <CareerEditor career={profile.career} onChange={reload} />
             <EducationEditor education={profile.education} onChange={reload} />
+            <PersonalProjectsEditor
+                projects={profile.personalProjects}
+                troubleshoots={profile.troubleshoots}
+                dependencies={profile.dependencies}
+                onChange={reload}
+            />
         </div>
     );
 }
@@ -773,6 +795,425 @@ function EducationForm({ nextSortOrder, onChange }: { nextSortOrder: number; onC
                 <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={major} onChange={(e) => setMajor(e.target.value)} placeholder="전공" />
             </div>
             <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 학력 추가</button>
+        </div>
+    );
+}
+
+// ── 개인 프로젝트 (05 섹션) ─────────────────────────
+
+function PersonalProjectsEditor({
+    projects,
+    troubleshoots,
+    dependencies,
+    onChange,
+}: {
+    projects: PersonalProject[];
+    troubleshoots: PortfolioTroubleshoot[];
+    dependencies: PortfolioDependency[];
+    onChange: () => void;
+}) {
+    return (
+        <section style={S.card}>
+            <h2 style={S.sectionTitle}>개인 프로젝트 (05 섹션)</h2>
+            <p style={{ ...S.label, color: "#9CA1B5", marginTop: 0 }}>
+                아키텍처 다이어그램은 코드에 고정돼 있고, 나머지(대표 프로젝트·기능 카드·트러블슈팅·기술 선택 이유·작은 프로젝트)는 여기서 관리합니다.
+            </p>
+
+            <h3 style={S.subSectionTitle}>프로젝트 (FEATURED = 대표 · 기능 카드 포함 / MINI = 작은 카드)</h3>
+            {projects.map((p) => (
+                <PersonalProjectCard key={p.id} project={p} onChange={onChange} />
+            ))}
+            <PersonalProjectForm nextSortOrder={projects.length} onChange={onChange} />
+
+            <div style={{ marginTop: 20 }}>
+                <h3 style={S.subSectionTitle}>트러블슈팅 로그</h3>
+                {troubleshoots.map((t) => (
+                    <TroubleshootRow key={t.id} ts={t} onChange={onChange} />
+                ))}
+                <TroubleshootForm nextSortOrder={troubleshoots.length} onChange={onChange} />
+            </div>
+
+            <div style={{ marginTop: 20 }}>
+                <h3 style={S.subSectionTitle}>기술 선택 이유 (카테고리별)</h3>
+                {dependencies.map((d) => (
+                    <DependencyRow key={d.id} dep={d} onChange={onChange} />
+                ))}
+                <DependencyForm nextSortOrder={dependencies.length} onChange={onChange} />
+            </div>
+        </section>
+    );
+}
+
+function PersonalProjectCard({ project, onChange }: { project: PersonalProject; onChange: () => void }) {
+    const [kind, setKind] = useState<PersonalProject["kind"]>(project.kind);
+    const [title, setTitle] = useState(project.title);
+    const [blurb, setBlurb] = useState(project.blurb);
+    const [repoUrl, setRepoUrl] = useState(project.repoUrl ?? "");
+    const [periodLabel, setPeriodLabel] = useState(project.periodLabel ?? "");
+    const [tagsText, setTagsText] = useState(project.tags.join(", "));
+    const [sortOrder, setSortOrder] = useState(project.sortOrder);
+    const [busy, setBusy] = useState(false);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            await updatePersonalProject(project.id, {
+                kind,
+                title,
+                blurb,
+                repoUrl: repoUrl.trim() || null,
+                periodLabel: periodLabel.trim() || null,
+                tags: tagsText.split(",").map((t) => t.trim()).filter(Boolean),
+                sortOrder,
+            });
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async () => {
+        if (!confirm(`"${project.title}" 프로젝트를 삭제할까요? (기능 카드도 함께 삭제됩니다)`)) return;
+        setBusy(true);
+        try {
+            await deletePersonalProject(project.id);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={S.subCard}>
+            <div style={S.grid2}>
+                <Field label="종류">
+                    <select style={S.input} value={kind} onChange={(e) => setKind(e.target.value as PersonalProject["kind"])}>
+                        <option value="FEATURED">FEATURED (대표)</option>
+                        <option value="MINI">MINI (작은 카드)</option>
+                    </select>
+                </Field>
+                <Field label="제목"><input style={S.input} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
+                <Field label="GitHub URL (비우면 연락처 GitHub 사용)"><input style={S.input} value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} placeholder="https://github.com/..." /></Field>
+                <Field label="기간 문구 (MINI 카드용)"><input style={S.input} value={periodLabel} onChange={(e) => setPeriodLabel(e.target.value)} placeholder="예: 대학원 논문 주제 · 2016 ~ 2018" /></Field>
+                <Field label="태그 (쉼표 구분, MINI 카드용)"><input style={S.input} value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="Java, Tomcat, MySQL" /></Field>
+                <Field label="정렬순서"><input type="number" style={S.input} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} /></Field>
+            </div>
+            <label style={S.label}>설명</label>
+            <textarea style={{ ...S.input, minHeight: 70 }} value={blurb} onChange={(e) => setBlurb(e.target.value)} />
+            <div style={S.rowActions}>
+                <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>프로젝트 저장</button>
+                <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>프로젝트 삭제</button>
+            </div>
+
+            {kind === "FEATURED" && (
+                <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #e3e6f0" }}>
+                    <h4 style={S.subSectionTitle}>기능 카드</h4>
+                    {project.features.map((f) => (
+                        <FeatureRow key={f.id} feature={f} onChange={onChange} />
+                    ))}
+                    <FeatureForm projectId={project.id} nextSortOrder={project.features.length} onChange={onChange} />
+                </div>
+            )}
+        </div>
+    );
+}
+
+function PersonalProjectForm({ nextSortOrder, onChange }: { nextSortOrder: number; onChange: () => void }) {
+    const [kind, setKind] = useState<PersonalProject["kind"]>("MINI");
+    const [title, setTitle] = useState("");
+    const [blurb, setBlurb] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const submit = async () => {
+        if (!title.trim()) return;
+        setBusy(true);
+        try {
+            await addPersonalProject({ kind, title: title.trim(), blurb, repoUrl: null, periodLabel: null, tags: [], sortOrder: nextSortOrder });
+            setTitle("");
+            setBlurb("");
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ ...S.subCard, background: "#f8f9fc" }}>
+            <div style={S.row}>
+                <select style={{ ...S.input, marginBottom: 0, width: 160 }} value={kind} onChange={(e) => setKind(e.target.value as PersonalProject["kind"])}>
+                    <option value="FEATURED">FEATURED</option>
+                    <option value="MINI">MINI</option>
+                </select>
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="프로젝트 제목" />
+            </div>
+            <textarea style={{ ...S.input, minHeight: 50, marginTop: 8 }} value={blurb} onChange={(e) => setBlurb(e.target.value)} placeholder="설명" />
+            <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 프로젝트 추가</button>
+        </div>
+    );
+}
+
+function FeatureRow({ feature, onChange }: { feature: PersonalProjectFeature; onChange: () => void }) {
+    const [icon, setIcon] = useState(feature.icon ?? "");
+    const [title, setTitle] = useState(feature.title);
+    const [description, setDescription] = useState(feature.description);
+    const [tagsText, setTagsText] = useState(feature.tags.join(", "));
+    const [sortOrder, setSortOrder] = useState(feature.sortOrder);
+    const [busy, setBusy] = useState(false);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            await updatePersonalProjectFeature(feature.id, {
+                projectId: feature.projectId,
+                icon: icon.trim() || null,
+                title,
+                description,
+                tags: tagsText.split(",").map((t) => t.trim()).filter(Boolean),
+                sortOrder,
+            });
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async () => {
+        if (!confirm(`"${feature.title}" 기능 카드를 삭제할까요?`)) return;
+        setBusy(true);
+        try {
+            await deletePersonalProjectFeature(feature.id);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={S.subCard}>
+            <div style={S.row}>
+                <input style={{ ...S.input, marginBottom: 0, width: 60 }} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📐" />
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="기능 제목" />
+                <input type="number" style={{ ...S.input, marginBottom: 0, width: 64 }} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
+            </div>
+            <textarea style={{ ...S.input, minHeight: 56, marginTop: 8 }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="설명" />
+            <input style={S.input} value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="태그 (쉼표 구분)" />
+            <div style={S.rowActions}>
+                <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>저장</button>
+                <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>삭제</button>
+            </div>
+        </div>
+    );
+}
+
+function FeatureForm({ projectId, nextSortOrder, onChange }: { projectId: number; nextSortOrder: number; onChange: () => void }) {
+    const [icon, setIcon] = useState("");
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+    const [tagsText, setTagsText] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const submit = async () => {
+        if (!title.trim()) return;
+        setBusy(true);
+        try {
+            await addPersonalProjectFeature({
+                projectId,
+                icon: icon.trim() || null,
+                title: title.trim(),
+                description,
+                tags: tagsText.split(",").map((t) => t.trim()).filter(Boolean),
+                sortOrder: nextSortOrder,
+            });
+            setIcon("");
+            setTitle("");
+            setDescription("");
+            setTagsText("");
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ ...S.subCard, background: "#f8f9fc" }}>
+            <div style={S.row}>
+                <input style={{ ...S.input, marginBottom: 0, width: 60 }} value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="📐" />
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="기능 제목" />
+            </div>
+            <textarea style={{ ...S.input, minHeight: 50, marginTop: 8 }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="설명" />
+            <input style={S.input} value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="태그 (쉼표 구분)" />
+            <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 기능 카드 추가</button>
+        </div>
+    );
+}
+
+function TroubleshootRow({ ts, onChange }: { ts: PortfolioTroubleshoot; onChange: () => void }) {
+    const [refLabel, setRefLabel] = useState(ts.refLabel ?? "");
+    const [title, setTitle] = useState(ts.title);
+    const [removedText, setRemovedText] = useState(ts.removed.join("\n"));
+    const [addedText, setAddedText] = useState(ts.added.join("\n"));
+    const [sortOrder, setSortOrder] = useState(ts.sortOrder);
+    const [busy, setBusy] = useState(false);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            await updateTroubleshoot(ts.id, {
+                refLabel: refLabel.trim() || null,
+                title,
+                removed: removedText.split("\n").map((l) => l.trim()).filter(Boolean),
+                added: addedText.split("\n").map((l) => l.trim()).filter(Boolean),
+                sortOrder,
+            });
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async () => {
+        if (!confirm(`"${ts.title}" 항목을 삭제할까요?`)) return;
+        setBusy(true);
+        try {
+            await deleteTroubleshoot(ts.id);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={S.subCard}>
+            <div style={S.row}>
+                <input style={{ ...S.input, marginBottom: 0, width: 90 }} value={refLabel} onChange={(e) => setRefLabel(e.target.value)} placeholder="#42" />
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" />
+                <input type="number" style={{ ...S.input, marginBottom: 0, width: 64 }} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
+            </div>
+            <label style={S.label}>증상 / 원인 (− 라인, 한 줄에 하나씩)</label>
+            <textarea style={{ ...S.input, minHeight: 56 }} value={removedText} onChange={(e) => setRemovedText(e.target.value)} />
+            <label style={S.label}>조치 / 교훈 (+ 라인, 한 줄에 하나씩)</label>
+            <textarea style={{ ...S.input, minHeight: 56 }} value={addedText} onChange={(e) => setAddedText(e.target.value)} />
+            <div style={S.rowActions}>
+                <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>저장</button>
+                <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>삭제</button>
+            </div>
+        </div>
+    );
+}
+
+function TroubleshootForm({ nextSortOrder, onChange }: { nextSortOrder: number; onChange: () => void }) {
+    const [refLabel, setRefLabel] = useState("");
+    const [title, setTitle] = useState("");
+    const [removedText, setRemovedText] = useState("");
+    const [addedText, setAddedText] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const submit = async () => {
+        if (!title.trim()) return;
+        setBusy(true);
+        try {
+            await addTroubleshoot({
+                refLabel: refLabel.trim() || null,
+                title: title.trim(),
+                removed: removedText.split("\n").map((l) => l.trim()).filter(Boolean),
+                added: addedText.split("\n").map((l) => l.trim()).filter(Boolean),
+                sortOrder: nextSortOrder,
+            });
+            setRefLabel("");
+            setTitle("");
+            setRemovedText("");
+            setAddedText("");
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ ...S.subCard, background: "#f8f9fc" }}>
+            <div style={S.row}>
+                <input style={{ ...S.input, marginBottom: 0, width: 90 }} value={refLabel} onChange={(e) => setRefLabel(e.target.value)} placeholder="#42" />
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" />
+            </div>
+            <textarea style={{ ...S.input, minHeight: 50, marginTop: 8 }} value={removedText} onChange={(e) => setRemovedText(e.target.value)} placeholder="증상 / 원인 (한 줄에 하나씩)" />
+            <textarea style={{ ...S.input, minHeight: 50 }} value={addedText} onChange={(e) => setAddedText(e.target.value)} placeholder="조치 / 교훈 (한 줄에 하나씩)" />
+            <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 트러블슈팅 추가</button>
+        </div>
+    );
+}
+
+function DependencyRow({ dep, onChange }: { dep: PortfolioDependency; onChange: () => void }) {
+    const [category, setCategory] = useState(dep.category);
+    const [depKey, setDepKey] = useState(dep.depKey);
+    const [note, setNote] = useState(dep.note);
+    const [sortOrder, setSortOrder] = useState(dep.sortOrder);
+    const [busy, setBusy] = useState(false);
+
+    const save = async () => {
+        setBusy(true);
+        try {
+            await updateDependency(dep.id, { category: category.trim(), depKey: depKey.trim(), note, sortOrder });
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async () => {
+        if (!confirm(`"${dep.depKey}" 항목을 삭제할까요?`)) return;
+        setBusy(true);
+        try {
+            await deleteDependency(dep.id);
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={S.subCard}>
+            <div style={S.row}>
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="카테고리 (예: infra)" />
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={depKey} onChange={(e) => setDepKey(e.target.value)} placeholder="키 (예: open-meteo)" />
+                <input type="number" style={{ ...S.input, marginBottom: 0, width: 64 }} value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
+            </div>
+            <input style={S.input} value={note} onChange={(e) => setNote(e.target.value)} placeholder="선택 이유" />
+            <div style={S.rowActions}>
+                <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>저장</button>
+                <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>삭제</button>
+            </div>
+        </div>
+    );
+}
+
+function DependencyForm({ nextSortOrder, onChange }: { nextSortOrder: number; onChange: () => void }) {
+    const [category, setCategory] = useState("");
+    const [depKey, setDepKey] = useState("");
+    const [note, setNote] = useState("");
+    const [busy, setBusy] = useState(false);
+
+    const submit = async () => {
+        if (!category.trim() || !depKey.trim()) return;
+        setBusy(true);
+        try {
+            await addDependency({ category: category.trim(), depKey: depKey.trim(), note: note.trim(), sortOrder: nextSortOrder });
+            setCategory("");
+            setDepKey("");
+            setNote("");
+            onChange();
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div style={{ ...S.subCard, background: "#f8f9fc" }}>
+            <div style={S.row}>
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="카테고리" />
+                <input style={{ ...S.input, marginBottom: 0, flex: 1 }} value={depKey} onChange={(e) => setDepKey(e.target.value)} placeholder="키" />
+            </div>
+            <input style={{ ...S.input, marginTop: 8 }} value={note} onChange={(e) => setNote(e.target.value)} placeholder="선택 이유" />
+            <button type="button" onClick={submit} disabled={busy} style={{ ...S.saveBtn, background: accent }}>+ 항목 추가</button>
         </div>
     );
 }

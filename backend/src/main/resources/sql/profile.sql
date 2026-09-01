@@ -231,3 +231,48 @@ INSERT INTO `career_project` (`company_id`, `title`, `period_label`, `paragraphs
 INSERT INTO `education` (`period_label`, `school`, `major`, `sort_order`) VALUES
                                                                               ('2010 ~ 2016', '한림대학교 · 학사', '융합소프트웨어학과', 0),
                                                                               ('2016 ~ 2018', '한림대학교 · 석사', '융합소프트웨어학과 — 청취 음량 수집 애플리케이션 연구', 1);
+
+-- ── 개인 프로젝트(05 섹션) — 상세 시드/마이그레이션은 migrate_portfolio_projects.sql 참고 ──
+
+CREATE TABLE IF NOT EXISTS `personal_project` (
+    `id`           BIGINT       NOT NULL AUTO_INCREMENT,
+    `kind`         VARCHAR(20)  NOT NULL,               -- FEATURED | MINI
+    `title`        VARCHAR(255) NOT NULL,
+    `blurb`        TEXT         DEFAULT NULL,
+    `repo_url`     VARCHAR(255) DEFAULT NULL,
+    `period_label` VARCHAR(255) DEFAULT NULL,
+    `tags`         TEXT         DEFAULT NULL,           -- 쉼표(,) 구분
+    `sort_order`   INT          NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `personal_project_feature` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT,
+    `project_id`  BIGINT       NOT NULL,
+    `icon`        VARCHAR(16)  DEFAULT NULL,
+    `title`       VARCHAR(255) NOT NULL,
+    `description` TEXT         DEFAULT NULL,
+    `tags`        TEXT         DEFAULT NULL,            -- 쉼표(,) 구분
+    `sort_order`  INT          NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_ppf_project` (`project_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `portfolio_troubleshoot` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `ref_label`     VARCHAR(40)  DEFAULT NULL,
+    `title`         VARCHAR(255) NOT NULL,
+    `removed_lines` TEXT         DEFAULT NULL,          -- 줄바꿈(\n) 구분
+    `added_lines`   TEXT         DEFAULT NULL,          -- 줄바꿈(\n) 구분
+    `sort_order`    INT          NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS `portfolio_dependency` (
+    `id`         BIGINT       NOT NULL AUTO_INCREMENT,
+    `category`   VARCHAR(100) NOT NULL,
+    `dep_key`    VARCHAR(150) NOT NULL,
+    `note`       TEXT         DEFAULT NULL,
+    `sort_order` INT          NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

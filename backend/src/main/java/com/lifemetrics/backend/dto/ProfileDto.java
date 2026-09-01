@@ -13,4 +13,7 @@ public class ProfileDto {
     private ProfileStatsDto stats;
     private List<CareerCompanyDto> career;
     private List<EducationDto> education;
+    private List<PersonalProjectDto> personalProjects;
+    private List<PortfolioTroubleshootDto> troubleshoots;
+    private List<PortfolioDependencyDto> dependencies;
 }

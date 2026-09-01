@@ -3,12 +3,13 @@ import type { CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PERSONA_META } from "@/lib/persona";
 import { fetchProfile } from "@/api/profile";
-import type { BasicProfile } from "@/api/profile";
+import type { BasicProfile, PortfolioDependency } from "@/api/profile";
 import AdminOnly from "@/components/common/AdminOnly";
 
 const accent = PERSONA_META.developer.accent; // #6366f1
 
-// ── 데이터 (DB 연동: 경력/학력/소개/연락처는 /api/profile, 아래 하드코딩은 정적 UI뿐) ──
+// ── 데이터: 소개/경력/학력/연락처/개인 프로젝트 모두 /api/profile 에서 온다.
+//    아래 05 섹션의 아키텍처 다이어그램만 정적 UI 로 하드코딩돼 있다. ──
 
 const VALID_SECTIONS = ["overview", "career", "education", "career-detail", "projects", "contact"] as const;
 type Section = (typeof VALID_SECTIONS)[number];
@@ -16,46 +17,6 @@ type Section = (typeof VALID_SECTIONS)[number];
 function normalizeSection(raw: string | undefined): Section {
     return (VALID_SECTIONS as readonly string[]).includes(raw ?? "") ? (raw as Section) : "overview";
 }
-
-interface Troubleshoot {
-    id: string;
-    title: string;
-    remove: string[];
-    add: string[];
-}
-
-const TROUBLESHOOTS: Troubleshoot[] = [
-    {
-        id: "#42",
-        title: "활동 42건의 자전거가 뒤바뀌어 있었다",
-        remove: [
-            "activity_core의 bike_id 42건이 실제로 탄 자전거와 다르게 기록돼 있었습니다.",
-            "원인: 인제스천 단계에서 FIT 타임스탬프의 월/일이 뒤바뀐 채 파싱되고 있었습니다.",
-        ],
-        add: [
-            "백업 테이블 생성 후 UPDATE로 42건을 정정하고, 저장 필드인 bike.total_distance를 수동 재계산했습니다.",
-            '"자동 계산될 것 같은 필드"는 스키마를 직접 확인하기 전까지 가정하지 않기로 했습니다.',
-        ],
-    },
-    {
-        id: "#null",
-        title: "null 허용 필드에서 생성자 표현식이 깨졌다",
-        remove: [
-            "nullable DOUBLE 컬럼을 JPA 엔티티에 primitive int로 매핑했더니 생성자 표현식에서 예외가 났습니다.",
-            "DB 스키마를 재조회해 해당 컬럼이 NULL을 허용한다는 걸 확인했습니다.",
-        ],
-        add: ["필드 타입을 Double로 바꿔 null을 그대로 표현했습니다.", "엔티티 작성 전 nullable 여부를 먼저 확인하는 걸 원칙으로 삼았습니다."],
-    },
-    {
-        id: "#weather",
-        title: "날씨 API가 뒤섞인 테스트 데이터를 주고 있었다",
-        remove: [
-            "Windy API 무료 티어 연동 후 실제 관측값과 맞지 않는 값이 계속 나왔습니다.",
-            "같은 좌표·시각으로 반복 요청해보니 셔플된 테스트 데이터를 반환한다는 걸 확인했습니다.",
-        ],
-        add: ["API 키 없이 실제 GFS/ECMWF/기상청 데이터를 제공하는 Open-Meteo로 전환했습니다.", "무료 티어 응답을 눈으로 검증하는 단계를 체크리스트에 추가했습니다."],
-    },
-];
 
 // ── 컴포넌트 ─────────────────────────────────────────
 
@@ -292,104 +253,128 @@ export default function PersonaPortfolioPage() {
             )}
 
             {/* 05 프로젝트 */}
-            {section === "projects" && (
-                <section className="pp-section">
-                    <SecHead num="05 · Personal Projects" title="개인 프로젝트" desc="업무 밖에서 직접 기획하고 끝까지 만든 프로젝트입니다." />
+            {section === "projects" && (() => {
+                const featured = profile.personalProjects.find((p) => p.kind === "FEATURED");
+                const minis = profile.personalProjects.filter((p) => p.kind === "MINI");
+                const depGroups: { category: string; deps: PortfolioDependency[] }[] = [];
+                for (const d of profile.dependencies) {
+                    let g = depGroups.find((x) => x.category === d.category);
+                    if (!g) {
+                        g = { category: d.category, deps: [] };
+                        depGroups.push(g);
+                    }
+                    g.deps.push(d);
+                }
 
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, flexWrap: "wrap", gap: 14 }}>
-                        <div>
-                            <div style={{ fontWeight: 800, fontSize: 22 }}>LifeMetrics</div>
-                            <div style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>
-                                라이드·체성분·코스 데이터를 하나의 파이프라인으로 묶는 개인 사이클링 데이터 플랫폼 — 지금 보고 있는 이 페이지도 이 프로젝트의 일부입니다.
+                return (
+                    <section className="pp-section">
+                        <SecHead num="05 · Personal Projects" title="개인 프로젝트" desc="업무 밖에서 직접 기획하고 끝까지 만든 프로젝트입니다." />
+
+                        {featured && (
+                            <>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36, flexWrap: "wrap", gap: 14 }}>
+                                    <div>
+                                        <div style={{ fontWeight: 800, fontSize: 22 }}>{featured.title}</div>
+                                        <div style={{ fontSize: 13, color: "#6B7280", marginTop: 6 }}>{featured.blurb}</div>
+                                    </div>
+                                    <a
+                                        className="pp-btn-ghost"
+                                        href={featured.repoUrl || profile.contact.github || "https://github.com/ShinJiHun"}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        GitHub에서 보기 →
+                                    </a>
+                                </div>
+
+                                {featured.features.length > 0 && (
+                                    <div style={S.featGrid}>
+                                        {featured.features.map((f) => (
+                                            <FeatCard key={f.id} icon={f.icon || "•"} title={f.title} desc={f.description} tags={f.tags} />
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        <div className="pp-arch-diagram">
+                            <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", marginBottom: 18 }}>Architecture · 데이터가 흐르는 경로</div>
+                            <div className="pp-arch-row">
+                                <ArchCol label="수집" boxes={["Garmin FIT", "Samsung Health", "InBody 사진"]} />
+                                <div className="pp-arch-arrow">→</div>
+                                <ArchCol label="파이프라인" boxes={[{ text: "Python / uvicorn :8001", hl: true }, "strava_segment_sync", "Claude OCR"]} />
+                                <div className="pp-arch-arrow">→</div>
+                                <ArchCol label="저장" boxes={[{ text: "MariaDB 11.6 riding_db", hl: true }, "journal_db 10.4"]} />
+                                <div className="pp-arch-arrow">→</div>
+                                <ArchCol label="서빙" boxes={[{ text: "Spring Boot JPA/Hibernate", hl: true }, "React 19 + Vite"]} />
                             </div>
                         </div>
-                        <a className="pp-btn-ghost" href={profile.contact.github || "https://github.com/ShinJiHun"} target="_blank" rel="noopener noreferrer">
-                            GitHub에서 보기 →
-                        </a>
-                    </div>
 
-                    <div style={S.featGrid}>
-                        <FeatCard icon="📐" title="코스-라이드 비교" desc="같은 코스를 여러 번 탄 기록을 이동시간·평균속도·상승고도·평균 파워/심박/케이던스로 비교합니다. JPQL 프로젝션으로 DTO를 직접 구성했습니다." tags={["CourseRideComparisonDto", "JPQL"]} />
-                        <FeatCard icon="🚲" title="자전거 장비 관리" desc="모델명 검색(웹 검색), 스펙 이미지 업로드(비전), 제품 URL(web_fetch) 세 가지 방식으로 자전거를 등록합니다." tags={["Claude Vision", "web_fetch"]} />
-                        <FeatCard icon="🧭" title="퍼소나 게이트웨이" desc="방문자가 개발/라이더/휴먼 중 원하는 페르소나를 골라 각기 다른 DB 기반 데이터로 채팅할 수 있는 라우팅 구조입니다. 지금 이 페이지가 그 결과물입니다." tags={["PersonaGate", "Gemini · Vertex AI"]} />
-                    </div>
-
-                    <div className="pp-arch-diagram">
-                        <div style={{ fontFamily: "var(--pp-mono)", fontSize: 11, color: "#9CA1B5", marginBottom: 18 }}>Architecture · 데이터가 흐르는 경로</div>
-                        <div className="pp-arch-row">
-                            <ArchCol label="수집" boxes={["Garmin FIT", "Samsung Health", "InBody 사진"]} />
-                            <div className="pp-arch-arrow">→</div>
-                            <ArchCol label="파이프라인" boxes={[{ text: "Python / uvicorn :8001", hl: true }, "strava_segment_sync", "Claude OCR"]} />
-                            <div className="pp-arch-arrow">→</div>
-                            <ArchCol label="저장" boxes={[{ text: "MariaDB 11.6 riding_db", hl: true }, "journal_db 10.4"]} />
-                            <div className="pp-arch-arrow">→</div>
-                            <ArchCol label="서빙" boxes={[{ text: "Spring Boot JPA/Hibernate", hl: true }, "React 19 + Vite"]} />
-                        </div>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 54 }}>
-                        {TROUBLESHOOTS.map((ts, i) => {
-                            const open = openTs === i;
-                            return (
-                                <div key={ts.id} className={`pp-ts-card ${open ? "open" : ""}`}>
-                                    <button type="button" className="pp-ts-head" onClick={() => setOpenTs(open ? -1 : i)} aria-expanded={open}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                            <span className="pp-commit-hash">{ts.id}</span>
-                                            <span style={{ fontWeight: 700, fontSize: 14 }}>{ts.title}</span>
-                                        </div>
-                                        <span className="pp-cd-toggle">+</span>
-                                    </button>
-                                    <div className="pp-ts-body">
-                                        <div className="pp-ts-body-inner">
-                                            {ts.remove.map((line, idx) => (
-                                                <div key={idx} className="pp-diff-line pp-diff-remove">
-                                                    <span className="pp-pfx">-</span>
-                                                    {line}
+                        {profile.troubleshoots.length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 54 }}>
+                                {profile.troubleshoots.map((ts, i) => {
+                                    const open = openTs === i;
+                                    return (
+                                        <div key={ts.id} className={`pp-ts-card ${open ? "open" : ""}`}>
+                                            <button type="button" className="pp-ts-head" onClick={() => setOpenTs(open ? -1 : i)} aria-expanded={open}>
+                                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                                    {ts.refLabel && <span className="pp-commit-hash">{ts.refLabel}</span>}
+                                                    <span style={{ fontWeight: 700, fontSize: 14 }}>{ts.title}</span>
                                                 </div>
-                                            ))}
-                                            {ts.add.map((line, idx) => (
-                                                <div key={idx} className="pp-diff-line pp-diff-add">
-                                                    <span className="pp-pfx">+</span>
-                                                    {line}
+                                                <span className="pp-cd-toggle">+</span>
+                                            </button>
+                                            <div className="pp-ts-body">
+                                                <div className="pp-ts-body-inner">
+                                                    {ts.removed.map((line, idx) => (
+                                                        <div key={`r${idx}`} className="pp-diff-line pp-diff-remove">
+                                                            <span className="pp-pfx">-</span>
+                                                            {line}
+                                                        </div>
+                                                    ))}
+                                                    {ts.added.map((line, idx) => (
+                                                        <div key={`a${idx}`} className="pp-diff-line pp-diff-add">
+                                                            <span className="pp-pfx">+</span>
+                                                            {line}
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {depGroups.length > 0 && (
+                            <div className="pp-dep-block">
+                                {depGroups.map((g, gi) => (
+                                    <div key={g.category}>
+                                        <div style={{ color: "#6A7290", marginTop: gi === 0 ? 0 : 14 }}>{`// ${g.category}`}</div>
+                                        {g.deps.map((d) => (
+                                            <DepLine key={d.id} k={d.depKey} c={d.note} />
+                                        ))}
                                     </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {minis.map((m) => (
+                            <div key={m.id} className="pp-mini-proj-card" style={{ marginTop: 34 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                                    <div style={{ fontWeight: 700, fontSize: 15 }}>{m.title}</div>
+                                    {m.periodLabel && <div className="pp-commit-hash">{m.periodLabel}</div>}
                                 </div>
-                            );
-                        })}
-                    </div>
-
-                    <div className="pp-dep-block">
-                        <div style={{ color: "#6A7290" }}>{"// backend — package.json"}</div>
-                        <DepLine k='"spring-boot + jpa"' c="관계형 조인이 많은 도메인, JPQL 프로젝션으로 DTO 직접 구성" />
-                        <DepLine k='"mariadb@11.6 / 10.4"' c="riding_db · journal_db를 분리해 스키마 변경 영향 범위를 좁힘" />
-                        <DepLine k='"python + uvicorn"' c="FIT 파싱은 파이썬 생태계가 압도적으로 풍부" />
-                        <div style={{ color: "#6A7290", marginTop: 14 }}>{"// ai-integration"}</div>
-                        <DepLine k='"claude-api"' c="InBody OCR, 자전거 스펙 추출 등 비정형 입력 처리" />
-                        <DepLine k='"gemini + vertex-ai(adc)"' c="개인 문서 RAG — AI Studio 키 대신 ADC로 학습 데이터 사용 방지" />
-                        <div style={{ color: "#6A7290", marginTop: 14 }}>{"// infra"}</div>
-                        <DepLine k='"gcp-vm + docker + nginx"' c="단일 VM 컨테이너 운영, deploy.sh로 배포 표준화" />
-                        <DepLine k='"open-meteo"' c="Windy 무료 티어가 셔플 데이터 반환 확인 후 교체" />
-                    </div>
-
-                    <div className="pp-mini-proj-card" style={{ marginTop: 34 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                            <div style={{ fontWeight: 700, fontSize: 15 }}>청취 음량 수집 애플리케이션</div>
-                            <div className="pp-commit-hash">대학원 논문 주제 · 2016 ~ 2018</div>
-                        </div>
-                        <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>
-                            안드로이드 스마트폰에 이어폰을 연결해 음악을 청취하는 동안의 청취 음압(dBA)을 측정하는 앱을 개발했습니다. 시간별·일별·주별·월별 평균 청취 음량을 집계해 청력
-                            손상 위험을 스스로 확인할 수 있게 했습니다.
-                        </p>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {["Java", "Tomcat", "MySQL", "JQuery"].map((s) => (
-                                <span key={s} className="pp-tag">{s}</span>
-                            ))}
-                        </div>
-                    </div>
-                </section>
-            )}
+                                <p style={{ fontSize: 13, color: "#6B7280", marginBottom: 12 }}>{m.blurb}</p>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                    {m.tags.map((s) => (
+                                        <span key={s} className="pp-tag">{s}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </section>
+                );
+            })()}
 
             {/* 06 연락처 */}
             {section === "contact" && (
@@ -516,7 +501,7 @@ function ArchCol({ label, boxes }: { label: string; boxes: ArchBox[] }) {
 function DepLine({ k, c }: { k: string; c: string }) {
     return (
         <div>
-            <span style={{ color: "#9ADE9A" }}>{k}</span>: <span style={{ color: "#6A7290" }}>{`// ${c}`}</span>
+            <span style={{ color: "#9ADE9A" }}>{`"${k}"`}</span>: <span style={{ color: "#6A7290" }}>{`// ${c}`}</span>
         </div>
     );
 }

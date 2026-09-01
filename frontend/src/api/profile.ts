@@ -59,6 +59,45 @@ export interface Education {
     displayOrder: number;
 }
 
+export interface PersonalProjectFeature {
+    id: number;
+    projectId: number;
+    icon: string | null;
+    title: string;
+    description: string;
+    tags: string[];
+    sortOrder: number;
+}
+
+export interface PersonalProject {
+    id: number;
+    kind: "FEATURED" | "MINI";
+    title: string;
+    blurb: string;
+    repoUrl: string | null;
+    periodLabel: string | null;
+    tags: string[];
+    sortOrder: number;
+    features: PersonalProjectFeature[];
+}
+
+export interface PortfolioTroubleshoot {
+    id: number;
+    refLabel: string | null;
+    title: string;
+    removed: string[];
+    added: string[];
+    sortOrder: number;
+}
+
+export interface PortfolioDependency {
+    id: number;
+    category: string;
+    depKey: string;
+    note: string;
+    sortOrder: number;
+}
+
 export interface BasicProfile {
     intro: {
         elevatorPitch: string;
@@ -89,6 +128,9 @@ export interface BasicProfile {
     };
     career: CareerCompany[];
     education: Education[];
+    personalProjects: PersonalProject[];
+    troubleshoots: PortfolioTroubleshoot[];
+    dependencies: PortfolioDependency[];
 }
 
 interface IntroUpdateInput {
@@ -256,4 +298,79 @@ export function updateEducation(id: number, input: EducationInput): Promise<void
 
 export function deleteEducation(id: number): Promise<void> {
     return request<void>(`/api/profile/education/${id}`, "DELETE");
+}
+
+// ── 개인 프로젝트(05 섹션) ─────────────────────────
+interface PersonalProjectInput {
+    kind: "FEATURED" | "MINI";
+    title: string;
+    blurb: string;
+    repoUrl: string | null;
+    periodLabel: string | null;
+    tags: string[];
+    sortOrder: number;
+}
+
+interface PersonalProjectFeatureInput {
+    projectId: number;
+    icon: string | null;
+    title: string;
+    description: string;
+    tags: string[];
+    sortOrder: number;
+}
+
+interface TroubleshootInput {
+    refLabel: string | null;
+    title: string;
+    removed: string[];
+    added: string[];
+    sortOrder: number;
+}
+
+interface DependencyInput {
+    category: string;
+    depKey: string;
+    note: string;
+    sortOrder: number;
+}
+
+export function addPersonalProject(input: PersonalProjectInput): Promise<PersonalProject> {
+    return request<PersonalProject>("/api/profile/personal-projects", "POST", input);
+}
+export function updatePersonalProject(id: number, input: PersonalProjectInput): Promise<void> {
+    return request<void>(`/api/profile/personal-projects/${id}`, "PUT", input);
+}
+export function deletePersonalProject(id: number): Promise<void> {
+    return request<void>(`/api/profile/personal-projects/${id}`, "DELETE");
+}
+
+export function addPersonalProjectFeature(input: PersonalProjectFeatureInput): Promise<PersonalProjectFeature> {
+    return request<PersonalProjectFeature>("/api/profile/personal-projects/features", "POST", input);
+}
+export function updatePersonalProjectFeature(id: number, input: PersonalProjectFeatureInput): Promise<void> {
+    return request<void>(`/api/profile/personal-projects/features/${id}`, "PUT", input);
+}
+export function deletePersonalProjectFeature(id: number): Promise<void> {
+    return request<void>(`/api/profile/personal-projects/features/${id}`, "DELETE");
+}
+
+export function addTroubleshoot(input: TroubleshootInput): Promise<PortfolioTroubleshoot> {
+    return request<PortfolioTroubleshoot>("/api/profile/troubleshoots", "POST", input);
+}
+export function updateTroubleshoot(id: number, input: TroubleshootInput): Promise<void> {
+    return request<void>(`/api/profile/troubleshoots/${id}`, "PUT", input);
+}
+export function deleteTroubleshoot(id: number): Promise<void> {
+    return request<void>(`/api/profile/troubleshoots/${id}`, "DELETE");
+}
+
+export function addDependency(input: DependencyInput): Promise<PortfolioDependency> {
+    return request<PortfolioDependency>("/api/profile/dependencies", "POST", input);
+}
+export function updateDependency(id: number, input: DependencyInput): Promise<void> {
+    return request<void>(`/api/profile/dependencies/${id}`, "PUT", input);
+}
+export function deleteDependency(id: number): Promise<void> {
+    return request<void>(`/api/profile/dependencies/${id}`, "DELETE");
 }
