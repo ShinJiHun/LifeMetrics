@@ -19,4 +19,5 @@ public class ProfileIntroDto {
     private String sideProject;
     private String availability;
     private boolean openToWork;
+    private String jobSearchNote;
 }

@@ -43,6 +43,7 @@ export interface CareerCompany {
     startDate: string | null; // "yyyy-MM-dd"
     endDate: string | null;   // "yyyy-MM-dd", null = 재직중
     role: string;
+    leaveReason: string | null; // 퇴사/이직 사유 (포트폴리오 비노출, 페르소나 챗용)
     isCurrent: boolean;
     commitHash: string | null;
     commitTag: string | null;
@@ -111,6 +112,7 @@ export interface BasicProfile {
         sideProject: string;
         availability: string; // 구직/이직 준비 중일 때 표시할 문구
         openToWork: boolean;  // 구직/이직 준비 여부
+        jobSearchNote: string; // 현재 구직 상황·다음 계획 (페르소나 챗용, 포트폴리오 비노출)
     };
     contact: {
         phone: string;
@@ -144,6 +146,7 @@ interface IntroUpdateInput {
     sideProject: string;
     availability: string;
     openToWork: boolean;
+    jobSearchNote: string;
 }
 
 interface IntroSectionInput {
@@ -167,6 +170,7 @@ interface CareerCompanyInput {
     startDate: string | null;
     endDate: string | null;
     role: string;
+    leaveReason: string | null;
     isCurrent: boolean;
     commitHash: string | null;
     commitTag: string | null;

@@ -45,6 +45,9 @@ public class CareerCompany {
     @Column(name = "role", nullable = false)
     private String role;
 
+    @Column(name = "leave_reason", columnDefinition = "TEXT")
+    private String leaveReason; // 퇴사/이직 사유 (현재 회사면 비움). 포트폴리오에는 노출하지 않고 페르소나 챗 컨텍스트로만 쓴다.
+
     @Column(name = "is_current", nullable = false)
     private Boolean isCurrent = false;
 

@@ -49,6 +49,9 @@ public class DeveloperProfile {
     @Column(name = "open_to_work")
     private Boolean openToWork; // 구직/이직 준비 여부
 
+    @Column(name = "job_search_note", columnDefinition = "TEXT")
+    private String jobSearchNote; // 현재 구직 상황·다음 계획 서술. 페르소나 챗 컨텍스트용(포트폴리오 비노출).
+
     @Column(name = "phone")
     private String phone;
 

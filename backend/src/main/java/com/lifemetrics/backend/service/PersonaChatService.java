@@ -130,29 +130,22 @@ public class PersonaChatService {
                 규칙:
                 - 반드시 아래 제공된 정보(본인 문서/프로필/글 발췌)에 근거해서만 답하세요. 모르면 "그 내용은 자료에 없네요"라고 솔직히 말하세요.
                 - 경력·직무·소속·프로젝트 같은 사실관계 질문은 이력서·포트폴리오를 우선 인용하세요. 관심사·취미·생각은 블로그 글을 인용하세요.
+                - 재직 여부(현재 다니는 회사가 있는지), 각 회사의 퇴사/이직 사유, 구직 상황은 아래 "경력" 섹션이 유일한 근거입니다. "페르소나 프로필"이나 블로그 글에 이와 다른 내용이 있어도 "경력" 섹션을 따르세요.
                 - 추측·과장·없는 사실 생성 금지.
                 - 자연스러운 대화체(정중체 "~합니다/~네요"). JSON·마크다운 표 금지.
                 - 답변은 보통 2~5문장으로 간결하게. 관련 블로그 글이 있으면 글 제목을 자연스럽게 언급해도 좋습니다.
 
                 """);
 
-        if (careerDataService.isLoaded()) {
-            sb.append("## 경력 (가장 정확한 최신 정보, 최우선으로 신뢰할 것)\n")
-                    .append(careerDataService.getText())
+        Optional<PersonaProfile> profile = personaProfileService.getLatest();
+        if (profile.isPresent()) {
+            sb.append("## 페르소나 프로필 (블로그 글로 생성 — 재직 여부·퇴사 사유·구직 상황은 아래 '경력'을 우선)\n")
+                    .append(profile.get().getProfileText())
                     .append("\n\n");
         }
 
         if (personaDocService.isAnyLoaded()) {
             sb.append(personaDocService.getCombinedText());
-        }
-
-        Optional<PersonaProfile> profile = personaProfileService.getLatest();
-        if (profile.isPresent()) {
-            sb.append("## 페르소나 프로필\n")
-                    .append(profile.get().getProfileText())
-                    .append("\n\n");
-        } else {
-            sb.append("## 페르소나 프로필\n(아직 생성되지 않음 - /api/persona/refresh 필요)\n\n");
         }
 
         List<BlogPost> relevant = topRelevantPosts(query);
@@ -167,6 +160,25 @@ public class PersonaChatService {
                 sb.append(c.length() > PER_POST_CHARS ? c.substring(0, PER_POST_CHARS) + "…" : c);
                 sb.append("\n\n");
             }
+        }
+
+        // ── 경력은 가장 마지막에(질문 바로 앞) 둔다: 약한 모델이 앞 내용을 잊어도 이건 붙잡도록 ──
+        if (careerDataService.isLoaded()) {
+            sb.append("## 경력 (신지훈이 직접 관리하는 최신·정확 정보 — 재직 여부/퇴사 사유/구직 상황은 무조건 이 섹션만 근거로 삼는다)\n")
+                    .append(careerDataService.getText())
+                    .append("\n");
+            sb.append("""
+                    위 "경력" 섹션은 신지훈 본인이 작성한 사실이다. "각 회사 퇴사 사유", "왜 그만뒀어", "지금 어디 다녀",
+                    "이직 준비 중이야" 같은 질문에는 위 섹션의 "퇴사/이직 사유"·"### 현재 상황" 내용을 그대로 근거로 답하라.
+                    "내부 정보라 알 수 없다"거나 일반론으로 얼버무리지 마라 — 위 섹션에 이미 사유가 적혀 있다.
+
+                    [재직 상태 — 매우 중요] "### 현재 상황"에 따르면 신지훈은 지금 재직 중인 회사가 없고 이직 준비 중이다.
+                    어떤 회사에 대해서도 "현재 근무 중" / "재직 중"이라고 답하지 마라. 각 회사 항목의 "(퇴사)" 표시와
+                    "### 현재 상황"이 사실이다. 프로젝트 설명에 "현재" 또는 현재형 문장("운영합니다" 등)이 있어도
+                    그건 재직 당시에 쓴 글이니 재직 여부 판단에는 쓰지 마라.
+                    민감할 수 있는 표현은 부드럽게 다듬되, 사실 자체는 위 섹션을 따른다.
+
+                    """);
         }
         return sb.toString();
     }

@@ -20,4 +20,5 @@ public class IntroUpdateRequest {
     private String sideProject;
     private String availability;
     private Boolean openToWork;
+    private String jobSearchNote;
 }

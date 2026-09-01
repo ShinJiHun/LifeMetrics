@@ -18,6 +18,7 @@ public class CareerCompanyDto {
     private LocalDate startDate;
     private LocalDate endDate;
     private String role;
+    private String leaveReason;
     private Boolean isCurrent;
     private String commitHash;
     private String commitTag;

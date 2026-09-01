@@ -136,6 +136,7 @@ public class ProfileService {
                         .sideProject(dp != null && dp.getSideProject() != null ? dp.getSideProject() : DEFAULT_SIDE_PROJECT)
                         .availability(dp != null && dp.getAvailability() != null ? dp.getAvailability() : DEFAULT_AVAILABILITY)
                         .openToWork(dp == null || dp.getOpenToWork() == null || dp.getOpenToWork())
+                        .jobSearchNote(dp != null ? dp.getJobSearchNote() : null)
                         .build())
                 .contact(ProfileContactDto.builder()
                         .phone(dp != null ? dp.getPhone() : "")
@@ -213,6 +214,7 @@ public class ProfileService {
         dp.setSideProject(req.getSideProject());
         dp.setAvailability(req.getAvailability());
         dp.setOpenToWork(req.getOpenToWork() == null || req.getOpenToWork());
+        dp.setJobSearchNote(req.getJobSearchNote());
         developerProfileRepository.save(dp);
     }
 
@@ -488,6 +490,7 @@ public class ProfileService {
         c.setStartDate(req.getStartDate());
         c.setEndDate(req.getEndDate());
         c.setRole(req.getRole());
+        c.setLeaveReason(req.getLeaveReason());
         c.setIsCurrent(Boolean.TRUE.equals(req.getIsCurrent()));
         c.setCommitHash(req.getCommitHash());
         c.setCommitTag(req.getCommitTag());
@@ -530,6 +533,7 @@ public class ProfileService {
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .role(c.getRole())
+                .leaveReason(c.getLeaveReason())
                 .isCurrent(c.getIsCurrent())
                 .commitHash(c.getCommitHash())
                 .commitTag(c.getCommitTag())

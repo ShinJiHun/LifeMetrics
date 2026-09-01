@@ -111,6 +111,7 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
     const [sideProject, setSideProject] = useState(intro.sideProject);
     const [availability, setAvailability] = useState(intro.availability);
     const [openToWork, setOpenToWork] = useState(intro.openToWork);
+    const [jobSearchNote, setJobSearchNote] = useState(intro.jobSearchNote);
     const [saving, setSaving] = useState(false);
 
     const save = async () => {
@@ -127,6 +128,7 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
                 sideProject,
                 availability,
                 openToWork,
+                jobSearchNote,
             });
             onChange();
         } finally {
@@ -171,6 +173,14 @@ function IntroEditor({ intro, onChange }: { intro: BasicProfile["intro"]; onChan
 
             <label style={S.label}>구직 상태 문구 (위 체크 시 뱃지에 표시)</label>
             <input style={S.input} value={availability} onChange={(e) => setAvailability(e.target.value)} placeholder="예: 이직 준비 중" />
+
+            <label style={S.label}>현재 구직 상황 · 다음 계획 (페르소나 챗 전용, 포트폴리오에는 안 보임)</label>
+            <textarea
+                style={{ ...S.input, minHeight: 60 }}
+                value={jobSearchNote}
+                onChange={(e) => setJobSearchNote(e.target.value)}
+                placeholder="예: 여러 기업 면접 단계, 음성인식 회사에 가장 관심..."
+            />
 
             <p style={{ ...S.label, color: "#9CA1B5", marginTop: 4 }}>
                 ※ 총 경력 연차 · 참여 프로젝트 수 · 재직 상태(재직 중 / 재직 중 아님)는 아래 <b>경력</b> 항목에서 자동 계산됩니다
@@ -331,6 +341,7 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
     const [startDate, setStartDate] = useState(company.startDate ?? "");
     const [endDate, setEndDate] = useState(company.endDate ?? "");
     const [role, setRole] = useState(company.role);
+    const [leaveReason, setLeaveReason] = useState(company.leaveReason ?? "");
     const [isCurrent, setIsCurrent] = useState(company.isCurrent);
     const [commitHash, setCommitHash] = useState(company.commitHash ?? "");
     const [commitTag, setCommitTag] = useState(company.commitTag ?? "");
@@ -350,6 +361,7 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
                 startDate: startDate || null,
                 endDate: endDate || null,
                 role,
+                leaveReason: leaveReason.trim() || null,
                 isCurrent,
                 commitHash: commitHash.trim() || null,
                 commitTag: commitTag.trim() || null,
@@ -394,6 +406,8 @@ function CareerCompanyCard({ company, onChange }: { company: CareerCompany; onCh
             </div>
             <label style={S.label}>기술 스택 (쉼표로 구분)</label>
             <input style={S.input} value={stackText} onChange={(e) => setStackText(e.target.value)} />
+            <label style={S.label}>퇴사/이직 사유 (페르소나 챗 전용, 포트폴리오에는 안 보임 · 현재 회사면 비움)</label>
+            <textarea style={{ ...S.input, minHeight: 56 }} value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} />
             <div style={S.rowActions}>
                 <button type="button" onClick={save} disabled={busy} style={S.miniSaveBtn}>회사 저장</button>
                 <button type="button" onClick={remove} disabled={busy} style={S.miniDelBtn}>회사 삭제</button>
@@ -434,6 +448,7 @@ function CareerCompanyForm({ nextSortOrder, onChange }: { nextSortOrder: number;
                 startDate: startDate || null,
                 endDate: endDate || null,
                 role: role.trim(),
+                leaveReason: null,
                 isCurrent: false,
                 commitHash: null,
                 commitTag: null,
