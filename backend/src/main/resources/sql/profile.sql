@@ -119,21 +119,23 @@ CREATE TABLE IF NOT EXISTS `education` (
 
 -- ── 시드 데이터 (PersonaPortfolioPage.tsx 에 하드코딩돼 있던 내용을 그대로 이전) ──
 
-INSERT INTO `developer_profile` (`elevator_pitch`, `highlights`, `headline`, `subheadline`, `role_tagline`, `focus_tags`, `contact_blurb`, `side_project`, `availability`, `open_to_work`, `phone`, `github`, `blog`) VALUES (
-                                                                                                                                                                                 'TNS Soft에서 음성인식(STT) 도메인의 백엔드와 인프라를 담당하고 있습니다.',
-                                                                                                                                                                                 '카카오T 주차장 연동 API 서버를 클라우드 방식에서 현장 로컬 서버 구조로 단독 전환\nKT STT 모델 평가용 음성 DB 구축 프로젝트 PM 총괄 — 기관 협약부터 녹음 프로세스까지\ngRPC 계약(sttservice.proto) 기준으로 C++ 레퍼런스 클라이언트와 Java 프로덕션 구현을 함께 설계',
-                                                                                                                                                                                 '음성 데이터가 서버와 엔진 사이를\n{{끊기지 않고}} 흐르게 만듭니다.',
-                                                                                                                                                                                 '웹 프론트엔드로 시작해 주차 시스템 백엔드, SIEM, 그리고 지금은 STT·gRPC·MRCP 기반 음성인식 인프라까지 — 도메인을 넓혀가며 8년 3개월째 만들고 운영하고 있습니다.',
-                                                                                                                                                                                 'Backend Developer',
-                                                                                                                                                                                 'STT,gRPC,MRCP',
-                                                                                                                                                                                 '음성인식 백엔드, 데이터 파이프라인, 인프라 운영에 관심 있는 팀이라면 언제든 편하게 연락 주세요.',
-                                                                                                                                                                                 'LifeMetrics',
-                                                                                                                                                                                 '이직 준비 중',
-                                                                                                                                                                                 1,
-                                                                                                                                                                                 '010-XXXX-XXXX',
-                                                                                                                                                                                 'https://github.com/ShinJiHun',
-                                                                                                                                                                                 'https://tho881.tistory.com/'
-                                                                                                                                                                             );
+-- developer_profile 은 단일 행만 쓴다 — 테이블이 비어 있을 때만 시드한다(재실행해도 중복 안 됨).
+INSERT INTO `developer_profile` (`elevator_pitch`, `highlights`, `headline`, `subheadline`, `role_tagline`, `focus_tags`, `contact_blurb`, `side_project`, `availability`, `open_to_work`, `phone`, `github`, `blog`)
+SELECT
+    'TNS Soft에서 음성인식(STT) 도메인의 백엔드와 인프라를 담당하고 있습니다.',
+    '카카오T 주차장 연동 API 서버를 클라우드 방식에서 현장 로컬 서버 구조로 단독 전환\nKT STT 모델 평가용 음성 DB 구축 프로젝트 PM 총괄 — 기관 협약부터 녹음 프로세스까지\ngRPC 계약(sttservice.proto) 기준으로 C++ 레퍼런스 클라이언트와 Java 프로덕션 구현을 함께 설계',
+    '음성 데이터가 서버와 엔진 사이를\n{{끊기지 않고}} 흐르게 만듭니다.',
+    '웹 프론트엔드로 시작해 주차 시스템 백엔드, SIEM, 그리고 지금은 STT·gRPC·MRCP 기반 음성인식 인프라까지 — 도메인을 넓혀가며 8년 3개월째 만들고 운영하고 있습니다.',
+    'Backend Developer',
+    'STT,gRPC,MRCP',
+    '음성인식 백엔드, 데이터 파이프라인, 인프라 운영에 관심 있는 팀이라면 언제든 편하게 연락 주세요.',
+    'LifeMetrics',
+    '이직 준비 중',
+    1,
+    '010-XXXX-XXXX',
+    'https://github.com/ShinJiHun',
+    'https://tho881.tistory.com/'
+WHERE NOT EXISTS (SELECT 1 FROM `developer_profile`);
 
 -- 기존 배포에 이미 developer_profile 행이 있는 경우를 위한 headline/subheadline/role_tagline/focus_tags/contact_blurb/side_project 백필 (재실행해도 안전)
 UPDATE `developer_profile` SET `headline` = '음성 데이터가 서버와 엔진 사이를\n{{끊기지 않고}} 흐르게 만듭니다.' WHERE `headline` IS NULL;
