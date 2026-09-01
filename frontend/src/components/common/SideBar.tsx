@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { PERSONA_META, resolvePersonaFromPath } from "@/lib/persona";
 import PersonaContentMenu from "@/components/common/PersonaContentMenu";
+import { useAdmin } from "@/lib/admin";
 
 const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "10px 14px",
@@ -95,6 +96,7 @@ export default function SideBar({ open = false }: { open?: boolean }) {
 }
 
 function AthleteMenu({ accent }: { accent: string }) {
+    const { isAdmin } = useAdmin();
     return (
         <>
             <h3>📊 기록</h3>
@@ -107,6 +109,11 @@ function AthleteMenu({ accent }: { accent: string }) {
                         <NavLink to="/records/body/weight-loss" style={subLinkStyle(accent)}>
                             📉 감량 분석
                         </NavLink>
+                        {isAdmin && (
+                            <NavLink to="/records/body/health-checkup" style={subLinkStyle(accent)}>
+                                🩺 건강검진
+                            </NavLink>
+                        )}
                     </nav>
                 </div>
 

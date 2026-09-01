@@ -4,6 +4,7 @@ import Layout from "@/components/common/Layout";
 import { RequireAdmin } from "@/components/common/AdminOnly";
 import BodyRecordPage from "@/pages/ride/body/BodyRecordPage";
 import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
+import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
@@ -43,6 +44,7 @@ export default function App() {
             <Route element={<Layout />}>
                 <Route path="/records/body" element={<BodyRecordPage />} />
                 <Route path="/records/body/weight-loss" element={<WeightLossAnalysisPage />} />
+                <Route path="/records/body/health-checkup" element={<RequireAdmin><HealthCheckupPage /></RequireAdmin>} />
                 <Route path="/records/health" element={<Navigate to="/records/health/history" replace />} />
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />
