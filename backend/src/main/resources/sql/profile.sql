@@ -15,8 +15,9 @@ CREATE TABLE IF NOT EXISTS `developer_profile` (
                                                    `focus_tags`     TEXT   DEFAULT NULL,   -- 쉼표(,)로 구분된 전문분야 태그 목록
                                                    `contact_blurb`  TEXT   DEFAULT NULL,   -- 연락처 섹션 안내 문구
                                                    `side_project`   VARCHAR(100) DEFAULT NULL,  -- whoami 카드 sideProject 값
-                                                   `availability`   VARCHAR(100) DEFAULT NULL,  -- 구직/이직 준비 중일 때 표시할 문구
-                                                   `open_to_work`   TINYINT(1)   NOT NULL DEFAULT 1,  -- 구직/이직 준비 여부
+                                                   `availability`    VARCHAR(100) DEFAULT NULL,  -- 구직/이직 준비 중일 때 표시할 문구
+                                                   `open_to_work`    TINYINT(1)   NOT NULL DEFAULT 1,  -- 구직/이직 준비 여부
+                                                   `job_search_note` TEXT   DEFAULT NULL,   -- 현재 구직 상황·다음 계획 서술 (페르소나 챗 컨텍스트용, 포트폴리오 비노출)
                                                    `phone`          VARCHAR(50)  DEFAULT NULL,
                                                    `github`         VARCHAR(255) DEFAULT NULL,
                                                    `blog`           VARCHAR(255) DEFAULT NULL,
@@ -32,6 +33,7 @@ ALTER TABLE `developer_profile` ADD COLUMN IF NOT EXISTS `contact_blurb` TEXT DE
 ALTER TABLE `developer_profile` ADD COLUMN IF NOT EXISTS `side_project` VARCHAR(100) DEFAULT NULL AFTER `contact_blurb`;
 ALTER TABLE `developer_profile` ADD COLUMN IF NOT EXISTS `availability` VARCHAR(100) DEFAULT NULL AFTER `side_project`;
 ALTER TABLE `developer_profile` ADD COLUMN IF NOT EXISTS `open_to_work` TINYINT(1) NOT NULL DEFAULT 1 AFTER `availability`;
+ALTER TABLE `developer_profile` ADD COLUMN IF NOT EXISTS `job_search_note` TEXT DEFAULT NULL AFTER `open_to_work`;
 
 -- 소개 섹션 — 소제목 + 문단들
 CREATE TABLE IF NOT EXISTS `profile_intro_section` (
@@ -53,6 +55,7 @@ CREATE TABLE IF NOT EXISTS `career_company` (
                                                 `start_date`   DATE         DEFAULT NULL,  -- 총 경력 연차 계산용 입사일(매월 1일)
                                                 `end_date`     DATE         DEFAULT NULL,  -- 총 경력 연차 계산용 퇴사일(재직중이면 NULL)
                                                 `role`         VARCHAR(255) NOT NULL,
+                                                `leave_reason` TEXT         DEFAULT NULL,  -- 퇴사/이직 사유 (페르소나 챗 컨텍스트용, 포트폴리오 비노출)
                                                 `is_current`   TINYINT(1)   NOT NULL DEFAULT 0,
                                                 `commit_hash`  VARCHAR(40)  DEFAULT NULL,
                                                 `commit_tag`   VARCHAR(100) DEFAULT NULL,
@@ -67,6 +70,7 @@ ALTER TABLE `career_company` ADD COLUMN IF NOT EXISTS `domain` VARCHAR(100) DEFA
 ALTER TABLE `career_company` ADD COLUMN IF NOT EXISTS `short_name` VARCHAR(100) DEFAULT NULL AFTER `company_name`;
 ALTER TABLE `career_company` ADD COLUMN IF NOT EXISTS `start_date` DATE DEFAULT NULL AFTER `period_label`;
 ALTER TABLE `career_company` ADD COLUMN IF NOT EXISTS `end_date` DATE DEFAULT NULL AFTER `start_date`;
+ALTER TABLE `career_company` ADD COLUMN IF NOT EXISTS `leave_reason` TEXT DEFAULT NULL AFTER `role`;
 
 -- 경력 기술서의 프로젝트 항목 — career_company 에 귀속
 CREATE TABLE IF NOT EXISTS `career_project` (
@@ -132,7 +136,7 @@ SELECT
     'LifeMetrics',
     '이직 준비 중',
     1,
-    '010-XXXX-XXXX',
+    NULL,  -- 전화번호는 공개 저장소에 두지 않는다. 배포 후 관리자 화면에서 입력.
     'https://github.com/ShinJiHun',
     'https://tho881.tistory.com/'
 WHERE NOT EXISTS (SELECT 1 FROM `developer_profile`);

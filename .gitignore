@@ -82,6 +82,10 @@ backend/src/main/resources/templates/*.pdf
 backend/bootrun.log
 .dev-logs/
 
+### 개인정보 담긴 SQL (전화번호, 퇴사 사유, 구직 상황 등) — 실 데이터는 관리자 화면에서 입력 ###
+backend/src/main/resources/sql/local/*
+!backend/src/main/resources/sql/local/README.md
+
 ### Claude Code 로컬 설정 ###
 .claude/
 
