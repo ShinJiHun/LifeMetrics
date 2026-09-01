@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useBodyRecords } from "@/hooks/useBodyRecords.ts";
+import { analyzeBodyRecord } from "@/api/body.ts";
 
 import BodyMetricCards from "@/components/body/BodyMetricCards.tsx";
 import BodyMetricChart from "@/components/body/BodyMetricChart.tsx";
-import HumanModelView from "@/components/human/HumanModelView.tsx";
-import LlmAnalysisModal from "@/components/body/LlmAnalysisModal.tsx";
+import LlmAnalysisPanel from "@/components/body/LlmAnalysisPanel.tsx";
 
 import type { MetricKey } from "@/types/MetricKey.ts";
 import type { BodySummaryRecord } from "@/types/BodySummaryRecord.ts";
@@ -32,8 +32,9 @@ export default function BodyRecordPage() {
     const [uploadType, setUploadType] = useState<MeasurementTab>("FITDAYS");
     const [activeTab, setActiveTab] = useState<MeasurementTab>("FITDAYS");
     const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [analyzing, setAnalyzing] = useState(false);
+    const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
     // 탭에 따라 필터링
     const filteredRecords = useMemo<BodySummaryRecord[]>(() => {
@@ -45,21 +46,47 @@ export default function BodyRecordPage() {
             );
     }, [records, activeTab]);
 
+    // 최신 기록으로 초기 선택하되, 이미 고른 날짜가 새 목록에도 있으면 유지한다
+    // (분석 실행 후 refetch 되어도 보던 기록에서 튕기지 않도록).
     useEffect(() => {
-        if (filteredRecords.length > 0) {
-            setCurrentIndex(filteredRecords.length - 1);
+        if (filteredRecords.length === 0) {
+            setSelectedDate(null);
+            return;
         }
+        if (!selectedDate || !filteredRecords.some((r) => r.recordDate === selectedDate)) {
+            setSelectedDate(filteredRecords[filteredRecords.length - 1].recordDate);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filteredRecords]);
 
-    const current = filteredRecords[currentIndex];
+    const currentIndex = selectedDate
+        ? filteredRecords.findIndex((r) => r.recordDate === selectedDate)
+        : -1;
+    const current = currentIndex >= 0 ? filteredRecords[currentIndex] : undefined;
 
-    const goPrev = () => setCurrentIndex((i) => Math.max(0, i - 1));
-    const goNext = () =>
-        setCurrentIndex((i) => Math.min(filteredRecords.length - 1, i + 1));
+    const goPrev = () => {
+        const i = Math.max(0, currentIndex - 1);
+        setSelectedDate(filteredRecords[i]?.recordDate ?? null);
+    };
+    const goNext = () => {
+        const i = Math.min(filteredRecords.length - 1, currentIndex + 1);
+        setSelectedDate(filteredRecords[i]?.recordDate ?? null);
+    };
 
-    const handleDateClick = (recordDate: string) => {
-        const index = filteredRecords.findIndex((r) => r.recordDate === recordDate);
-        if (index !== -1) setCurrentIndex(index);
+    const handleDateClick = (recordDate: string) => setSelectedDate(recordDate);
+
+    const handleAnalyze = async () => {
+        if (!current) return;
+        setAnalyzing(true);
+        setAnalyzeError(null);
+        try {
+            await analyzeBodyRecord(current.id);
+            await refetch?.();
+        } catch (e) {
+            setAnalyzeError((e as Error).message);
+        } finally {
+            setAnalyzing(false);
+        }
     };
 
     const handleUploadClick = (type: MeasurementTab) => {
@@ -132,7 +159,7 @@ export default function BodyRecordPage() {
             </div>
 
             {/* 측정 타입 탭 */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                 {(["FITDAYS", "INBODY"] as MeasurementTab[]).map((tab) => (
                     <button
                         key={tab}
@@ -233,36 +260,24 @@ export default function BodyRecordPage() {
                             measurementType={activeTab}
                             onDateClick={handleDateClick}
                         />
-
-                        {/* AI 분석 모달 트리거 버튼 */}
-                        <button
-                            className="ai-analysis-trigger-btn"
-                            onClick={() => setShowAnalysisModal(true)}
-                            disabled={!current.rawLlmJson}
-                        >
-                            🤖 Claude AI 분석 보기
-                            {!current.rawLlmJson && (
-                                <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 6 }}>
-                                    (분석 데이터 없음)
-                                </span>
-                            )}
-                        </button>
                     </div>
 
                     <div className="body-right">
-                        <h3 className="section-title">체형 시각화</h3>
-                        <HumanModelView summary={current} />
+                        <h3 className="section-title">🤖 Claude AI 분석</h3>
+                        <LlmAnalysisPanel rawLlmJson={current.rawLlmJson} />
+                        <button
+                            className="ai-analyze-btn"
+                            onClick={handleAnalyze}
+                            disabled={analyzing}
+                        >
+                            {analyzing ? "분석 중…" : "🤖 분석 실행"}
+                        </button>
+                        {analyzeError && (
+                            <div className="ai-analyze-error">{analyzeError}</div>
+                        )}
                     </div>
                 </div>
             )}
-
-            {/* AI 분석 모달 */}
-            <LlmAnalysisModal
-                isOpen={showAnalysisModal}
-                onClose={() => setShowAnalysisModal(false)}
-                rawLlmJson={current?.rawLlmJson}
-                recordDate={current?.recordDate ?? ""}
-            />
         </div>
     );
 }

@@ -89,7 +89,7 @@ exercise:
     base-url: /api/exercise/gif/  # → /api/exercise/gif/CHEST_PRESS.gif (NAS 서빙)
 
 anthropic:
-  api-key: ${ANTHROPIC_API_KEY}
+  api-key: ${ANTHROPIC_API_KEY:}
 
 typecast:
   # Typecast TTS. 키 미설정이면 /api/tts 가 503 → 프론트는 조용히 재생 스킵.

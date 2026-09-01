@@ -11,6 +11,7 @@ import java.time.LocalDate;
 @Setter
 public class BodyRecordResponse {
 
+    private Long id;
     private LocalDate recordDate;
     private MeasurementType measurementType;
 

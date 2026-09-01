@@ -9,10 +9,10 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class RunPodConfig {
 
-    @Value("${runpod.api-key}")
+    @Value("${runpod.api-key:}")
     private String apiKey;
 
-    @Value("${runpod.base-url}")
+    @Value("${runpod.base-url:https://api.runpod.ai/v2}")
     private String baseUrl;
 
     @Bean

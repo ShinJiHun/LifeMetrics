@@ -50,3 +50,23 @@ export async function fetchWeightLossNarrative(userId = 1): Promise<string> {
     }
     return (await res.json()).narrative;
 }
+
+/** 신체 기록 1건에 대한 Claude 분석 생성. 호출 비용이 있어 버튼으로만 부른다. */
+export async function analyzeBodyRecord(
+    recordId: number,
+    userId = 1
+): Promise<string> {
+    const res = await fetch(
+        `${API_BASE}/api/body/records/${recordId}/analyze?userId=${userId}`,
+        { method: "POST" }
+    );
+
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.code === "ADMIN_REQUIRED") {
+            throw new Error("관리자 비밀번호로 로그인하여 시도해주세요.");
+        }
+        throw new Error(body.message ?? "AI 분석에 실패했습니다.");
+    }
+    return (await res.json()).rawLlmJson;
+}

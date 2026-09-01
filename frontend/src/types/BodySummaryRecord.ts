@@ -1,4 +1,5 @@
 export interface BodySummaryRecord {
+    id: number;
     recordDate: string;
 
     weight: number;

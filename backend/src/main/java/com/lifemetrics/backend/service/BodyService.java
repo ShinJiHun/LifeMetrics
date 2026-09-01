@@ -95,6 +95,7 @@ public class BodyService {
     private BodyRecordResponse toResponse(UserBodyRecord curr, UserBodyRecord prev) {
         BodyRecordResponse dto = new BodyRecordResponse();
 
+        dto.setId(curr.getId());
         dto.setRecordDate(curr.getRecordDate());
         dto.setMeasurementType(curr.getMeasurementType());
         dto.setWeight(curr.getWeight());

@@ -187,7 +187,7 @@ export default function ExerciseHistoryPage() {
     }, [expandedSession]);
 
     const formatDate = (dateStr: string) => { const date = new Date(dateStr); const days = ["일","월","화","수","목","금","토"]; return `${date.getMonth()+1}/${date.getDate()} (${days[date.getDay()]})`; };
-    const getMonthOptions = () => { const o=[]; const now=new Date(); for(let i=0;i<12;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1); o.push({value:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,label:`${d.getFullYear()}년 ${d.getMonth()+1}월`});} return o; };
+    const getMonthOptions = () => { const o=[]; const now=new Date(); for(let i=0;i<36;i++){const d=new Date(now.getFullYear(),now.getMonth()-i,1); o.push({value:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,label:`${d.getFullYear()}년 ${d.getMonth()+1}월`});} return o; };  // 36개월(3년)까지 확장: 시트 백필 데이터가 2024-03부터 있어서 12개월로는 안 보였음
 
     const monthlyCalories = sessions.reduce((sum, s) => sum + (s.estimatedCalories || 0), 0);
 

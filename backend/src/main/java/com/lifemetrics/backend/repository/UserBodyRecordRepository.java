@@ -24,17 +24,19 @@ public interface UserBodyRecordRepository extends JpaRepository<UserBodyRecord, 
     Optional<UserBodyRecord> findTopByUserIdAndMeasurementTypeOrderByRecordDateDesc(
             Long userId, MeasurementType measurementType);
 
-    // UserBodyRecordRepository.java에 추가
+    /** 직전 측정 1건만 조회. LIMIT 1이 없으면 과거 기록이 여러 건일 때 NonUniqueResultException이 발생한다. */
     @Query("""
         SELECT r FROM UserBodyRecord r
         WHERE r.userId = :userId
           AND r.recordDate < :date
           AND r.measurementType = :type
         ORDER BY r.recordDate DESC
+        LIMIT 1
         """)
     Optional<UserBodyRecord> findPrevious(
         @Param("userId") Long userId,
         @Param("date") LocalDate date,
         @Param("type") MeasurementType type
     );
+
 }

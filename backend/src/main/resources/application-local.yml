@@ -120,6 +120,9 @@ lotto:
 brevet:
   nas-path: ${BREVET_NAS_PATH:}
 
+permanent:
+  nas-path: ${PERMANENT_NAS_PATH:}
+
 windy:
   api-key: ${WINDY_API_KEY:}
   api-url: https://api.windy.com/api/point-forecast/v2

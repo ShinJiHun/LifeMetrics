@@ -3,6 +3,7 @@ package com.lifemetrics.backend.api;
 import com.lifemetrics.backend.dto.BodyRecordsResponse;
 import com.lifemetrics.backend.dto.WeightLossAnalysisResponse;
 import com.lifemetrics.backend.dto.WeightRequest;
+import com.lifemetrics.backend.service.BodyRecordAnalysisService;
 import com.lifemetrics.backend.service.BodyService;
 import com.lifemetrics.backend.service.FitdaysOcrService;
 import com.lifemetrics.backend.service.InbodyReExtractService;
@@ -23,6 +24,7 @@ public class BodyController {
     private final FitdaysOcrService fitdaysOcrService;
     private final WeightLossAnalysisService weightLossAnalysisService;
     private final InbodyReExtractService inbodyReExtractService;
+    private final BodyRecordAnalysisService bodyRecordAnalysisService;
 
     // 신체 기록 조회
     @GetMapping("/records")
@@ -87,6 +89,23 @@ public class BodyController {
             @RequestParam(value = "userId", defaultValue = "1") Long userId) {
         Map<String, Object> result = fitdaysOcrService.processImage(file, userId);
         return ResponseEntity.ok(result);
+    }
+
+    // 신체 기록 1건에 대한 Claude 분석 생성. 호출 비용이 있어 화면에서 버튼으로만 부른다.
+    @PostMapping("/records/{id}/analyze")
+    public ResponseEntity<?> analyzeBodyRecord(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") Long userId) {
+        try {
+            String result = bodyRecordAnalysisService.analyze(userId, id);
+            if (result == null) {
+                return ResponseEntity.status(503)
+                        .body(Map.of("message", "AI 분석을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+            }
+            return ResponseEntity.ok(Map.of("rawLlmJson", result));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("message", e.getMessage()));
+        }
     }
 
     // 체중 수동 입력

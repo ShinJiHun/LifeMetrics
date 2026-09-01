@@ -17,11 +17,15 @@ public class RunPodClient {
 
     private final WebClient runPodWebClient;
 
-    @Value("${runpod.endpoint-id}")
+    @Value("${runpod.endpoint-id:}")
     private String endpointId;
 
     private static final int MAX_POLL_ATTEMPTS = 60;       // 최대 폴링 횟수
     private static final long POLL_INTERVAL_MS = 3000;     // 3초 간격
+
+    public boolean isConfigured() {
+        return endpointId != null && !endpointId.isBlank();
+    }
 
     /**
      * RunPod 서버리스 엔드포인트에 비동기 요청(/run)을 보낸 뒤,

@@ -6,6 +6,7 @@ import com.lifemetrics.backend.persona.entity.BlogPost;
 import com.lifemetrics.backend.persona.entity.PersonaProfile;
 import com.lifemetrics.backend.persona.repository.BlogPostRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,8 +20,9 @@ import java.util.Optional;
  * 캐시된 페르소나 프로필 + 질문과 키워드가 겹치는 상위 글 본문을 프롬프트에 주입한다.
  * 글 수가 적어(~50개) in-memory 점수화로 충분하다.
  *
- * LLM 호출 우선순위: Gemini(Vertex) → 로컬 Ollama → RunPod(클라우드 서버리스 Ollama).
+ * LLM 호출 우선순위: 로컬 Ollama(개발 환경) → RunPod(클라우드 서버리스 Ollama, GCP prod 기본) → Gemini(Vertex, RunPod 실패 시 최종 폴백).
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PersonaChatService {
@@ -40,12 +42,12 @@ public class PersonaChatService {
     private static final int MAX_TOKENS = 2048;
 
     public String chat(List<PersonaChatRequest.Message> messages) {
-        boolean useGemini = geminiService.hasApiKey();
-        boolean useOllama = !useGemini && ollamaService.isAvailable();
-        boolean useRunPod = !useGemini && !useOllama;
+        boolean useOllama = ollamaService.isAvailable();
+        boolean useRunPod = !useOllama && runPodClient.isConfigured();
+        boolean useGemini = !useOllama && !useRunPod && geminiService.hasApiKey();
 
-        if (!useGemini && !useOllama && !useRunPod) {
-            return "AI 서비스가 설정되지 않았습니다. (ADC / Vertex 프로젝트 확인 필요, 또는 로컬 Ollama 미기동)";
+        if (!useOllama && !useRunPod && !useGemini) {
+            return "AI 서비스가 설정되지 않았습니다. (로컬 Ollama 미기동 / RunPod 미설정 / ADC-Vertex 프로젝트 확인 필요)";
         }
         if (messages == null || messages.isEmpty()) {
             return "메시지가 비어 있습니다.";
@@ -83,14 +85,21 @@ public class PersonaChatService {
         }
 
         String reply;
-        if (useGemini) {
-            reply = geminiService.chat(systemPrompt, history, MAX_TOKENS);
-        } else if (useOllama) {
+        if (useOllama) {
             reply = ollamaService.chat(systemPrompt, history);
-        } else {
+        } else if (useRunPod) {
             // RunPod(Ollama)은 단일 프롬프트 문자열만 받으므로 systemPrompt + 이력을 합친다.
             String combinedPrompt = buildCombinedPrompt(systemPrompt, history);
-            reply = runPodClient.ask(combinedPrompt);
+            try {
+                reply = runPodClient.ask(combinedPrompt);
+            } catch (Exception e) {
+                log.warn("RunPod 호출 실패, Gemini로 폴백 시도: {}", e.getMessage());
+                reply = geminiService.hasApiKey()
+                        ? geminiService.chat(systemPrompt, history, MAX_TOKENS)
+                        : null;
+            }
+        } else {
+            reply = geminiService.chat(systemPrompt, history, MAX_TOKENS);
         }
 
         return (reply != null && !reply.isBlank()) ? reply
