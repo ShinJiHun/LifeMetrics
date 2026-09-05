@@ -22,6 +22,7 @@ export default function SideBar({ open = false }: { open?: boolean }) {
     const { pathname } = useLocation();
     const persona = resolvePersonaFromPath(pathname);
     const meta = PERSONA_META[persona];
+    const { isAdmin } = useAdmin();
 
     return (
         <aside
@@ -70,6 +71,8 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                 ) : (
                     <PersonaContentMenu persona={persona} accent={meta.accent} />
                 )}
+
+                {persona === "human" && isAdmin && <HumanLottoMenu accent={meta.accent} />}
             </div>
 
             {persona === "developer" && (
@@ -92,6 +95,24 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                 </NavLink>
             )}
         </aside>
+    );
+}
+
+function HumanLottoMenu({ accent }: { accent: string }) {
+    return (
+        <div style={{ marginTop: 24 }}>
+            <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
+                🎱 로또
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <NavLink to="/human/lotto/stats" style={subLinkStyle(accent)} end>
+                    📊 통계·기록
+                </NavLink>
+                <NavLink to="/human/lotto/create" style={subLinkStyle(accent)}>
+                    ➕ 생성
+                </NavLink>
+            </nav>
+        </div>
     );
 }
 

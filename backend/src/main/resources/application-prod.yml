@@ -36,6 +36,18 @@ spring:
         idle-timeout: 600000
         max-lifetime: 1800000
 
+    lotto:
+      url: jdbc:mariadb://172.17.0.1:3306/lotto_db
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.mariadb.jdbc.Driver
+      hikari:
+        maximum-pool-size: 3
+        minimum-idle: 1
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+
   jpa:
     hibernate:
       ddl-auto: none
@@ -120,6 +132,11 @@ brevet:
 
 permanent:
   nas-path: /mnt/200gb/NAS/data/permanent
+
+lotto:
+  datasource:
+    enabled: true
+  nas-path: /mnt/200gb/NAS/data/lotto
 
 app:
   base-url: https://ride.tho881.me

@@ -2,12 +2,16 @@ package com.lifemetrics.backend.lotto.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "lotto_number")
 @Getter
+@Setter
+@NoArgsConstructor
 public class LottoNumberEntity {
 
     @Id

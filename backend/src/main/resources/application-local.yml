@@ -43,6 +43,20 @@ spring:
         idle-timeout: 600000
         max-lifetime: 1800000
 
+    # 로또 DB (같은 인스턴스, 별도 스키마). 스키마 생성: sql/lotto_schema.sql 참고.
+    # 준비되기 전까지는 lotto.datasource.enabled=false 로 꺼둔다.
+    lotto:
+      url: jdbc:mariadb://localhost:3307/lotto_db
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+      driver-class-name: org.mariadb.jdbc.Driver
+      hikari:
+        maximum-pool-size: 3
+        minimum-idle: 1
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+
   jpa:
     hibernate:
       ddl-auto: none
@@ -115,7 +129,8 @@ google:
 
 lotto:
   datasource:
-    enabled: false
+    enabled: true
+  nas-path: ${LOTTO_NAS_PATH:/mnt/200gb/NAS/data/lotto}
 
 brevet:
   nas-path: ${BREVET_NAS_PATH:}

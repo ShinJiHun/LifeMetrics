@@ -19,6 +19,8 @@ import CareerCompanyDetailPage from "@/pages/persona/CareerCompanyDetailPage";
 import ProfileManagePage from "@/pages/persona/ProfileManagePage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
+import LottoStatsPage from "@/pages/human/lotto/LottoStatsPage";
+import LottoCreatePage from "@/pages/human/lotto/LottoCreatePage";
 import BlogHomePage from "@/pages/blog/BlogHomePage";
 import MenuManagePage from "@/pages/blog/MenuManagePage";
 import SubCategoryPage from "@/pages/blog/SubCategoryPage";
@@ -77,6 +79,11 @@ export default function App() {
                         <Route path={`/${p}/post/:postId/edit`} element={<RequireAdmin><PostEditorPage /></RequireAdmin>} />
                     </Route>
                 ))}
+
+                {/* 인간 페르소나 - 로또 (관리자 전용) */}
+                <Route path="/human/lotto" element={<Navigate to="/human/lotto/stats" replace />} />
+                <Route path="/human/lotto/stats" element={<RequireAdmin><LottoStatsPage /></RequireAdmin>} />
+                <Route path="/human/lotto/create" element={<RequireAdmin><LottoCreatePage /></RequireAdmin>} />
 
                 <Route path="/bikes" element={<BikeListPage />} />
                 <Route path="/bikes/register" element={<RequireAdmin><BikeRegisterPage /></RequireAdmin>} />

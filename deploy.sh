@@ -77,6 +77,7 @@ ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
     -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media \
     -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet \
     -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent \
+    -v /mnt/200gb/NAS/data/lotto:/mnt/200gb/NAS/data/lotto \
     -e SPRING_PROFILES_ACTIVE=prod \
     --restart unless-stopped \
     lifemetrics:latest'

@@ -3,8 +3,11 @@ package com.lifemetrics.backend;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import jakarta.annotation.PostConstruct;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
 import java.util.TimeZone;
 
+@EnableScheduling  // ← 추가
 @SpringBootApplication
 public class BackendApplication {
 

@@ -3,7 +3,9 @@ package com.lifemetrics.backend.lotto.api;
 import com.lifemetrics.backend.lotto.dto.LottoCurrentResponse;
 import com.lifemetrics.backend.lotto.dto.LottoResultResponse;
 import com.lifemetrics.backend.lotto.dto.LottoRoundDto;
+import com.lifemetrics.backend.lotto.dto.LottoStatsResponse;
 import com.lifemetrics.backend.lotto.service.LottoService;
+import com.lifemetrics.backend.lotto.service.LottoStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,7 @@ import java.util.List;
 public class LottoController {
 
     private final LottoService lottoService;
+    private final LottoStatsService lottoStatsService;
 
     @GetMapping("/round/current")
     public LottoCurrentResponse current() {
@@ -35,5 +38,11 @@ public class LottoController {
     @GetMapping("/round/{round}/result")
     public LottoResultResponse result(@PathVariable int round) {
         return lottoService.getRoundResult(round);
+    }
+
+    /** 당첨번호 이력 기반 통계/패턴 (번호별 출현빈도, 홀짝/고저 분포, 평균 합계 등). */
+    @GetMapping("/stats")
+    public LottoStatsResponse stats() {
+        return lottoStatsService.getStats();
     }
 }
