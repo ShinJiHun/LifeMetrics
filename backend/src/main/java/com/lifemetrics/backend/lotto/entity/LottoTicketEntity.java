@@ -63,6 +63,10 @@ public class LottoTicketEntity {
     @Column(name = "purchased_at")
     private LocalDate purchasedAt;
 
+    /** 용지에 인쇄된 발행일시. 같은 용지를 중복 업로드했는지 판단하는 기준(round+issuedAt+번호)으로 쓰인다. */
+    @Column(name = "issued_at")
+    private LocalDateTime issuedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

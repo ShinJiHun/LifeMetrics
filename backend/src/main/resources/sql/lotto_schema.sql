@@ -54,7 +54,13 @@ CREATE TABLE IF NOT EXISTS lotto_ticket (
     source        VARCHAR(20)  NOT NULL DEFAULT 'OCR',  -- OCR | MANUAL
     image_path    VARCHAR(500)     NULL,   -- NAS에 저장된 원본 사진 경로
     purchased_at  DATE             NULL,
+    issued_at     DATETIME         NULL,   -- 용지에 인쇄된 발행일시 (중복 용지 판별 기준)
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_lotto_ticket_round (round),
-    INDEX idx_lotto_ticket_group (ticket_group)
+    INDEX idx_lotto_ticket_group (ticket_group),
+    INDEX idx_lotto_ticket_dedupe (round, issued_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 기존에 이미 lotto_ticket 테이블이 있던 환경(운영 DB 등)에서 issued_at 컬럼만 추가하려면:
+-- ALTER TABLE lotto_ticket ADD COLUMN issued_at DATETIME NULL AFTER purchased_at;
+-- ALTER TABLE lotto_ticket ADD INDEX idx_lotto_ticket_dedupe (round, issued_at);

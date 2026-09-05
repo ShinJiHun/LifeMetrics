@@ -18,7 +18,10 @@ public class LottoTicketDto {
     private final String source;
     private final String imagePath;
     private final LocalDate purchasedAt;
+    private final LocalDateTime issuedAt;
     private final LocalDateTime createdAt;
+
+    private final boolean duplicate;
 
     private final int oddCount;
     private final int evenCount;
@@ -31,7 +34,7 @@ public class LottoTicketDto {
     private final Integer matchCount;
     private final Boolean bonusMatch;
 
-    public LottoTicketDto(LottoTicketEntity e, Integer matchCount, Boolean bonusMatch) {
+    public LottoTicketDto(LottoTicketEntity e, Integer matchCount, Boolean bonusMatch, boolean duplicate) {
         this.id = e.getId();
         this.ticketGroup = e.getTicketGroup();
         this.round = e.getRound();
@@ -40,7 +43,9 @@ public class LottoTicketDto {
         this.source = e.getSource();
         this.imagePath = e.getImagePath();
         this.purchasedAt = e.getPurchasedAt();
+        this.issuedAt = e.getIssuedAt();
         this.createdAt = e.getCreatedAt();
+        this.duplicate = duplicate;
 
         this.oddCount = LottoStatsUtil.oddCount(numbers);
         this.evenCount = LottoStatsUtil.evenCount(numbers);
@@ -53,7 +58,11 @@ public class LottoTicketDto {
         this.bonusMatch = bonusMatch;
     }
 
+    public LottoTicketDto(LottoTicketEntity e, Integer matchCount, Boolean bonusMatch) {
+        this(e, matchCount, bonusMatch, false);
+    }
+
     public LottoTicketDto(LottoTicketEntity e) {
-        this(e, null, null);
+        this(e, null, null, false);
     }
 }

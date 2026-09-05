@@ -59,7 +59,9 @@ export interface LottoTicket {
     source: string;
     imagePath: string | null;
     purchasedAt: string | null;
+    issuedAt: string | null;
     createdAt: string;
+    duplicate: boolean;
     oddCount: number;
     evenCount: number;
     lowCount: number;
