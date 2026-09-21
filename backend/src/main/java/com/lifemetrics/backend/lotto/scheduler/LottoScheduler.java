@@ -21,11 +21,4 @@ public class LottoScheduler {
         log.info("🎰 Starting scheduled lotto sync... (Every Saturday 21:00 KST)");
         lottoSyncService.syncAll();
     }
-
-    // 테스트용: 2분마다 로그 확인
-    @Scheduled(cron = "0 */2 * * * *")
-    public void testSchedulerLog() {
-        log.info("✅ LottoScheduler is working! Real sync runs Saturday 21:00 KST");
-        log.info("📅 Current time: {}", new java.util.Date());
-    }
 }

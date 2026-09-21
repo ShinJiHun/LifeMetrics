@@ -23,14 +23,4 @@ public class PensionScheduler {
         pensionSyncService.syncAll();
         log.info("✅ Pension lottery sync scheduled task completed");
     }
-
-    /**
-     * 테스트용: 2분마다 로그 확인
-     * 배포 후 확인 후 주석처리 또는 삭제 가능
-     */
-    @Scheduled(cron = "0 */2 * * * *")
-    public void testSchedulerLog() {
-        log.info("✅ PensionScheduler is working! Real sync runs Friday 20:00 KST");
-        log.info("📅 Current time: {}", new java.util.Date());
-    }
 }
