@@ -4,9 +4,12 @@ import com.lifemetrics.backend.lotto.service.LottoSyncService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+// 개발 서버 등에서 app.scheduling.enabled=false 로 끄면 자동 동기화가 돌지 않는다(기본 true).
+@ConditionalOnProperty(name = "app.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 @Component
 public class LottoScheduler {
 
