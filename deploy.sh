@@ -29,7 +29,7 @@ case "$1" in
     3)
         BUILD_BACKEND=true
         BUILD_FRONTEND=true
-        echo "⚡ 전체 빌드"
+        echo "⚡  전체 빌드"
         ;;
 esac
 
@@ -63,6 +63,7 @@ rsync -avz --progress -e "ssh -i ${SSH_KEY}" frontend/dist/ ${USER}@${SERVER}:${
 echo "[4/5] Docker 재시작 중..."
 
 ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
+  sed -i.bak "s/^COPY static \/app\/static/#COPY static \/app\/static/" Dockerfile && \
   docker build -t lifemetrics:new . && \
   docker stop lifemetrics 2>/dev/null; \
   docker rm lifemetrics 2>/dev/null; \
