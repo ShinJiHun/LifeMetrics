@@ -51,6 +51,11 @@ export default function PersonaContentMenu({
                             ✉️ 연락처
                         </NavLink>
                     </>
+                ) : persona === "lottery" ? (
+                    <>
+                        <LotteryCategory accent={accent} />
+                        <PensionCategory accent={accent} />
+                    </>
                 ) : (
                     <NavLink to={`${base}/manage`} style={linkRoot(accent)}>
                         ✏️ 메뉴·글 관리
@@ -58,7 +63,7 @@ export default function PersonaContentMenu({
                 )}
             </nav>
 
-            {persona === "developer" ? null : categories.length === 0 ? (
+            {persona === "developer" || persona === "lottery" ? null : categories.length === 0 ? (
                 <div style={{ fontSize: 13, color: "#9aa0b2", padding: "8px 14px", lineHeight: 1.7 }}>
                     아직 메뉴가 없어요.
                     <br />
@@ -79,6 +84,92 @@ export default function PersonaContentMenu({
                 ))
             )}
         </>
+    );
+}
+
+function LotteryCategory({ accent }: { accent: string }) {
+    const [open, setOpen] = useState(true);
+
+    return (
+        <div style={{ marginBottom: 10 }}>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "8px 6px",
+                    font: "inherit",
+                    fontWeight: 700,
+                    color: "#1b2236",
+                    textAlign: "left",
+                }}
+            >
+                <span style={{ fontSize: 11, color: "#9aa0b2" }}>{open ? "▾" : "▸"}</span>
+                <span>🎱 로또</span>
+            </button>
+            {open && (
+                <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <NavLink to="/lottery/lotto/stats" style={linkStyle(accent)}>
+                        통계
+                    </NavLink>
+                    <NavLink to="/lottery/lotto/records" style={linkStyle(accent)}>
+                        기록
+                    </NavLink>
+                    <NavLink to="/lottery/lotto/create" style={linkStyle(accent)}>
+                        생성
+                    </NavLink>
+                </nav>
+            )}
+        </div>
+    );
+}
+
+function PensionCategory({ accent }: { accent: string }) {
+    const [open, setOpen] = useState(true);
+
+    return (
+        <div style={{ marginBottom: 10 }}>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "8px 6px",
+                    font: "inherit",
+                    fontWeight: 700,
+                    color: "#1b2236",
+                    textAlign: "left",
+                }}
+            >
+                <span style={{ fontSize: 11, color: "#9aa0b2" }}>{open ? "▾" : "▸"}</span>
+                <span>🎫 연금복권</span>
+            </button>
+            {open && (
+                <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <NavLink to="/lottery/pension/stats" style={linkStyle(accent)}>
+                        통계
+                    </NavLink>
+                    <NavLink to="/lottery/pension/records" style={linkStyle(accent)}>
+                        기록
+                    </NavLink>
+                    <NavLink to="/lottery/pension/create" style={linkStyle(accent)}>
+                        생성
+                    </NavLink>
+                </nav>
+            )}
+        </div>
     );
 }
 

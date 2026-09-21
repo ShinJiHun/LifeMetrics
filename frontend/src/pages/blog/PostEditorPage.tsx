@@ -48,7 +48,7 @@ export default function PostEditorPage() {
         return (
             <div style={S.page}>
                 <p style={S.muted}>먼저 메뉴(대메뉴·소메뉴)를 만들어야 글을 쓸 수 있어요.</p>
-                {persona === "human" && (
+                {persona !== "developer" && (
                     <Link to={`/${persona}/manage`} style={{ color: accent, fontWeight: 600 }}>
                         메뉴 관리로 가기 →
                     </Link>

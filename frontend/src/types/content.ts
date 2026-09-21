@@ -1,7 +1,7 @@
 // 개발자·인간 페르소나 블로그 콘텐츠 모델 (localStorage 기반)
 // 대메뉴(Category) → 소메뉴(SubMenu) → 글(Post) 2단계 구조
 
-export type Persona = "developer" | "human";
+export type Persona = "developer" | "human" | "stock" | "lottery";
 export type Visibility = "public" | "private";
 
 // 대메뉴 — 예: 자바의 정석 / 회사 일기

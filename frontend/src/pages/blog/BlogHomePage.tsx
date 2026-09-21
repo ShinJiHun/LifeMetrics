@@ -14,7 +14,9 @@ export default function BlogHomePage() {
     const heading =
         persona === "developer"
             ? { kicker: "DEVELOPER", title: "개발자 신지훈", sub: "코드, 프로젝트, 그리고 만들면서 배운 것들을 기록합니다." }
-            : { kicker: "HUMAN", title: "인간 신지훈", sub: "일상에서 마주친 생각과 감정, 그리고 사람에 대한 기록." };
+            : persona === "stock"
+                ? { kicker: "STOCK", title: "증권 신지훈", sub: "투자 기록, 시장 관찰, 그리고 자산에 대한 생각을 정리합니다." }
+                : { kicker: "HUMAN", title: "인간 신지훈", sub: "일상에서 마주친 생각과 감정, 그리고 사람에 대한 기록." };
 
     return (
         <div style={S.page}>
@@ -22,7 +24,7 @@ export default function BlogHomePage() {
                 <div style={{ ...S.kicker, color: accent }}>{heading.kicker}</div>
                 <h1 style={S.title}>{heading.title}</h1>
                 <p style={S.subtitle}>{heading.sub}</p>
-                {persona === "human" && (
+                {persona !== "developer" && (
                     <AdminOnly>
                         <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
                             <Link to={`/${persona}/manage`} style={{ ...S.btn, background: accent }}>
@@ -36,7 +38,7 @@ export default function BlogHomePage() {
             {categories.length === 0 ? (
                 <div style={S.empty}>
                     아직 메뉴가 없습니다.{" "}
-                    {persona === "human" && (
+                    {persona !== "developer" && (
                         <AdminOnly>
                             <Link to={`/${persona}/manage`} style={{ color: accent, fontWeight: 600 }}>
                                 메뉴 만들기 →

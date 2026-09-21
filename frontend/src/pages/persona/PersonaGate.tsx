@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { CSSProperties } from "react";
 import SettingsTodoModal from "./SettingsTodoModal";
 import AdminBadge from "@/components/common/AdminBadge";
+import { useAdmin } from "@/lib/admin";
 
 // ── 페르소나 정의 ─────────────────────────────
 // route 는 실제 라우터 경로로 바꿔서 쓰세요 (예: navigate(p.route))
@@ -55,9 +57,22 @@ const PERSONAS: Persona[] = [
         iconBg: "#e6f6ec",
         route: "/human",
     },
+    {
+        key: "stock",
+        label: "STOCK",
+        name: "증권 페르소나",
+        desc: "투자, 시장, 그리고 자산 기록",
+        emoji: "📈",
+        accent: "#d97706",
+        tint: "#fff7ec",
+        iconBg: "#fef3e2",
+        route: "/stock",
+    },
 ];
 
 export default function PersonaGate({ onSelect }: PersonaGateProps) {
+    const navigate = useNavigate();
+    const { isAdmin, loading } = useAdmin();
     // 화면 로드 시 RIDER 가 강조된 상태 (스크린샷과 동일)
     const [active, setActive] = useState("rider");
     const [showSettings, setShowSettings] = useState(false);
@@ -99,9 +114,9 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
         .lm-cards {
           margin-top: 52px;
           width: 100%;
-          max-width: 1020px;
+          max-width: 1320px;
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 28px;
           align-items: stretch;
         }
@@ -178,6 +193,9 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
           outline: 3px solid rgba(37, 99, 235, 0.35);
           outline-offset: 3px;
         }
+        @media (max-width: 1100px) {
+          .lm-cards { grid-template-columns: repeat(2, 1fr); max-width: 700px; }
+        }
         @media (max-width: 760px) {
           .lm-cards { grid-template-columns: 1fr; max-width: 420px; }
           .lm-title { font-size: 36px; }
@@ -211,6 +229,32 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
 
             <div className="lm-gate">
                 <AdminBadge style={{ position: "absolute", top: 32, right: 82 }} />
+                {!loading && isAdmin && (
+                    <button
+                        type="button"
+                        onClick={() => navigate("/lottery/lotto/stats")}
+                        title="복권 관리 페이지로 이동"
+                        style={{
+                            position: "absolute",
+                            top: 32,
+                            right: 188,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "6px 12px",
+                            borderRadius: 999,
+                            border: "none",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            fontFamily: "inherit",
+                            background: "#fef3c7",
+                            color: "#92400e",
+                        }}
+                    >
+                        🎰 복권
+                    </button>
+                )}
                 <button
                     type="button"
                     className="lm-gear"

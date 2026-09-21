@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import SideBar from "@/components/common/SideBar.tsx";
 import AdminBadge from "@/components/common/AdminBadge";
+import LotteryButton from "@/components/common/LotteryButton";
 import "@/styles/sidebar.css";
 
 export default function Layout() {
@@ -38,7 +39,8 @@ export default function Layout() {
             {/* 메인 영역 */}
             <main className="app-main">
                 {/* 현재 모드 표시 + 관리자 로그인 진입점 */}
-                <div style={{display: "flex", justifyContent: "flex-end", marginBottom: 8}}>
+                <div style={{display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8}}>
+                    <LotteryButton/>
                     <AdminBadge/>
                 </div>
                 <Outlet/>

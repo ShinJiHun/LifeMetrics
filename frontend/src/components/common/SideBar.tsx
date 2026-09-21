@@ -105,10 +105,10 @@ function HumanLottoMenu({ accent }: { accent: string }) {
                 🎱 로또
             </div>
             <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <NavLink to="/human/lotto/stats" style={subLinkStyle(accent)} end>
+                <NavLink to="/lottery/lotto/stats" style={subLinkStyle(accent)} end>
                     📊 통계·기록
                 </NavLink>
-                <NavLink to="/human/lotto/create" style={subLinkStyle(accent)}>
+                <NavLink to="/lottery/lotto/create" style={subLinkStyle(accent)}>
                     ➕ 생성
                 </NavLink>
             </nav>
