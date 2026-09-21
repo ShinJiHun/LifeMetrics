@@ -82,7 +82,8 @@ ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
   cp backend/build/libs/lifemetrics.jar ./lifemetrics.jar && \
   echo "✓ JAR 파일 준비 완료" && \
 
-  sed -i.bak "s/^COPY static \/app\/static/#COPY static \/app\/static/" Dockerfile && \
+  { [ -f Dockerfile.bak ] || cp Dockerfile Dockerfile.bak; } && \
+  sed -i "s/^COPY static \/app\/static/#COPY static \/app\/static/" Dockerfile && \
   docker build -t lifemetrics:new . && \
   docker stop lifemetrics 2>/dev/null; \
   docker rm lifemetrics 2>/dev/null; \
@@ -113,4 +114,3 @@ echo ""
 echo "📝 노트:"
 echo "- Backend는 서버에서 빌드되었습니다 (로컬 네트워크 제한 우회)"
 echo "- Frontend는 로컬에서 빌드되고 static 파일로 서버로 전송됩니다"
-echo "- PensionController는 read-only 모드로 구성됩니다"

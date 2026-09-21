@@ -63,7 +63,8 @@ rsync -avz --progress -e "ssh -i ${SSH_KEY}" frontend/dist/ ${USER}@${SERVER}:${
 echo "[4/5] Docker 재시작 중..."
 
 ssh -i ${SSH_KEY} ${USER}@${SERVER} 'cd /mnt/200gb/apps && \
-  sed -i.bak "s/^COPY static \/app\/static/#COPY static \/app\/static/" Dockerfile && \
+  { [ -f Dockerfile.bak ] || cp Dockerfile Dockerfile.bak; } && \
+  sed -i "s/^COPY static \/app\/static/#COPY static \/app\/static/" Dockerfile && \
   docker build -t lifemetrics:new . && \
   docker stop lifemetrics 2>/dev/null; \
   docker rm lifemetrics 2>/dev/null; \
