@@ -3,13 +3,13 @@
 # 인자: $1 = dev | prod,  $2 = 서버 IP
 #
 # 하는 일: 해당 환경 디렉터리의 Dockerfile/JAR/static 으로 이미지를 빌드하고 컨테이너를 교체한다.
+# dev 와 prod 는 DB/NAS 를 공유한다(차이: 포트, 스케줄러/슬랙 off, 메모리 제한).
 # 헬스체크에 실패하면 직전 이미지(:prev)로 자동 롤백한다.
 set -euo pipefail
 
 TARGET="${1:?usage: dev|prod}"
 SERVER_IP="${2:?server ip}"
 ENV_FILE=/mnt/200gb/project/data_pipeline/.env
-DB_HOST=172.17.0.1
 
 case "$TARGET" in
     dev)  DIR=/mnt/200gb/apps-dev; NAME=lifemetrics-dev; IMAGE=lifemetrics-dev; PORT=8081 ;;
@@ -18,40 +18,29 @@ case "$TARGET" in
 esac
 
 run_container() {   # $1 = 이미지 태그
+    # dev 와 prod 는 같은 DB·NAS 를 쓴다(개발 서버에서 만든 데이터/파일이 운영에도 그대로 보임).
+    # dev 는 "중복 실행되면 안 되는 부수효과"만 끈다: 자동 동기화 스케줄러, 슬랙 알림.
     local args=(
         -d --name "$NAME" -p "$PORT:8080"
         --add-host=host.docker.internal:host-gateway
         --env-file "$ENV_FILE"
         -e SPRING_PROFILES_ACTIVE=prod
         -v "$DIR/static:/app/static:ro"
+        -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw
+        -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media
+        -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet
+        -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent
+        -v /mnt/200gb/NAS/data/lotto:/mnt/200gb/NAS/data/lotto
         --restart unless-stopped
     )
 
     if [ "$TARGET" = dev ]; then
-        # 개발 서버: 운영 DB/NAS/알림을 건드리지 않도록 전부 분리하거나 읽기 전용으로 둔다.
-        mkdir -p "$DIR/nas/lotto"
         args+=(
-            -e "SPRING_DATASOURCE_RIDING_URL=jdbc:mariadb://$DB_HOST:3306/riding_db_dev"
-            -e "SPRING_DATASOURCE_JOURNAL_URL=jdbc:mariadb://$DB_HOST:3306/journal_db_dev"
-            -e "SPRING_DATASOURCE_LOTTO_URL=jdbc:mariadb://$DB_HOST:3306/lotto_db_dev"
-            -e APP_SCHEDULING_ENABLED=false          # 로또/연금복권 자동 동기화 끔
+            -e APP_SCHEDULING_ENABLED=false          # 로또/연금복권 자동 동기화 끔(운영과 중복 실행 방지)
             -e SLACK_WEBHOOK_URL=                    # 슬랙 알림 끔
             -e "APP_BASE_URL=http://$SERVER_IP:$PORT"
             -e JAVA_OPTS=-Xmx512m
             --memory 900m
-            -v "$DIR/nas/lotto:/mnt/200gb/NAS/data/lotto"                                  # 쓰기: dev 전용 폴더
-            -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw:ro                       # 운영 NAS 는 읽기 전용
-            -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media:ro
-            -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet:ro
-            -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent:ro
-        )
-    else
-        args+=(
-            -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw
-            -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media
-            -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet
-            -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent
-            -v /mnt/200gb/NAS/data/lotto:/mnt/200gb/NAS/data/lotto
         )
     fi
 
