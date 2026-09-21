@@ -18,6 +18,11 @@ DEV_DIR="/mnt/200gb/apps-dev"
 DEV_PORT=8081
 
 REPO_PATH="$(cd "$(dirname "$0")" && pwd)"
+
+# Gradle 은 Java 21 로 실행한다. 셸 기본 java 가 26 이면 빌드 스크립트 컴파일이 실패한다.
+if [ -x /usr/libexec/java_home ] && JAVA21="$(/usr/libexec/java_home -v 21 2>/dev/null)" && [ -n "$JAVA21" ]; then
+    export JAVA_HOME="$JAVA21"
+fi
 SSH=(ssh -i "$SSH_KEY" "$USER@$SERVER")
 SSH_E="ssh -i $SSH_KEY"
 
