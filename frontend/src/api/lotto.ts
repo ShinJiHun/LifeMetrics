@@ -110,7 +110,8 @@ export function fetchLottoStats(): Promise<LottoStatsResponse> {
 }
 
 export function fetchLottoTickets(): Promise<LottoTicket[]> {
-    return getJson("/api/lotto/ticket/list");
+    // 최신 50개만 가져옴 (성능 최적화)
+    return getJson("/api/lotto/ticket/list?page=0&size=50");
 }
 
 export async function uploadLottoTicket(file: File): Promise<LottoTicketUploadResponse> {
@@ -124,6 +125,23 @@ export async function uploadLottoTicket(file: File): Promise<LottoTicketUploadRe
             throw new Error("관리자 비밀번호로 로그인하여 시도해주세요.");
         }
         throw new Error(body.message ?? "업로드에 실패했습니다.");
+    }
+    return res.json();
+}
+
+/** 로또 용지 QR코드를 스캔해서 얻은 텍스트(동행복권 확인 URL)로 회차/번호를 등록한다. */
+export async function registerLottoTicketByQr(qrText: string): Promise<LottoTicketUploadResponse> {
+    const res = await fetch("/api/lotto/ticket/qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qrText }),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (body.code === "ADMIN_REQUIRED") {
+            throw new Error("관리자 비밀번호로 로그인하여 시도해주세요.");
+        }
+        throw new Error(body.message ?? "QR 인식에 실패했습니다.");
     }
     return res.json();
 }

@@ -19,9 +19,13 @@ import CareerCompanyDetailPage from "@/pages/persona/CareerCompanyDetailPage";
 import ProfileManagePage from "@/pages/persona/ProfileManagePage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
-import LottoStatsPage from "@/pages/human/lotto/LottoStatsPage";
-import LottoCreatePage from "@/pages/human/lotto/LottoCreatePage";
+import LottoStatsPage from "@/pages/lottery/lotto/LottoStatsPage";
+import LottoCreatePage from "@/pages/lottery/lotto/LottoCreatePage";
+import PensionStatsPage from "@/pages/lottery/pension/PensionStatsPage";
+import LottoRecordsPage from "@/pages/lottery/lotto/LottoRecordsPage";
 import BlogHomePage from "@/pages/blog/BlogHomePage";
+import PensionRecordsPage from "@/pages/lottery/pension/PensionRecordsPage";
+import PensionCreatePage from "@/pages/lottery/pension/PensionCreatePage";
 import MenuManagePage from "@/pages/blog/MenuManagePage";
 import SubCategoryPage from "@/pages/blog/SubCategoryPage";
 import PostDetailPage from "@/pages/blog/PostDetailPage";
@@ -66,11 +70,11 @@ export default function App() {
                 <Route path="/persona/developer/career-detail/:companyId/:page" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/:section" element={<PersonaPortfolioPage />} />
 
-                {/* 개발자 / 인간 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}
-                {["developer", "human"].map((p) => (
+                {/* 개발자 / 인간 / 증권 페르소나 블로그 (대메뉴 → 소메뉴 → 글) */}
+                {["developer", "human", "stock"].map((p) => (
                     <Route key={p}>
                         <Route path={`/${p}`} element={<BlogHomePage />} />
-                        {p === "human" && (
+                        {p !== "developer" && (
                             <Route path={`/${p}/manage`} element={<RequireAdmin><MenuManagePage /></RequireAdmin>} />
                         )}
                         <Route path={`/${p}/sub/:subId`} element={<SubCategoryPage />} />
@@ -81,11 +85,19 @@ export default function App() {
                 ))}
 
                 {/* 인간 페르소나 - 로또 (관리자 전용) */}
-                <Route path="/human/lotto" element={<Navigate to="/human/lotto/stats" replace />} />
-                <Route path="/human/lotto/stats" element={<RequireAdmin><LottoStatsPage /></RequireAdmin>} />
-                <Route path="/human/lotto/create" element={<RequireAdmin><LottoCreatePage /></RequireAdmin>} />
+                {/* 인간 페르소나 - 연금복권 (관리자 전용) */}
+                <Route path="/lottery" element={<Navigate to="/lottery/lotto/stats" replace />} />
+                <Route path="/lottery/pension" element={<Navigate to="/lottery/pension/stats" replace />} />
+                <Route path="/lottery/pension/stats" element={<RequireAdmin><PensionStatsPage /></RequireAdmin>} />
+
+                <Route path="/lottery/lotto" element={<Navigate to="/lottery/lotto/stats" replace />} />
+                <Route path="/lottery/lotto/stats" element={<RequireAdmin><LottoStatsPage /></RequireAdmin>} />
+                <Route path="/lottery/lotto/create" element={<RequireAdmin><LottoCreatePage /></RequireAdmin>} />
 
                 <Route path="/bikes" element={<BikeListPage />} />
+                <Route path="/lottery/lotto/records" element={<RequireAdmin><LottoRecordsPage /></RequireAdmin>} />
+                <Route path="/lottery/pension/records" element={<RequireAdmin><PensionRecordsPage /></RequireAdmin>} />
+                <Route path="/lottery/pension/create" element={<RequireAdmin><PensionCreatePage /></RequireAdmin>} />
                 <Route path="/bikes/register" element={<RequireAdmin><BikeRegisterPage /></RequireAdmin>} />
                 <Route path="/bikes/:id" element={<BikeDetailPage />} />
             </Route>
