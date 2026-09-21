@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,6 +32,8 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        RequestMatcher spaRoute = SpaForwardController::isSpaRoute;
+
         http
                 // 쓰기 요청은 관리자만. 읽기는 모두 허용.
                 .addFilterBefore(adminWriteFilter, AuthorizationFilter.class)
@@ -47,6 +50,8 @@ public class SecurityConfig {
                                 "/muscles/**"
                         ).permitAll()
                         .requestMatchers("/api/**").permitAll()
+                        // SPA 클라이언트 라우트(/lottery/... 등) 직접 접속/새로고침 → SpaForwardController 가 index.html 로 포워딩
+                        .requestMatchers(spaRoute).permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

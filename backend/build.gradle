@@ -61,3 +61,7 @@ bootJar {
     archiveBaseName = 'lifemetrics'
     archiveVersion = ''
 }
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
