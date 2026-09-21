@@ -75,6 +75,22 @@ public class LottoTicketOcrService {
             {"round": 1234, "issuedAt": "2024-04-13 20:15:32", "games": [{"label":"A","numbers":[3,11,19,22,34,41]}]}
             """;
 
+    private static final String QR_PROMPT = """
+            다음은 한국 동행복권(dhlottery) 로또 6/45 용지의 QR코드를 스캔해서 얻은 확인 페이지의 HTML
+            원본입니다. 이 페이지에서 추첨 회차(round)와 게임별 번호를 찾아 JSON으로 반환해주세요.
+
+            - round: 회차 번호 (정수, 못 찾으면 null)
+            - games: 페이지에 표시된 각 게임(A, B, C, D, E 중 존재하는 것만)의 배열.
+              각 원소는 { "label": "A", "numbers": [정수 6개] } 형식입니다.
+
+            번호는 1~45 범위의 정수여야 합니다. 당첨 여부/보너스 번호는 무시하고 구매한 게임 번호만
+            추출하세요. HTML 태그나 스타일은 무시하고 실제 표시되는 값만 사용하세요.
+            JSON만 반환하고 다른 텍스트는 포함하지 마세요. 예:
+            {"round": 1234, "games": [{"label":"A","numbers":[3,11,19,22,34,41]}]}
+
+            HTML:
+            """;
+
     public LottoTicketUploadResponse upload(MultipartFile file) {
         try {
             byte[] fileBytes = file.getBytes();
@@ -89,67 +105,125 @@ public class LottoTicketOcrService {
 
             Integer round = data.hasNonNull("round") ? data.get("round").asInt() : null;
             LocalDateTime issuedAt = parseIssuedAt(data);
-            JsonNode gamesNode = data.get("games");
-            if (gamesNode == null || !gamesNode.isArray() || gamesNode.isEmpty()) {
+            List<int[]> games = extractGames(data);
+            if (games == null) {
                 return LottoTicketUploadResponse.fail("용지에서 게임 번호를 인식하지 못했습니다.");
             }
 
-            List<int[]> games = new ArrayList<>();
-            for (JsonNode game : gamesNode) {
-                int[] numbers = toNumbers(game.get("numbers"));
-                if (numbers != null) games.add(numbers);
-            }
-            if (games.isEmpty()) {
-                return LottoTicketUploadResponse.fail("인식된 게임의 번호 형식이 올바르지 않습니다.");
-            }
-
-            // 같은 회차 + 같은 발행일시로 이미 등록된 게임들 (중복 용지 판별). 발행일시를 못 읽었으면 판별 불가하므로 건너뜀.
-            List<LottoTicketEntity> existing = (round != null && issuedAt != null)
-                    ? ticketRepo.findByRoundAndIssuedAt(round, issuedAt)
-                    : List.of();
-
             String imagePath = saveToNas(file, round);
-            String ticketGroup = UUID.randomUUID().toString();
-
-            List<LottoTicketDto> results = new ArrayList<>();
-            int gameNo = 1;
-            int duplicateCount = 0;
-            for (int[] numbers : games) {
-                LottoTicketEntity match = findMatchingNumbers(existing, numbers);
-                if (match != null) {
-                    duplicateCount++;
-                    results.add(new LottoTicketDto(match, null, null, true));
-                    continue;
-                }
-
-                LottoTicketEntity entity = new LottoTicketEntity();
-                entity.setTicketGroup(ticketGroup);
-                entity.setRound(round);
-                entity.setGameNo(gameNo++);
-                entity.setN1(numbers[0]);
-                entity.setN2(numbers[1]);
-                entity.setN3(numbers[2]);
-                entity.setN4(numbers[3]);
-                entity.setN5(numbers[4]);
-                entity.setN6(numbers[5]);
-                entity.setSource("OCR");
-                entity.setImagePath(imagePath);
-                entity.setPurchasedAt(LocalDate.now());
-                entity.setIssuedAt(issuedAt);
-                entity.setCreatedAt(LocalDateTime.now());
-
-                results.add(new LottoTicketDto(ticketRepo.save(entity)));
-            }
-
-            if (duplicateCount == games.size()) {
-                return LottoTicketUploadResponse.duplicate(results);
-            }
-            return LottoTicketUploadResponse.ok(results, duplicateCount);
+            return saveGames(round, issuedAt, games, "OCR", imagePath);
 
         } catch (Exception e) {
             log.error("로또 티켓 OCR 처리 실패", e);
             return LottoTicketUploadResponse.fail("처리 실패: " + e.getMessage());
         }
+    }
+
+    /**
+     * 로또 용지의 QR코드를 스캔해서 얻은 동행복권 확인 페이지 URL로 회차/게임 번호를 등록한다.
+     * QR의 인코딩 자체를 직접 해독하지 않고, 동행복권 서버가 사람이 읽을 수 있게 렌더링한
+     * 확인 페이지를 그대로 가져와 Claude에게 파싱을 맡긴다(OCR과 동일한 패턴).
+     */
+    public LottoTicketUploadResponse registerFromQr(String qrText) {
+        if (qrText == null || qrText.isBlank()) {
+            return LottoTicketUploadResponse.fail("QR 코드를 인식하지 못했습니다.");
+        }
+        if (!qrText.toLowerCase().contains("dhlottery.co.kr")) {
+            return LottoTicketUploadResponse.fail("동행복권 로또 용지의 QR 코드가 아닙니다.");
+        }
+
+        try {
+            String html = fetchQrPage(qrText);
+            String jsonResponse = callClaudeText(QR_PROMPT + html);
+            log.info("Claude 로또 QR 인식 응답: {}", jsonResponse);
+            JsonNode data = parseResponse(jsonResponse);
+
+            Integer round = data.hasNonNull("round") ? data.get("round").asInt() : null;
+            List<int[]> games = extractGames(data);
+            if (games == null) {
+                return LottoTicketUploadResponse.fail("QR 확인 페이지에서 게임 번호를 인식하지 못했습니다.");
+            }
+
+            return saveGames(round, null, games, "QR", null);
+
+        } catch (Exception e) {
+            log.error("로또 티켓 QR 인식 처리 실패", e);
+            return LottoTicketUploadResponse.fail("처리 실패: " + e.getMessage());
+        }
+    }
+
+    private List<int[]> extractGames(JsonNode data) {
+        JsonNode gamesNode = data.get("games");
+        if (gamesNode == null || !gamesNode.isArray() || gamesNode.isEmpty()) return null;
+
+        List<int[]> games = new ArrayList<>();
+        for (JsonNode game : gamesNode) {
+            int[] numbers = toNumbers(game.get("numbers"));
+            if (numbers != null) games.add(numbers);
+        }
+        return games.isEmpty() ? null : games;
+    }
+
+    /** 인식된 게임들을, 회차+발행일시 기준 중복 판별 후 저장한다. */
+    private LottoTicketUploadResponse saveGames(
+            Integer round, LocalDateTime issuedAt, List<int[]> games, String source, String imagePath
+    ) {
+        // 같은 회차 + 같은 발행일시로 이미 등록된 게임들 (중복 용지 판별). 발행일시를 못 읽었으면 판별 불가하므로 건너뜀.
+        List<LottoTicketEntity> existing = (round != null && issuedAt != null)
+                ? ticketRepo.findByRoundAndIssuedAt(round, issuedAt)
+                : List.of();
+
+        String ticketGroup = UUID.randomUUID().toString();
+
+        List<LottoTicketDto> results = new ArrayList<>();
+        int gameNo = 1;
+        int duplicateCount = 0;
+        for (int[] numbers : games) {
+            LottoTicketEntity match = findMatchingNumbers(existing, numbers);
+            if (match != null) {
+                duplicateCount++;
+                results.add(new LottoTicketDto(match, null, null, true));
+                continue;
+            }
+
+            LottoTicketEntity entity = new LottoTicketEntity();
+            entity.setTicketGroup(ticketGroup);
+            entity.setRound(round);
+            entity.setGameNo(gameNo++);
+            entity.setN1(numbers[0]);
+            entity.setN2(numbers[1]);
+            entity.setN3(numbers[2]);
+            entity.setN4(numbers[3]);
+            entity.setN5(numbers[4]);
+            entity.setN6(numbers[5]);
+            entity.setSource(source);
+            entity.setImagePath(imagePath);
+            entity.setPurchasedAt(LocalDate.now());
+            entity.setIssuedAt(issuedAt);
+            entity.setCreatedAt(LocalDateTime.now());
+
+            results.add(new LottoTicketDto(ticketRepo.save(entity)));
+        }
+
+        if (duplicateCount == games.size()) {
+            return LottoTicketUploadResponse.duplicate(results);
+        }
+        return LottoTicketUploadResponse.ok(results, duplicateCount);
+    }
+
+    /** QR에 담긴 동행복권 확인 URL을 모바일 UA로 조회해 렌더링된 HTML을 반환한다. */
+    private String fetchQrPage(String url) {
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("User-Agent",
+                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+        ResponseEntity<String> response = restTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), String.class
+        );
+        String body = response.getBody() != null ? response.getBody() : "";
+        // 프롬프트 비용/길이 절약: 확인 페이지는 보통 수 KB면 충분하다.
+        return body.length() > 20_000 ? body.substring(0, 20_000) : body;
     }
 
     /** 회차+발행일시가 같은 기존 게임들 중, 번호 구성(순서 무관)까지 같은 게 있으면 그 엔티티를 반환한다. */
@@ -212,13 +286,6 @@ public class LottoTicketOcrService {
     }
 
     private String callClaude(String base64File, String mediaType, boolean isPdf) {
-        RestTemplate restTemplate = new RestTemplate();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("x-api-key", anthropicApiKey);
-        headers.set("anthropic-version", "2023-06-01");
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
         Map<String, Object> fileBlock = Map.of(
                 "type", isPdf ? "document" : "image",
                 "source", Map.of(
@@ -227,21 +294,26 @@ public class LottoTicketOcrService {
                         "data", base64File
                 )
         );
+        return callClaude(List.of(fileBlock, Map.of("type", "text", "text", PROMPT)));
+    }
+
+    private String callClaudeText(String prompt) {
+        return callClaude(List.of(Map.of("type", "text", "text", prompt)));
+    }
+
+    private String callClaude(List<Map<String, Object>> content) {
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("x-api-key", anthropicApiKey);
+        headers.set("anthropic-version", "2023-06-01");
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = Map.of(
                 "model", "claude-sonnet-5",
                 "max_tokens", 1024,
                 "messages", List.of(
-                        Map.of(
-                                "role", "user",
-                                "content", List.of(
-                                        fileBlock,
-                                        Map.of(
-                                                "type", "text",
-                                                "text", PROMPT
-                                        )
-                                )
-                        )
+                        Map.of("role", "user", "content", content)
                 )
         );
 
@@ -249,17 +321,36 @@ public class LottoTicketOcrService {
         ResponseEntity<Map> response = restTemplate.postForEntity(ANTHROPIC_URL, request, Map.class);
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().get("content");
-            return (String) content.get(0).get("text");
+            List<Map<String, Object>> respContent = (List<Map<String, Object>>) response.getBody().get("content");
+            return (String) respContent.get(0).get("text");
         }
         throw new RuntimeException("Claude API 호출 실패: " + response.getStatusCode());
     }
 
     private JsonNode parseResponse(String rawText) throws Exception {
         String cleaned = rawText.trim();
-        if (cleaned.startsWith("```")) {
-            cleaned = cleaned.replaceAll("```[a-z]*\\n?", "").replaceAll("```", "").trim();
+        
+        // 마크다운 코드 블록 제거 (```json\n{...}\n```)
+        if (cleaned.contains("```")) {
+            int start = cleaned.indexOf("```");
+            int end = cleaned.lastIndexOf("```");
+            if (start != end && end > start) {
+                cleaned = cleaned.substring(start + 3, end).trim();
+                // ```json 또는 ```JSON 형식이면 언어 부분 제거
+                if (cleaned.startsWith("json") || cleaned.startsWith("JSON")) {
+                    cleaned = cleaned.replaceFirst("^[jJ][sS][oO][nN]\\s*", "").trim();
+                }
+            }
         }
+        
+        // JSON 객체 추출 (만약 텍스트 앞뒤에 다른 문자가 있으면)
+        int jsonStart = cleaned.indexOf('{');
+        int jsonEnd = cleaned.lastIndexOf('}');
+        if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+            cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+        }
+        
+        log.debug("파싱 후 정제된 JSON: {}", cleaned);
         return objectMapper.readTree(cleaned);
     }
 }
