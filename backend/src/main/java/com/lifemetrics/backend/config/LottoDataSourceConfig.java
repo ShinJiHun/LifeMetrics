@@ -20,7 +20,10 @@ import java.util.Properties;
 //  완전히 초기화되기 전에 Hibernate가 메타데이터 조회를 시도하면서 경고가 나던 문제가 있어 통일함.)
 @ConditionalOnProperty(name = "lotto.datasource.enabled", havingValue = "true")
 @EnableJpaRepositories(
-        basePackages = "com.lifemetrics.backend.lotto",
+        basePackages = {
+                "com.lifemetrics.backend.lotto",
+                "com.lifemetrics.backend.pension"
+        },
         entityManagerFactoryRef = "lottoEntityManagerFactory",
         transactionManagerRef = "lottoTransactionManager"
 )
@@ -44,7 +47,10 @@ public class LottoDataSourceConfig {
     ) {
         var emf = new LocalContainerEntityManagerFactoryBean();
         emf.setDataSource(dataSource);
-        emf.setPackagesToScan("com.lifemetrics.backend.lotto");
+        emf.setPackagesToScan(
+                "com.lifemetrics.backend.lotto",
+                "com.lifemetrics.backend.pension"
+        );
         emf.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
 
         var properties = new Properties();
