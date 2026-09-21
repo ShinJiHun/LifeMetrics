@@ -1,4 +1,4 @@
-package com.lifemetrics.backend.api;
+package com.lifemetrics.backend.persona.controller;
 
 import com.lifemetrics.backend.dto.PersonaChatRequest;
 import com.lifemetrics.backend.dto.PersonaChatResponse;

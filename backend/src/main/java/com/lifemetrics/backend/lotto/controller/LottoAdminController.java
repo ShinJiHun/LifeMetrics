@@ -1,4 +1,4 @@
-package com.lifemetrics.backend.lotto.api;
+package com.lifemetrics.backend.lotto.controller;
 
 import com.lifemetrics.backend.lotto.dto.LottoSyncResponse;
 import com.lifemetrics.backend.lotto.service.LottoSyncService;

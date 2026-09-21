@@ -1,6 +1,6 @@
-package com.lifemetrics.backend.repository;
+package com.lifemetrics.backend.health.repository;
 
-import com.lifemetrics.backend.entity.HealthCheckup;
+import com.lifemetrics.backend.health.entity.HealthCheckup;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

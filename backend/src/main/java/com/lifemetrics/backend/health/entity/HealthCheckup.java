@@ -1,4 +1,4 @@
-package com.lifemetrics.backend.entity;
+package com.lifemetrics.backend.health.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

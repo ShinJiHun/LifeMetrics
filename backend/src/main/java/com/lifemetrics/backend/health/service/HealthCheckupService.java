@@ -1,9 +1,10 @@
-package com.lifemetrics.backend.service;
+package com.lifemetrics.backend.health.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lifemetrics.backend.dto.HealthCheckupDto;
-import com.lifemetrics.backend.entity.HealthCheckup;
-import com.lifemetrics.backend.repository.HealthCheckupRepository;
+import com.lifemetrics.backend.health.dto.HealthCheckupDto;
+import com.lifemetrics.backend.health.entity.HealthCheckup;
+import com.lifemetrics.backend.health.repository.HealthCheckupRepository;
+import com.lifemetrics.backend.service.ClaudeClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;

@@ -1,6 +1,6 @@
-package com.lifemetrics.backend.dto;
+package com.lifemetrics.backend.health.dto;
 
-import com.lifemetrics.backend.entity.HealthCheckup;
+import com.lifemetrics.backend.health.entity.HealthCheckup;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 

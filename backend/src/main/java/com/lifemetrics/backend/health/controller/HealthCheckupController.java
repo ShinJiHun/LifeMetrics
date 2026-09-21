@@ -1,8 +1,8 @@
-package com.lifemetrics.backend.api;
+package com.lifemetrics.backend.health.controller;
 
-import com.lifemetrics.backend.dto.HealthCheckupDto;
+import com.lifemetrics.backend.health.dto.HealthCheckupDto;
 import com.lifemetrics.backend.security.AdminWriteFilter;
-import com.lifemetrics.backend.service.HealthCheckupService;
+import com.lifemetrics.backend.health.service.HealthCheckupService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
