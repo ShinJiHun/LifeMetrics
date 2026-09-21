@@ -92,3 +92,7 @@ backend/src/main/resources/sql/local/*
 ### macOS ###
 .DS_Store
 **/.DS_Store
+
+### 배포 산출물 / 백업 ###
+lifemetrics-build.tar.gz
+*.bak
