@@ -1,0 +1,172 @@
+/* 체성분 목표 페이지. 레이아웃·카드·AI 섹션은 weight-loss.css 의 wl-* 를 함께 쓴다. */
+
+.bg-toolbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.bg-btn {
+    background: #fff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.bg-btn:disabled {
+    color: #94a3b8;
+    cursor: default;
+}
+
+.bg-btn-primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+}
+
+.bg-btn-primary:disabled {
+    background: #93c5fd;
+    border-color: #93c5fd;
+    color: #fff;
+}
+
+/* 진행률 */
+.bg-progress-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.bg-progress-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 6px;
+}
+
+.bg-progress-head strong {
+    font-size: 14px;
+    color: #1e293b;
+}
+
+.bg-progress-pct {
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.bg-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.bg-bar-fill {
+    height: 100%;
+    background: #2563eb;
+    border-radius: 4px;
+}
+
+.bg-bar-fill.done {
+    background: #16a34a;
+}
+
+.bg-bar-fill.reverse {
+    background: #ef4444;
+}
+
+.bg-sub {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+/* 폼 */
+.bg-form {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px;
+    background: #fff;
+    margin-bottom: 24px;
+}
+
+.bg-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.bg-field label {
+    display: block;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.bg-field input,
+.bg-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 13px;
+}
+
+.bg-basis {
+    font-size: 12px;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    line-height: 1.7;
+}
+
+.bg-error {
+    color: #b91c1c;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+/* 이력 */
+.bg-history {
+    font-size: 13px;
+}
+
+.bg-history td {
+    text-align: left !important;
+}
+
+.bg-status {
+    font-size: 11px;
+    border-radius: 4px;
+    padding: 2px 6px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.bg-status.ACTIVE {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.bg-status.ACHIEVED {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+@media (max-width: 640px) {
+    .wl-page {
+        padding: 16px;
+    }
+}
