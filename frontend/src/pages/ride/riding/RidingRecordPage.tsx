@@ -38,6 +38,9 @@ interface AnalysisData {
     highlights: string[];
     suggestions: string[];
     score: number;
+    recoveryAdvice?: string;
+    userCondition?: string;
+    bodyCondition?: string;
 }
 
 // ── 좌측 카드 ────────────────────────────────────────────────────
@@ -238,17 +241,19 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
     const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
     const [loading, setLoading] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
+    const [condition, setCondition] = useState("");
 
     useEffect(() => {
-        if (!activity) {
-            setAnalysis(null);
-            return;
-        }
         setAnalysis(null);
+        setCondition("");
+        if (!activity) return;
         setLoading(true);
         fetch(`/api/ai/analysis/activity/${activity.id}?userId=1`)
             .then((r) => (r.ok ? r.json() : null))
-            .then(setAnalysis)
+            .then((data: AnalysisData | null) => {
+                setAnalysis(data);
+                setCondition(data?.userCondition ?? "");
+            })
             .catch(() => setAnalysis(null))
             .finally(() => setLoading(false));
     }, [activity?.id]);
@@ -257,7 +262,11 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
         if (!activity) return;
         setAnalyzing(true);
         try {
-            const res = await fetch(`/api/ai/analysis/activity/${activity.id}?userId=1`, {method: "POST"});
+            const res = await fetch(`/api/ai/analysis/activity/${activity.id}?userId=1`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({condition}),
+            });
             if (res.ok) setAnalysis(await res.json());
         } catch (e) {
             console.error("분석 실패", e);
@@ -316,6 +325,20 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
 
                         {loading && <div className="analysis-loading">불러오는 중...</div>}
 
+                        {!loading && (
+                            <div className="analysis-condition">
+                                <label className="analysis-condition-label">📝 오늘 몸상태 (선택)</label>
+                                <textarea
+                                    className="analysis-condition-input"
+                                    rows={3}
+                                    maxLength={500}
+                                    placeholder="예) 어제 4시간 잠, 다리 무거움. 후반에 왼쪽 무릎 뻐근했음. 체감 강도 8/10"
+                                    value={condition}
+                                    onChange={(e) => setCondition(e.target.value)}
+                                />
+                            </div>
+                        )}
+
                         {!loading && !analysis && (
                             <div className="analysis-empty">
                                 <p>아직 분석 결과가 없어요.</p>
@@ -339,6 +362,14 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
                                         )}
                                     </div>
                                 </div>
+
+                                {analysis.bodyCondition && (
+                                    <div className="analysis-body-condition">🩺 {analysis.bodyCondition}</div>
+                                )}
+
+                                {analysis.recoveryAdvice && (
+                                    <div className="analysis-recovery">🛌 {analysis.recoveryAdvice}</div>
+                                )}
 
                                 {analysis.weatherImpact && (
                                     <div className="analysis-weather-impact">🌤 {analysis.weatherImpact}</div>

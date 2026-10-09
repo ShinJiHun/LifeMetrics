@@ -97,6 +97,10 @@ interface AnalysisData {
     // 처방 (신규)
     recoveryAdvice?: string;
     nextRideTip?: string;
+
+    // 몸상태 (라이더 코멘트 기반)
+    userCondition?: string;
+    bodyCondition?: string;
 }
 
 // ── 유틸 ─────────────────────────────────────────────────────────
@@ -278,6 +282,7 @@ export default function ActivityDetailPage() {
     const [segments, setSegments] = useState<SegmentEffort[]>([]);
     const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
     const [analyzing, setAnalyzing] = useState(false);
+    const [condition, setCondition] = useState("");
     const [loading, setLoading] = useState(true);
     const [selectedSegId, setSelectedSegId] = useState<number | null>(null);
     const [editingName, setEditingName] = useState(false);
@@ -306,7 +311,10 @@ export default function ActivityDetailPage() {
 
         fetch(`/api/ai/analysis/activity/${id}?userId=1`)
             .then(r => r.ok ? r.json() : null)
-            .then(ai => setAnalysis(ai))
+            .then((ai: AnalysisData | null) => {
+                setAnalysis(ai);
+                setCondition(ai?.userCondition ?? "");
+            })
             .catch(() => setAnalysis(null));
     }, [id]);
 
@@ -323,7 +331,11 @@ export default function ActivityDetailPage() {
     const handleAnalyze = async () => {
         setAnalyzing(true);
         try {
-            const res = await fetch(`/api/ai/analysis/activity/${id}?userId=1`, {method: "POST"});
+            const res = await fetch(`/api/ai/analysis/activity/${id}?userId=1`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({condition}),
+            });
             if (res.ok) setAnalysis(await res.json());
         } catch (e) {
             console.error(e);
@@ -789,6 +801,18 @@ export default function ActivityDetailPage() {
                         </button>
                     </div>
                     <div className="lm-scroll-hidden" style={S.cardScrollBody}>
+                        <div style={S.conditionBox}>
+                            <div style={{...S.analysisSectionTitle, color: "#94a3b8"}}>📝 오늘 몸상태 (선택)</div>
+                            <textarea
+                                rows={3}
+                                maxLength={500}
+                                placeholder="예) 어제 4시간 잠, 다리 무거움. 후반에 왼쪽 무릎 뻐근했음. 체감 강도 8/10"
+                                value={condition}
+                                onChange={e => setCondition(e.target.value)}
+                                style={S.conditionInput}
+                            />
+                        </div>
+
                         {!analysis && !analyzing && (
                             <div style={S.empty}>분석 버튼을 눌러주세요.</div>
                         )}
@@ -890,6 +914,18 @@ export default function ActivityDetailPage() {
                                                 · {s}
                                             </div>
                                         ))}
+                                    </div>
+                                )}
+
+                                {/* 몸상태 */}
+                                {analysis.bodyCondition && (
+                                    <div style={S.analysisSection}>
+                                        <div style={{...S.analysisSectionTitle, color: "#e879f9"}}>
+                                            🩺 몸상태
+                                        </div>
+                                        <div style={{...S.analysisItem, color: "#f0abfc"}}>
+                                            {analysis.bodyCondition}
+                                        </div>
                                     </div>
                                 )}
 
@@ -1305,6 +1341,19 @@ const S: Record<string, React.CSSProperties> = {
         flex: 1,
     },
     analysisSection: {marginTop: 12},
+    conditionBox: {marginBottom: 12},
+    conditionInput: {
+        width: "100%",
+        boxSizing: "border-box",
+        resize: "vertical",
+        padding: "8px 10px",
+        background: "#0f172a",
+        border: "1px solid #334155",
+        borderRadius: 8,
+        color: "#e2e8f0",
+        fontSize: 12,
+        fontFamily: "inherit",
+    },
     analysisSectionTitle: {
         fontSize: 11,
         fontWeight: 700,

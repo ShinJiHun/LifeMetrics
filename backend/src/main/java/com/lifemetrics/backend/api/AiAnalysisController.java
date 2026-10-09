@@ -1,5 +1,6 @@
 package com.lifemetrics.backend.api;
 
+import com.lifemetrics.backend.dto.ActivityAnalysisRequest;
 import com.lifemetrics.backend.dto.ActivityAnalysisResponse;
 import com.lifemetrics.backend.dto.BrevetAnalysisRequest;
 import com.lifemetrics.backend.dto.BrevetAnalysisResponse;
@@ -100,8 +101,10 @@ public class AiAnalysisController {
     @PostMapping("/activity/{activityId}")
     public ResponseEntity<?> reAnalyzeActivity(
             @PathVariable Long activityId,
-            @RequestParam Long userId) {
-        return ResponseEntity.ok(analysisService.reAnalyzeActivity(userId, activityId));
+            @RequestParam Long userId,
+            @RequestBody(required = false) ActivityAnalysisRequest request) {
+        String condition = request != null ? request.getCondition() : null;
+        return ResponseEntity.ok(analysisService.reAnalyzeActivity(userId, activityId, condition));
     }
 
 }

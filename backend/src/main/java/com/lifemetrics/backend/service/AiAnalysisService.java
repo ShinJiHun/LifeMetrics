@@ -3,6 +3,7 @@ package com.lifemetrics.backend.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.lifemetrics.backend.dto.*;
 import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.entity.ActivityWeatherPoint;
@@ -44,6 +45,13 @@ public class AiAnalysisService {
     // ================================================================
 
     public ActivityAnalysisResponse analyzeActivity(Long userId, Long activityId) {
+        return analyzeActivity(userId, activityId, null);
+    }
+
+    /**
+     * @param condition 라이더가 적은 주관적 컨디션 메모 (없으면 null)
+     */
+    public ActivityAnalysisResponse analyzeActivity(Long userId, Long activityId, String condition) {
         Optional<AiAnalysis> existing = analysisRepo
                 .findByUserIdAndAnalysisTypeAndTargetId(userId, "activity", activityId);
 
@@ -57,8 +65,8 @@ public class AiAnalysisService {
         List<ActivityWeatherPoint> weatherPoints = weatherPointRepo
                 .findByActivityCoreIdOrderBySeq(activityId);
 
-        String prompt = buildActivityPrompt(activity, weatherPoints, userId);
-        String analysisJson = callClaudeApi(prompt);
+        String prompt = buildActivityPrompt(activity, weatherPoints, userId, condition);
+        String analysisJson = attachUserCondition(callClaudeApi(prompt), condition);
 
         AiAnalysis analysis = new AiAnalysis();
         analysis.setUserId(userId);
@@ -87,7 +95,7 @@ public class AiAnalysisService {
                 List<ActivityWeatherPoint> weatherPoints = weatherPointRepo
                         .findByActivityCoreIdOrderBySeq(activity.getId());
 
-                String prompt = buildActivityPrompt(activity, weatherPoints, userId);
+                String prompt = buildActivityPrompt(activity, weatherPoints, userId, null);
                 String analysisJson = callClaudeApi(prompt);
 
                 AiAnalysis analysis = new AiAnalysis();
@@ -115,10 +123,22 @@ public class AiAnalysisService {
                 .orElse(null);
     }
 
-    public ActivityAnalysisResponse reAnalyzeActivity(Long userId, Long activityId) {
+    public ActivityAnalysisResponse reAnalyzeActivity(Long userId, Long activityId, String condition) {
         analysisRepo.findByUserIdAndAnalysisTypeAndTargetId(userId, "activity", activityId)
                 .ifPresent(analysisRepo::delete);
-        return analyzeActivity(userId, activityId);
+        return analyzeActivity(userId, activityId, condition);
+    }
+
+    // 라이더 컨디션 메모를 분석 JSON 에 같이 저장 (재분석 시 다시 보여주기 위함)
+    private String attachUserCondition(String analysisJson, String condition) {
+        if (condition == null || condition.isBlank()) return analysisJson;
+        try {
+            ObjectNode node = (ObjectNode) objectMapper.readTree(analysisJson);
+            node.put("userCondition", condition.trim());
+            return objectMapper.writeValueAsString(node);
+        } catch (Exception e) {
+            return analysisJson;
+        }
     }
 
     // ================================================================
@@ -257,7 +277,8 @@ public class AiAnalysisService {
     // 프롬프트 빌더 — 라이딩 (★ 강화 버전)
     // ================================================================
 
-    private String buildActivityPrompt(ActivityCore a, List<ActivityWeatherPoint> weatherPoints, Long userId) {
+    private String buildActivityPrompt(ActivityCore a, List<ActivityWeatherPoint> weatherPoints, Long userId,
+                                       String condition) {
         StringBuilder sb = new StringBuilder();
 
         // ── 시스템 페르소나 ──
@@ -413,6 +434,12 @@ public class AiAnalysisService {
             sb.append("\n");
         }
 
+        // 라이더 주관적 컨디션
+        if (condition != null && !condition.isBlank()) {
+            sb.append("[라이더 주관적 컨디션 (본인 작성)]\n");
+            sb.append(condition.trim()).append("\n\n");
+        }
+
         // ── 분석 가이드 ──
         sb.append("""
                 ## 분석 가이드
@@ -444,6 +471,13 @@ public class AiAnalysisService {
                 
                 6. **점수 (score)**: 페이싱 + 강도 적정성 + 데이터 완전성 종합 0~100.
                 
+                7. **몸상태 (bodyCondition)**: 라이더 주관적 컨디션이 있으면, 그 내용(피로/수면/통증/체감 강도 등)과
+                   심박·파워·케이던스·TSS 데이터를 대조해 현재 몸상태를 평가.
+                   - 체감 강도와 데이터 강도가 어긋나면 그 원인(누적 피로, 수면 부족, 탈수 등)을 추정
+                   - 통증/불편 언급 시 부위별 원인 추정(피팅, 케이던스, 근피로)과 대처 제시
+                   - recoveryAdvice/nextRideTip 도 이 몸상태를 반영해 조정
+                   주관적 컨디션이 없으면 데이터만으로 추정하고, 추정임을 밝힐 것.
+                
                 ---
                 
                 ## 출력 형식
@@ -464,7 +498,8 @@ public class AiAnalysisService {
                   "highlights": ["잘한 점 1 (수치 인용)", "잘한 점 2", "잘한 점 3"],
                   "suggestions": ["개선점 1 (구체적)", "개선점 2"],
                   "recoveryAdvice": "회복 권장 (40자 이내, 시간 명시)",
-                  "nextRideTip": "다음 라이딩 처방 (80자 이내, 강도/거리/케이던스 등 구체적)"
+                  "nextRideTip": "다음 라이딩 처방 (80자 이내, 강도/거리/케이던스 등 구체적)",
+                  "bodyCondition": "몸상태 분석 (100자 이내, 라이더 코멘트와 데이터를 연결)"
                 }
                 
                 주의:
@@ -702,7 +737,7 @@ public class AiAnalysisService {
     }
 
     // ================================================================
-    // Claude API 호출 (★ max_tokens 2000으로 증가)
+    // Claude API 호출 (몸상태 항목 추가로 max_tokens 4000)
     // ================================================================
     private String callClaudeApi(String prompt) {
         if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
@@ -717,7 +752,7 @@ public class AiAnalysisService {
 
         Map<String, Object> body = Map.of(
                 "model", "claude-sonnet-5",
-                "max_tokens", 2000,
+                "max_tokens", 4000,
                 "messages", List.of(Map.of("role", "user", "content", prompt))
         );
 
@@ -740,6 +775,9 @@ public class AiAnalysisService {
             }
             if (text == null) {
                 throw new RuntimeException("응답에서 text 블록을 찾지 못함: " + response.getBody());
+            }
+            if ("max_tokens".equals(responseJson.path("stop_reason").asText())) {
+                System.out.println("⚠️ Claude 응답이 max_tokens 에서 잘림");
             }
 
             if (text.contains("```"))
@@ -818,6 +856,10 @@ public class AiAnalysisService {
                     // 처방
                     .recoveryAdvice(json.path("recoveryAdvice").asText(""))
                     .nextRideTip(json.path("nextRideTip").asText(""))
+
+                    // 몸상태
+                    .userCondition(json.path("userCondition").asText(""))
+                    .bodyCondition(json.path("bodyCondition").asText(""))
 
                     .build();
         } catch (JsonProcessingException e) {

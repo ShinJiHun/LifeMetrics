@@ -66,4 +66,11 @@ public class ActivityAnalysisResponse {
 
     /** 다음 라이딩 처방 (80자 이내) */
     private String nextRideTip;
+
+    // ── 몸상태 (라이더 코멘트 기반) ─────────────────────────
+    /** 라이더가 입력한 주관적 컨디션 메모 */
+    private String userCondition;
+
+    /** 코멘트 + 데이터 기반 몸상태 분석 (100자 이내) */
+    private String bodyCondition;
 }
