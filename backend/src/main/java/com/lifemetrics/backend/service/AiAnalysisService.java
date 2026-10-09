@@ -28,12 +28,12 @@ import java.util.stream.Collectors;
 public class AiAnalysisService {
 
     private final AiAnalysisRepository analysisRepo;
+    private final RiderZoneSettingService zoneSettingService;
     private final ActivityCoreRepository activityRepo;
     private final ActivityWeatherPointRepository weatherPointRepo;
     private final ExerciseLogService exerciseLogService;
     private final DeviceInfoRepository deviceInfoRepo;
     private final ObjectMapper objectMapper;
-    private final UserBodyRecordRepository bodyRecordRepo;
 
     @Value("${anthropic.api-key:}")
     private String anthropicApiKey;
@@ -298,7 +298,7 @@ public class AiAnalysisService {
 
         // ── 라이드 메타 데이터 ──
         boolean hasPower = Boolean.TRUE.equals(a.getHasPower());
-        double weightKg = getLatestWeight(userId);
+        double weightKg = zoneSettingService.getLatestWeight(userId);
 
         double displayPower;
         String powerLabel;
@@ -324,17 +324,18 @@ public class AiAnalysisService {
         double avgSpeed = safeDouble(a.getAvgSpeed());
         double maxSpeed = safeDouble(a.getMaxSpeed());
 
-        // 추정 FTP 기반 IF/TSS 계산 (체중 × 3.0 W/kg 가정)
-        double estimatedFtp = weightKg * 3.0;
+        // FTP 기반 IF/TSS 계산 (설정값이 없으면 체중 × 3.0 W/kg 추정)
+        RiderZoneSettingDto zone = zoneSettingService.getEffective(userId);
+        double estimatedFtp = zone.getFtp();
         double normalizedPower = a.getNormalizedPower() != null
                 ? a.getNormalizedPower() : displayPower;
         double intensityFactor = estimatedFtp > 0 ? normalizedPower / estimatedFtp : 0;
         double durationHours = movingMin / 60.0;
         int tss = (int) Math.round(durationHours * intensityFactor * intensityFactor * 100);
 
-        // 심박존 추정 (HRR 기반, 안정시 60 / 최대 190 가정)
+        // 심박존 추정 (HRR 기반, 안정시 60 가정 / 최대심박은 설정값, 없으면 190)
         int restingHr = 60;
-        int maxHrEstimate = 190;
+        int maxHrEstimate = zone.getMaxHr();
         double hrr = (avgHr - restingHr) / (double) (maxHrEstimate - restingHr);
         String hrZone;
         if (hrr < 0.6) hrZone = "Z2 (지구력)";
@@ -374,7 +375,7 @@ public class AiAnalysisService {
                 [파워] %s
                 - 평균 파워: %.0f W (%.2f W/kg)
                 - Normalized Power: %.0f W
-                - 추정 FTP: %.0f W (체중 %.1fkg × 3.0)
+                - FTP: %.0f W (%s)
                 - Intensity Factor (IF): %.2f
                 - Training Stress Score (TSS): %d
                 
@@ -394,7 +395,7 @@ public class AiAnalysisService {
                 powerLabel,
                 displayPower, weightKg > 0 ? displayPower / weightKg : 0,
                 normalizedPower,
-                estimatedFtp, weightKg,
+                estimatedFtp, zone.isFtpEstimated() ? String.format("체중 %.1fkg × 3.0 추정", weightKg) : "라이더 설정값",
                 intensityFactor,
                 tss,
                 avgCadence, cadenceComment,
@@ -928,13 +929,4 @@ public class AiAnalysisService {
         return list;
     }
 
-    private double getLatestWeight(Long userId) {
-        return bodyRecordRepo
-                .findByUserIdOrderByRecordDate(userId)
-                .stream()
-                .filter(r -> r.getWeight() != null)
-                .reduce((first, second) -> second)
-                .map(r -> r.getWeight())
-                .orElse(75.0);
-    }
 }

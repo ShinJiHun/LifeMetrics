@@ -5,6 +5,7 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import * as polylineLib from "@mapbox/polyline";
 import ActivityChatPopover from "@/components/riding/ActivityChatPopover";
+import ActivityAnalyticsPanel from "@/components/riding/ActivityAnalyticsPanel";
 import {fetchPermanentCourses} from "@/api/permanent";
 import type {PermanentCourse} from "@/api/permanent";
 import {RIDE_TYPES, RIDE_TYPE_LABEL, RIDE_TYPE_COLOR} from "@/constants/rideType";
@@ -700,6 +701,9 @@ export default function ActivityDetailPage() {
                     </div>
                 </div>
             )}
+
+            {/* ═══ 라이딩 분석: 그래프 / 존 / 파워커브 / 인터벌 ═══ */}
+            <ActivityAnalyticsPanel activityId={activity.id}/>
 
             {/* ═══ 하단: 좌측(세그먼트) / 우측(AI) 분할 ═══ */}
             <div style={S.bottomGrid}>

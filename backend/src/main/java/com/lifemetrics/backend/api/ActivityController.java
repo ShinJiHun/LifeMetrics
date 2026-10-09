@@ -1,10 +1,12 @@
 package com.lifemetrics.backend.api;
 
+import com.lifemetrics.backend.dto.ActivityAnalyticsDto;
 import com.lifemetrics.backend.dto.ActivityDetailDto;
 import com.lifemetrics.backend.dto.ActivitySegmentDto;
 import com.lifemetrics.backend.dto.ActivitySummaryDto;
 import com.lifemetrics.backend.dto.MonthlyStatsDto;
 import com.lifemetrics.backend.dto.UpdateActivityRequest;
+import com.lifemetrics.backend.service.ActivityAnalyticsService;
 import com.lifemetrics.backend.service.ActivityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -21,6 +23,7 @@ import java.util.List;
 public class ActivityController {
 
     private final ActivityService activityService;
+    private final ActivityAnalyticsService analyticsService;
 
     // 라이딩 목록
     @GetMapping("/list")
@@ -51,6 +54,12 @@ public class ActivityController {
     @GetMapping("/{id}/segments")
     public List<ActivitySegmentDto> getSegments(@PathVariable Long id) {
         return activityService.getActivitySegments(id);
+    }
+
+    // 상세 분석: 파워존/심박존, 파워커브, 인터벌, 그래프용 시계열
+    @GetMapping("/{id}/analytics")
+    public ActivityAnalyticsDto getAnalytics(@PathVariable Long id) {
+        return analyticsService.getAnalytics(id);
     }
 
     // 포인트 없는 경량 상세 조회
