@@ -145,15 +145,46 @@
     top: 20px;
     max-height: calc(100vh - 80px);
     overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
-.analysis-panel-title {
-    font-size: 16px;
-    font-weight: 800;
+.analysis-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 14px;
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.analysis-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.analysis-tab.active {
+    background: #fff;
     color: #1e293b;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f1f5f9;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.analysis-tab-score {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 11px;
 }
 
 /* ── 반응형 ──────────────────────────────────────────────── */
@@ -218,35 +249,32 @@
 }
 
 /* 스탯 그리드 */
+.analysis-stat-section {
+    margin-bottom: 12px;
+}
+.analysis-stat-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+}
 .analysis-stats-grid-panel {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
 }
 .analysis-stat-card {
     background: #f8fafc;
     border-radius: 10px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     gap: 2px;
 }
-.analysis-stat-icon { font-size: 13px; }
 .analysis-stat-label { font-size: 11px; color: #94a3b8; }
 .analysis-stat-val { font-size: 14px; font-weight: 700; color: #1e293b; }
 
 /* AI 분석 섹션 */
-.analysis-ai-section {
-    border-top: 1px solid #f1f5f9;
-    padding-top: 14px;
-}
-.analysis-ai-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #374151;
-    margin-bottom: 10px;
-}
 .analysis-loading {
     color: #94a3b8;
     font-size: 13px;

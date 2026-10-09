@@ -25,7 +25,11 @@ export interface Activity {
     avgHeartRate?: number;
     maxHeartRate?: number;
     avgPower?: number;
+    maxPower?: number;
+    hasPower?: boolean;
     avgCadence?: number;
+    maxCadence?: number;
+    relativeEffort?: number;
     calories?: number;
     gearContext?: GearContext;
     rideType?: string;

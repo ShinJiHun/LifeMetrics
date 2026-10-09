@@ -242,6 +242,7 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
     const [loading, setLoading] = useState(false);
     const [analyzing, setAnalyzing] = useState(false);
     const [condition, setCondition] = useState("");
+    const [tab, setTab] = useState<"stats" | "ai">("stats");
 
     useEffect(() => {
         setAnalysis(null);
@@ -278,19 +279,56 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
     const intensityColor = (v: string) =>
         ({"낮음": "#22c55e", "보통": "#3b82f6", "높음": "#f59e0b", "매우높음": "#ef4444"}[v] ?? "#64748b");
 
-    // 스탯 6개만 (3행 2열)
-    const stats = activity ? [
-        {icon: "📏", label: "거리", val: `${formatDistance(activity.totalDistance)} km`},
-        {icon: "⏱", label: "이동시간", val: formatTime(activity.movingTime)},
-        {icon: "⚡", label: "평균속도", val: `${activity.avgSpeed?.toFixed(1)} km/h`},
-        {icon: "⛰️", label: "획득고도", val: `${activity.totalAscent?.toFixed(0)} m`},
-        {icon: "❤️", label: "평균심박", val: activity.avgHeartRate ? `${activity.avgHeartRate.toFixed(0)} bpm` : "-"},
-        {icon: "🔥", label: "칼로리", val: activity.calories ? `${activity.calories.toFixed(0)} kcal` : "-"},
-    ] : [];
+    // 기록 탭: 섹션별 지표 (값이 없는 섹션은 숨김)
+    const fmt = (v: number | undefined, unit: string, digits = 0) => (v ? `${v.toFixed(digits)} ${unit}` : "-");
+    const statSections = activity ? [
+        {
+            title: "📏 기본", items: [
+                {label: "거리", val: `${formatDistance(activity.totalDistance)} km`},
+                {label: "이동시간", val: formatTime(activity.movingTime)},
+                {label: "휴식", val: activity.elapsedTime > activity.movingTime ? formatTime(activity.elapsedTime - activity.movingTime) : "-"},
+                {label: "평균속도", val: fmt(activity.avgSpeed, "km/h", 1)},
+                {label: "최고속도", val: fmt(activity.maxSpeed, "km/h", 1)},
+                {label: "획득고도", val: fmt(activity.totalAscent, "m")},
+            ],
+        },
+        {
+            title: activity.hasPower ? "⚡ 파워 (파워미터)" : "⚡ 파워 (추정)", show: !!activity.avgPower, items: [
+                {label: "평균", val: fmt(activity.avgPower, "W")},
+                {label: "최대", val: fmt(activity.maxPower, "W")},
+            ],
+        },
+        {
+            title: "🦵 케이던스", show: !!activity.avgCadence, items: [
+                {label: "평균", val: fmt(activity.avgCadence, "rpm")},
+                {label: "최대", val: fmt(activity.maxCadence, "rpm")},
+            ],
+        },
+        {
+            title: "❤️ 심박", show: !!activity.avgHeartRate, items: [
+                {label: "평균", val: fmt(activity.avgHeartRate, "bpm")},
+                {label: "최대", val: fmt(activity.maxHeartRate, "bpm")},
+            ],
+        },
+        {
+            title: "🔥 부하", items: [
+                {label: "칼로리", val: fmt(activity.calories, "kcal")},
+                {label: "상대강도", val: activity.relativeEffort ? String(activity.relativeEffort) : "-"},
+            ],
+        },
+    ].filter((sec) => sec.show !== false) : [];
 
     return (
         <div className="analysis-panel">
-            <div className="analysis-panel-title">🤖 AI 분석</div>
+            <div className="analysis-tabs">
+                <button className={`analysis-tab ${tab === "stats" ? "active" : ""}`} onClick={() => setTab("stats")}>
+                    📊 기록
+                </button>
+                <button className={`analysis-tab ${tab === "ai" ? "active" : ""}`} onClick={() => setTab("ai")}>
+                    🤖 AI 분석
+                    {analysis && <span className="analysis-tab-score">{analysis.score}</span>}
+                </button>
+            </div>
 
             {!activity && (
                 <div className="analysis-empty-state">
@@ -308,97 +346,100 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
                         </div>
                     </div>
 
-                    {/* 3행 2열 스탯 */}
-                    <div className="analysis-stats-grid-panel">
-                        {stats.map((s) => (
-                            <div key={s.label} className="analysis-stat-card">
-                                <span className="analysis-stat-icon">{s.icon}</span>
-                                <span className="analysis-stat-label">{s.label}</span>
-                                <span className="analysis-stat-val">{s.val}</span>
+                    {tab === "stats" && statSections.map((sec) => (
+                        <div key={sec.title} className="analysis-stat-section">
+                            <div className="analysis-stat-section-title">{sec.title}</div>
+                            <div className="analysis-stats-grid-panel">
+                                {sec.items.map((it) => (
+                                    <div key={it.label} className="analysis-stat-card">
+                                        <span className="analysis-stat-label">{it.label}</span>
+                                        <span className="analysis-stat-val">{it.val}</span>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
 
                     {/* AI 분석 */}
-                    <div className="analysis-ai-section">
-                        <div className="analysis-ai-title">💬 분석 결과</div>
+                    {tab === "ai" && (
+                        <div className="analysis-ai-section">
+                            {loading && <div className="analysis-loading">불러오는 중...</div>}
 
-                        {loading && <div className="analysis-loading">불러오는 중...</div>}
-
-                        {!loading && (
-                            <div className="analysis-condition">
-                                <label className="analysis-condition-label">📝 오늘 몸상태 (선택)</label>
-                                <textarea
-                                    className="analysis-condition-input"
-                                    rows={3}
-                                    maxLength={500}
-                                    placeholder="예) 어제 4시간 잠, 다리 무거움. 후반에 왼쪽 무릎 뻐근했음. 체감 강도 8/10"
-                                    value={condition}
-                                    onChange={(e) => setCondition(e.target.value)}
-                                />
-                            </div>
-                        )}
-
-                        {!loading && !analysis && (
-                            <div className="analysis-empty">
-                                <p>아직 분석 결과가 없어요.</p>
-                                <button className="analysis-btn" onClick={handleAnalyze} disabled={analyzing}>
-                                    {analyzing ? "⏳ 분석 중..." : "✨ Claude로 분석하기"}
-                                </button>
-                            </div>
-                        )}
-
-                        {analysis && (
-                            <div className="analysis-result">
-                                <div className="analysis-score-row">
-                                    <div className="analysis-score">{analysis.score}</div>
-                                    <div>
-                                        <div className="analysis-summary">{analysis.summary}</div>
-                                        {analysis.intensity && (
-                                            <span className="analysis-intensity-badge"
-                                                  style={{background: intensityColor(analysis.intensity)}}>
-                                                {analysis.intensity}
-                                            </span>
-                                        )}
-                                    </div>
+                            {!loading && (
+                                <div className="analysis-condition">
+                                    <label className="analysis-condition-label">📝 오늘 몸상태 (선택)</label>
+                                    <textarea
+                                        className="analysis-condition-input"
+                                        rows={3}
+                                        maxLength={500}
+                                        placeholder="예) 어제 4시간 잠, 다리 무거움. 후반에 왼쪽 무릎 뻐근했음. 체감 강도 8/10"
+                                        value={condition}
+                                        onChange={(e) => setCondition(e.target.value)}
+                                    />
                                 </div>
+                            )}
 
-                                {analysis.bodyCondition && (
-                                    <div className="analysis-body-condition">🩺 {analysis.bodyCondition}</div>
-                                )}
+                            {!loading && !analysis && (
+                                <div className="analysis-empty">
+                                    <p>아직 분석 결과가 없어요.</p>
+                                    <button className="analysis-btn" onClick={handleAnalyze} disabled={analyzing}>
+                                        {analyzing ? "⏳ 분석 중..." : "✨ Claude로 분석하기"}
+                                    </button>
+                                </div>
+                            )}
 
-                                {analysis.recoveryAdvice && (
-                                    <div className="analysis-recovery">🛌 {analysis.recoveryAdvice}</div>
-                                )}
-
-                                {analysis.weatherImpact && (
-                                    <div className="analysis-weather-impact">🌤 {analysis.weatherImpact}</div>
-                                )}
-
-                                {analysis.highlights?.length > 0 && (
-                                    <div className="analysis-section">
-                                        <div className="analysis-section-title">✅ 잘한 점</div>
-                                        {analysis.highlights.map((h, i) => (
-                                            <div key={i} className="analysis-item highlight">· {h}</div>
-                                        ))}
+                            {analysis && (
+                                <div className="analysis-result">
+                                    <div className="analysis-score-row">
+                                        <div className="analysis-score">{analysis.score}</div>
+                                        <div>
+                                            <div className="analysis-summary">{analysis.summary}</div>
+                                            {analysis.intensity && (
+                                                <span className="analysis-intensity-badge"
+                                                      style={{background: intensityColor(analysis.intensity)}}>
+                                                    {analysis.intensity}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
 
-                                {analysis.suggestions?.length > 0 && (
-                                    <div className="analysis-section">
-                                        <div className="analysis-section-title">💡 개선점</div>
-                                        {analysis.suggestions.map((s, i) => (
-                                            <div key={i} className="analysis-item suggestion">· {s}</div>
-                                        ))}
-                                    </div>
-                                )}
+                                    {analysis.bodyCondition && (
+                                        <div className="analysis-body-condition">🩺 {analysis.bodyCondition}</div>
+                                    )}
 
-                                <button className="analysis-btn reanalyze" onClick={handleAnalyze} disabled={analyzing}>
-                                    {analyzing ? "⏳ 분석 중..." : "🔄 재분석"}
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                                    {analysis.recoveryAdvice && (
+                                        <div className="analysis-recovery">🛌 {analysis.recoveryAdvice}</div>
+                                    )}
+
+                                    {analysis.weatherImpact && (
+                                        <div className="analysis-weather-impact">🌤 {analysis.weatherImpact}</div>
+                                    )}
+
+                                    {analysis.highlights?.length > 0 && (
+                                        <div className="analysis-section">
+                                            <div className="analysis-section-title">✅ 잘한 점</div>
+                                            {analysis.highlights.map((h, i) => (
+                                                <div key={i} className="analysis-item highlight">· {h}</div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {analysis.suggestions?.length > 0 && (
+                                        <div className="analysis-section">
+                                            <div className="analysis-section-title">💡 개선점</div>
+                                            {analysis.suggestions.map((s, i) => (
+                                                <div key={i} className="analysis-item suggestion">· {s}</div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <button className="analysis-btn reanalyze" onClick={handleAnalyze} disabled={analyzing}>
+                                        {analyzing ? "⏳ 분석 중..." : "🔄 재분석"}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </>
             )}
         </div>
