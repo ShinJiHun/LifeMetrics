@@ -42,6 +42,10 @@ public class ActivityService {
     // ═══════════════════════════════════════════════════════════════
     // 라이딩 목록
     // ═══════════════════════════════════════════════════════════════
+    public long countActivities(Long userId) {
+        return coreRepository.countByUserId(userId);
+    }
+
     public List<ActivitySummaryDto> getActivityList(Long userId, LocalDate startDate, LocalDate endDate, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
         List<ActivityCore> activities;

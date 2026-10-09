@@ -4,13 +4,6 @@ import { PERSONA_META, resolvePersonaFromPath } from "@/lib/persona";
 import PersonaContentMenu from "@/components/common/PersonaContentMenu";
 import { useAdmin } from "@/lib/admin";
 
-const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
-    padding: "10px 14px",
-    textDecoration: "none",
-    color: isActive ? accent : "#111",
-    fontWeight: isActive ? "bold" : "normal",
-});
-
 const subLinkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "8px 14px 8px 28px",
     textDecoration: "none",
@@ -117,19 +110,92 @@ function HumanLottoMenu({ accent }: { accent: string }) {
     );
 }
 
-type AthleteSection = "record" | "riding" | "gear";
+// ── 애슬리트 메뉴: 기록(이미 한 것) / 계획(앞으로 할 것) ─────────────────
+// 그룹 제목은 고정, 그 아래 섹션만 아코디언으로 하나씩 펼친다.
+// 페이지 주소(/records, /plan)는 기존 그대로 두고 메뉴 배치만 정한다.
 
-const ATHLETE_SECTION_PATHS: Record<AthleteSection, string[]> = {
-    record: ["/records/body", "/records/health"],
-    riding: ["/records/riding", "/plan"],
-    gear: ["/bikes"],
-};
+interface MenuLink {
+    to: string;
+    label: string;
+    end?: boolean;
+    adminOnly?: boolean;
+}
 
-function sectionForPath(pathname: string): AthleteSection | null {
-    for (const [section, prefixes] of Object.entries(ATHLETE_SECTION_PATHS)) {
-        if (prefixes.some((p) => pathname.startsWith(p))) return section as AthleteSection;
+interface MenuSection {
+    key: string;
+    label: string;
+    adminOnly?: boolean;
+    /** 하위 메뉴 없이 바로 이동하는 섹션 */
+    to?: string;
+    items?: MenuLink[];
+}
+
+const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
+    {
+        label: "📋 기록",
+        sections: [
+            {key: "checkup", label: "🩺 건강검진", to: "/records/body/health-checkup", adminOnly: true},
+            {
+                key: "inbody", label: "⚖️ 인바디", items: [
+                    {to: "/records/body", label: "인바디 기록", end: true},
+                    {to: "/records/body/weight-loss", label: "감량 분석"},
+                ],
+            },
+            {
+                key: "fitness", label: "🏋️ 피트니스", items: [
+                    {to: "/records/health/history", label: "운동 기록"},
+                    {to: "/records/health/log", label: "운동 입력"},
+                ],
+            },
+            {
+                key: "riding", label: "🚴 라이딩", items: [
+                    {to: "/records/riding", label: "라이딩 기록"},
+                    {to: "/plan/live", label: "라이브 라이딩"},
+                ],
+            },
+            {
+                key: "gear", label: "🔧 장비", items: [
+                    {to: "/bikes", label: "내 자전거", end: true},
+                    {to: "/bikes/register", label: "자전거 등록", adminOnly: true},
+                ],
+            },
+        ],
+    },
+    {
+        label: "🎯 계획",
+        sections: [
+            {key: "body-goal", label: "⚖️ 체성분 목표", to: "/plan/body-goal"},
+            {
+                key: "ride-plan", label: "🚴 라이딩 계획", items: [
+                    {to: "/plan/brevet", label: "브레베"},
+                    {to: "/plan/permanent", label: "퍼머넌트"},
+                    {to: "/plan/touring", label: "투어링"},
+                ],
+            },
+            {
+                key: "fit-gear", label: "🔧 피팅·장비 계획", items: [
+                    {to: "/plan/fitting", label: "피팅 계획"},
+                    {to: "/plan/gear", label: "장비 변경 계획"},
+                ],
+            },
+        ],
+    },
+];
+
+/** 현재 경로가 속한 섹션 (가장 길게 일치하는 메뉴 주소 기준) */
+function sectionForPath(pathname: string): string | null {
+    let best: { key: string; len: number } | null = null;
+    for (const group of ATHLETE_MENU) {
+        for (const sec of group.sections) {
+            const paths = sec.to ? [sec.to] : (sec.items ?? []).map((i) => i.to);
+            for (const p of paths) {
+                if ((pathname === p || pathname.startsWith(p + "/")) && (!best || p.length > best.len)) {
+                    best = {key: sec.key, len: p.length};
+                }
+            }
+        }
     }
-    return null;
+    return best?.key ?? null;
 }
 
 function sectionHeaderStyle(open: boolean) {
@@ -141,22 +207,28 @@ function sectionHeaderStyle(open: boolean) {
         background: "none",
         border: "none",
         cursor: "pointer",
-        padding: "10px 14px",
+        padding: "9px 14px",
         font: "inherit",
-        fontWeight: "bold" as const,
-        fontSize: 15,
+        fontWeight: 600,
+        fontSize: 14,
         color: open ? "#111" : "#555",
         textAlign: "left" as const,
     };
 }
 
+const groupLabelStyle = {
+    padding: "6px 14px",
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#9aa0b2",
+    letterSpacing: 0.5,
+};
+
 function AthleteMenu({ accent }: { accent: string }) {
     const { isAdmin } = useAdmin();
     const { pathname } = useLocation();
 
-    const [openSection, setOpenSection] = useState<AthleteSection | null>(() =>
-        sectionForPath(pathname)
-    );
+    const [openSection, setOpenSection] = useState<string | null>(() => sectionForPath(pathname));
 
     // 다른 섹션의 페이지로 이동하면 그 섹션이 자동으로 펼쳐지도록 동기화
     useEffect(() => {
@@ -164,106 +236,55 @@ function AthleteMenu({ accent }: { accent: string }) {
         if (s) setOpenSection(s);
     }, [pathname]);
 
-    const toggle = (section: AthleteSection) =>
-        setOpenSection((prev) => (prev === section ? null : section));
+    const toggle = (key: string) => setOpenSection((prev) => (prev === key ? null : key));
 
     return (
         <>
-            <button
-                type="button"
-                onClick={() => toggle("record")}
-                style={sectionHeaderStyle(openSection === "record")}
-            >
-                <span style={{ fontSize: 11, color: "#9aa0b2" }}>
-                    {openSection === "record" ? "▾" : "▸"}
-                </span>
-                <span>📊 기록</span>
-            </button>
-            {openSection === "record" && (
-                <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div>
-                        <NavLink to="/records/body" style={linkStyle(accent)} end>
-                            🧍 신체 기록
-                        </NavLink>
-                        <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <NavLink to="/records/body/weight-loss" style={subLinkStyle(accent)}>
-                                📉 감량 분석
-                            </NavLink>
-                            {isAdmin && (
-                                <NavLink to="/records/body/health-checkup" style={subLinkStyle(accent)}>
-                                    🩺 건강검진
+            {ATHLETE_MENU.map((group, gi) => (
+                <div key={group.label} style={{ marginTop: gi > 0 ? 20 : 0 }}>
+                    <div style={groupLabelStyle}>{group.label}</div>
+                    {group.sections
+                        .filter((sec) => !sec.adminOnly || isAdmin)
+                        .map((sec) =>
+                            sec.to ? (
+                                <NavLink key={sec.key} to={sec.to} style={({ isActive }) => ({
+                                    ...sectionHeaderStyle(isActive),
+                                    display: "block",
+                                    textDecoration: "none",
+                                    paddingLeft: 31,
+                                    color: isActive ? accent : "#555",
+                                })}>
+                                    {sec.label}
                                 </NavLink>
-                            )}
-                        </nav>
-                    </div>
-
-                    {/* 헬스/피트니스 - 하위 메뉴 */}
-                    <div>
-                        <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
-                            🏋️ 피트니스
-                        </div>
-                        <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <NavLink to="/records/health/history" style={subLinkStyle(accent)}>
-                                📋 기록
-                            </NavLink>
-                            <NavLink to="/records/health/log" style={subLinkStyle(accent)}>
-                                ✏️ 입력
-                            </NavLink>
-                        </nav>
-                    </div>
-                </nav>
-            )}
-
-            <button
-                type="button"
-                onClick={() => toggle("riding")}
-                style={{ ...sectionHeaderStyle(openSection === "riding"), marginTop: 8 }}
-            >
-                <span style={{ fontSize: 11, color: "#9aa0b2" }}>
-                    {openSection === "riding" ? "▾" : "▸"}
-                </span>
-                <span>🚴 라이딩</span>
-            </button>
-            {openSection === "riding" && (
-                <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <NavLink to="/records/riding" style={linkStyle(accent)}>
-                        📋 라이딩 기록
-                    </NavLink>
-                    <NavLink to="/plan/brevet" style={linkStyle(accent)}>
-                        🏅 랜도너스 계획
-                    </NavLink>
-                    <NavLink to="/plan/permanent" style={linkStyle(accent)}>
-                        🗺️ 퍼머넌트 코스
-                    </NavLink>
-                    <NavLink to="/plan/touring" style={linkStyle(accent)}>
-                        🏕️ 투어링 계획
-                    </NavLink>
-                    <NavLink to="/plan/live" style={linkStyle(accent)}>
-                        🛰️ 라이브 라이딩
-                    </NavLink>
-                </nav>
-            )}
-
-            <button
-                type="button"
-                onClick={() => toggle("gear")}
-                style={{ ...sectionHeaderStyle(openSection === "gear"), marginTop: 8 }}
-            >
-                <span style={{ fontSize: 11, color: "#9aa0b2" }}>
-                    {openSection === "gear" ? "▾" : "▸"}
-                </span>
-                <span>🚲 장비</span>
-            </button>
-            {openSection === "gear" && (
-                <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <NavLink to="/bikes" style={linkStyle(accent)}>
-                        🚴 내 자전거
-                    </NavLink>
-                    <NavLink to="/bikes/register" style={linkStyle(accent)}>
-                        ➕ 자전거 등록
-                    </NavLink>
-                </nav>
-            )}
+                            ) : (
+                                <div key={sec.key}>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggle(sec.key)}
+                                        style={sectionHeaderStyle(openSection === sec.key)}
+                                    >
+                                        <span style={{ fontSize: 11, color: "#9aa0b2" }}>
+                                            {openSection === sec.key ? "▾" : "▸"}
+                                        </span>
+                                        <span>{sec.label}</span>
+                                    </button>
+                                    {openSection === sec.key && (
+                                        <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                            {(sec.items ?? [])
+                                                .filter((item) => !item.adminOnly || isAdmin)
+                                                .map((item) => (
+                                                    <NavLink key={item.to} to={item.to} end={item.end}
+                                                             style={subLinkStyle(accent)}>
+                                                        {item.label}
+                                                    </NavLink>
+                                                ))}
+                                        </nav>
+                                    )}
+                                </div>
+                            )
+                        )}
+                </div>
+            ))}
         </>
     );
 }

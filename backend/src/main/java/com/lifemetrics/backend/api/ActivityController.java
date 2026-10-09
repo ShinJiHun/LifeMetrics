@@ -36,6 +36,12 @@ public class ActivityController {
         return activityService.getActivityList(userId, startDate, endDate, page, size);
     }
 
+    // 라이딩 전체 개수 (목록 페이지 번호 계산용)
+    @GetMapping("/count")
+    public long getCount(@RequestParam Long userId) {
+        return activityService.countActivities(userId);
+    }
+
     // 라이딩 상세
     @GetMapping("/{id}")
     public ActivityDetailDto getDetail(@PathVariable Long id) {

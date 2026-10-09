@@ -60,6 +60,9 @@ export default function App() {
                 <Route path="/plan/permanent" element={<PermanentCoursesPage />} />
                 <Route path="/plan/live" element={<LiveRidePage />} />
                 <Route path="/plan/touring" element={<div style={{ padding: 24 }}>🏕️ 투어링 계획 (준비중)</div>} />
+                <Route path="/plan/body-goal" element={<div style={{ padding: 24 }}>⚖️ 체성분 목표 (준비중)</div>} />
+                <Route path="/plan/fitting" element={<div style={{ padding: 24 }}>🔧 피팅 계획 (준비중)</div>} />
+                <Route path="/plan/gear" element={<div style={{ padding: 24 }}>🔧 장비 변경 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
                 <Route path="/records/riding/:id/live" element={<RideLivePage />} />
                 <Route path="/persona" element={<Navigate to="/" replace />} />

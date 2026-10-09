@@ -14,6 +14,8 @@ public interface ActivityCoreRepository extends JpaRepository<ActivityCore, Long
 
     List<ActivityCore> findByUserId(Long userId, Pageable pageable);
 
+    long countByUserId(Long userId);
+
     @Query("SELECT a FROM ActivityCore a WHERE a.userId = :userId AND a.startTime >= :start AND a.startTime < :end")
     List<ActivityCore> findByUserIdAndDateRange(
             @Param("userId") Long userId,

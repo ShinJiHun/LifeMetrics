@@ -1,7 +1,7 @@
 import AdminOnly from "@/components/common/AdminOnly";
 import {useState, useEffect, useCallback} from "react";
 import {useNavigate} from "react-router-dom";
-import {fetchActivities, mergeActivities} from "@/api/activity";
+import {fetchActivities, fetchActivityCount, mergeActivities} from "@/api/activity";
 import type {Activity} from "@/api/activity";
 import ActivityMap from "@/pages/ride/riding/ActivityMap";
 import {useDropzone} from "react-dropzone";
@@ -735,9 +735,59 @@ function FitUploadModal({onClose, onSuccess}: {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────────
+const PAGE_SIZE = 5;
+
+// ── 목록 페이지 번호 ─────────────────────────────────────────────
+// 처음/끝 페이지와 현재 페이지 주변 2개만 보여주고 나머지는 … 로 줄인다.
+function Pagination({page, totalPages, total, disabled, onChange}: {
+    page: number;
+    totalPages: number;
+    total: number;
+    disabled: boolean;
+    onChange: (page: number) => void;
+}) {
+    if (totalPages <= 1) return null;
+
+    const pages: (number | "gap")[] = [];
+    for (let p = 0; p < totalPages; p++) {
+        if (p === 0 || p === totalPages - 1 || Math.abs(p - page) <= 2) pages.push(p);
+        else if (pages[pages.length - 1] !== "gap") pages.push("gap");
+    }
+
+    return (
+        <div className="pagination">
+            <button className="pagination-btn" disabled={disabled || page === 0} onClick={() => onChange(page - 1)}>
+                ‹
+            </button>
+            {pages.map((p, i) =>
+                p === "gap" ? (
+                    <span key={`gap-${i}`} className="pagination-gap">…</span>
+                ) : (
+                    <button
+                        key={p}
+                        className={`pagination-btn ${p === page ? "active" : ""}`}
+                        disabled={disabled}
+                        onClick={() => p !== page && onChange(p)}
+                    >
+                        {p + 1}
+                    </button>
+                )
+            )}
+            <button className="pagination-btn" disabled={disabled || page >= totalPages - 1}
+                    onClick={() => onChange(page + 1)}>
+                ›
+            </button>
+            <span className="pagination-total">총 {total}개</span>
+        </div>
+    );
+}
+
 export default function RidingRecordPage() {
     const [activities, setActivities] = useState<Activity[]>([]);
+    const [page, setPage] = useState(0);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [pageLoading, setPageLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
     const [showUpload, setShowUpload] = useState(false);
@@ -786,16 +836,24 @@ export default function RidingRecordPage() {
         }
     };
 
-    const loadActivities = () => {
-        setLoading(true);
-        fetchActivities()
-            .then(setActivities)
+    // 첫 로드만 전체 로딩 화면, 페이지 이동은 목록만 흐리게 처리
+    const loadActivities = (targetPage = page) => {
+        setPageLoading(true);
+        Promise.all([fetchActivities(targetPage, PAGE_SIZE), fetchActivityCount()])
+            .then(([list, count]) => {
+                setActivities(list);
+                setTotal(count);
+                setPage(targetPage);
+            })
             .catch((e) => setError(e.message))
-            .finally(() => setLoading(false));
+            .finally(() => {
+                setLoading(false);
+                setPageLoading(false);
+            });
     };
 
     useEffect(() => {
-        loadActivities();
+        loadActivities(0);
     }, []);
 
     if (loading) return <div className="riding-page loading">로딩 중...</div>;
@@ -807,7 +865,7 @@ export default function RidingRecordPage() {
                     onClose={() => setShowUpload(false)}
                     onSuccess={() => {
                         setShowUpload(false);
-                        loadActivities();
+                        loadActivities(0);
                     }}
                 />
             )}
@@ -888,7 +946,7 @@ export default function RidingRecordPage() {
             )}
 
             <div className="riding-layout">
-                <div className="activity-feed">
+                <div className="activity-feed" style={{opacity: pageLoading ? 0.5 : 1}}>
                     {activities.length === 0 ? <p>라이딩 기록이 없습니다.</p> : (
                         activities.map((activity) => {
                             const mergeIdx = mergeSelection.findIndex((a) => a.id === activity.id);
@@ -909,6 +967,13 @@ export default function RidingRecordPage() {
                             );
                         })
                     )}
+                    <Pagination
+                        page={page}
+                        totalPages={Math.ceil(total / PAGE_SIZE)}
+                        total={total}
+                        disabled={pageLoading}
+                        onChange={loadActivities}
+                    />
                 </div>
                 <AnalysisPanel activity={selectedActivity}/>
             </div>

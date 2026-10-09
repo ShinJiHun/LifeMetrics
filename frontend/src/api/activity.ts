@@ -36,9 +36,15 @@ export interface Activity {
     permanentNo?: string;
 }
 
-export async function fetchActivities(userId = 1): Promise<Activity[]> {
-    const res = await fetch(`${API_BASE}/api/activity/list?userId=${userId}`);
+export async function fetchActivities(page = 0, size = 5, userId = 1): Promise<Activity[]> {
+    const res = await fetch(`${API_BASE}/api/activity/list?userId=${userId}&page=${page}&size=${size}`);
     if (!res.ok) throw new Error("Failed to fetch activities");
+    return res.json();
+}
+
+export async function fetchActivityCount(userId = 1): Promise<number> {
+    const res = await fetch(`${API_BASE}/api/activity/count?userId=${userId}`);
+    if (!res.ok) throw new Error("Failed to fetch activity count");
     return res.json();
 }
 
