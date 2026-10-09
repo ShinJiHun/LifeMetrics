@@ -73,6 +73,19 @@ public class ActivityUploadController {
         return ResponseEntity.ok("polyline 재계산 완료: " + id);
     }
 
+    /** 거리 보정 없이 병합돼 거리축 그래프가 겹치는 활동 목록. */
+    @GetMapping("/distance-reset")
+    public List<Long> findDistanceResetActivities() {
+        return uploadService.findDistanceResetActivities();
+    }
+
+    /** 병합된 활동의 포인트 누적거리를 이어 붙인다 (병합 경계에서 0 으로 되돌아가던 문제). */
+    @PostMapping("/{id}/repair-distance")
+    public ResponseEntity<String> repairMergedDistance(@PathVariable Long id) {
+        int resets = uploadService.repairMergedDistance(id);
+        return ResponseEntity.ok("누적거리 보정 완료: " + id + " (병합 경계 " + resets + "개)");
+    }
+
     /** 자전거 매칭이 비어 있거나 잘못된 활동을 바로잡는다. */
     @PostMapping("/{id}/bike/{bikeId}")
     public ResponseEntity<String> fixBikeId(@PathVariable Long id, @PathVariable Long bikeId) {

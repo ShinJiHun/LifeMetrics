@@ -92,6 +92,12 @@ public class ActivityUploadService {
         // Hibernate가 "identifier was altered" 예외를 던진다. 벌크 UPDATE로 한 번에 옮긴다.
         Integer maxSeqObj = pointRepository.findMaxSeqByActivityCoreId(parentId);
         int parentMaxSeq = (maxSeqObj != null) ? maxSeqObj : -1;
+        // target 포인트의 누적거리는 0 부터 다시 시작하므로 parent 마지막 거리만큼 밀어서 이어 붙인다
+        // (안 그러면 거리축 그래프/분석에서 두 구간이 겹친다)
+        Double parentMaxDistance = pointRepository.findMaxDistanceByActivityCoreId(parentId);
+        if (parentMaxDistance != null && parentMaxDistance > 0) {
+            pointRepository.shiftDistanceFromSeq(targetId, 0, parentMaxDistance);
+        }
         pointRepository.reassignToParent(targetId, parentId, parentMaxSeq + 1);
 
         // 3. GearUsage 이동 (중복 방지 및 합산 로직)
@@ -148,6 +154,34 @@ public class ActivityUploadService {
                 .orElseThrow(() -> new IllegalArgumentException("Activity not found: " + activityId));
         List<ActivityPoint> points = pointRepository.findByActivityCoreIdOrderBySeqAsc(activityId);
         activity.setPolyline(PolylineEncoder.encode(points));
+    }
+
+    /** 거리 보정 없이 병합된 활동 id 목록 (누적거리가 1km 이상 되돌아가는 지점이 있는 활동). */
+    public List<Long> findDistanceResetActivities() {
+        return pointRepository.findActivityIdsWithDistanceReset();
+    }
+
+    /**
+     * 이 수정 이전에 병합된 활동의 포인트 누적거리를 바로잡는다.
+     * 누적거리가 1km 이상 되돌아가는 지점을 병합 경계로 보고, 그 뒤 포인트를 직전 거리만큼 민다.
+     *
+     * @return 보정한 병합 경계 개수
+     */
+    @Transactional
+    public int repairMergedDistance(Long activityId) {
+        List<ActivityPoint> points = pointRepository.findByActivityCoreIdOrderBySeqAsc(activityId);
+        Double prev = null;
+        int resets = 0;
+        for (ActivityPoint p : points) {
+            Double d = p.getDistance();
+            if (d == null) continue;
+            if (prev != null && prev - d > 1000) {
+                pointRepository.shiftDistanceFromSeq(activityId, p.getSeq(), prev);
+                resets++;
+            }
+            prev = d;
+        }
+        return resets;
     }
 
     /** bike_id가 잘못 잡혀 있거나(예: 병합 전 이 수정 이전 케이스) 비어 있는 활동을 바로잡는 복구용 메서드. */

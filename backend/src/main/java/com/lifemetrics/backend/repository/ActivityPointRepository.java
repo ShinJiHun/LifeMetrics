@@ -42,6 +42,28 @@ public interface ActivityPointRepository
     @Query("SELECT MAX(p.seq) FROM ActivityPoint p WHERE p.activityCoreId = :activityCoreId")
     Integer findMaxSeqByActivityCoreId(@Param("activityCoreId") Long activityCoreId);
 
+    @Query("SELECT MAX(p.distance) FROM ActivityPoint p WHERE p.activityCoreId = :activityCoreId")
+    Double findMaxDistanceByActivityCoreId(@Param("activityCoreId") Long activityCoreId);
+
+    /** 병합 시 뒤 구간 거리를 앞 구간 끝에 이어 붙이기 위해 seq 이후 포인트의 누적거리를 민다. */
+    @Modifying
+    @Query("UPDATE ActivityPoint p SET p.distance = p.distance + :offset " +
+            "WHERE p.activityCoreId = :activityCoreId AND p.seq >= :fromSeq AND p.distance IS NOT NULL")
+    int shiftDistanceFromSeq(@Param("activityCoreId") Long activityCoreId,
+                             @Param("fromSeq") int fromSeq,
+                             @Param("offset") double offset);
+
+    /**
+     * 누적거리가 1km 이상 되돌아가는 지점이 있는 활동 = 거리 보정 없이 병합된 활동.
+     * activity_point 전체를 훑으므로 복구 대상을 찾을 때만 쓴다.
+     */
+    @Query(value = "SELECT activity_core_id FROM (" +
+            "  SELECT activity_core_id, distance, " +
+            "         LAG(distance) OVER (PARTITION BY activity_core_id ORDER BY seq) AS prev_distance " +
+            "  FROM activity_point) t " +
+            "WHERE prev_distance - distance > 1000 GROUP BY activity_core_id", nativeQuery = true)
+    List<Long> findActivityIdsWithDistanceReset();
+
     // clearAutomatically는 쓰지 않는다 - mergeActivities에서 이미 로드해둔 parent/target
     // ActivityCore 엔티티가 detach되어 이후 필드 변경분이 커밋 시 flush되지 않는다.
     @Modifying
