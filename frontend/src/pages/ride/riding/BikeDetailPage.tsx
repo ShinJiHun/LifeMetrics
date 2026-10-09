@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import BikeFitSection from '@/components/bike/BikeFitSection';
 import {
     BarChart,
     Bar,
@@ -185,6 +186,8 @@ export default function BikeDetailPage() {
                     </div>
                 </div>
             </div>
+
+            <BikeFitSection bikeId={bike.id} />
 
             <section>
                 <h3 style={{ margin: '0 0 4px' }}>기어 사용량</h3>

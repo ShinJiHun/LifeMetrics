@@ -516,9 +516,11 @@ public class AiAnalysisService {
     private String buildDeviceContext(Long userId, java.time.LocalDateTime activityTime) {
         List<DeviceInfo> devices = deviceInfoRepo.findByOwnerUserIdAndIsActiveTrue(userId)
                 .stream()
+                // 라이딩 날짜에 사용 중이던 기기만 (사용 시작일 ~ 사용 종료일)
                 .filter(d -> d.getFirstSeenAt() == null ||
-                        !d.getFirstSeenAt().toLocalDate().isAfter(
-                                activityTime.toLocalDate()))
+                        !d.getFirstSeenAt().toLocalDate().isAfter(activityTime.toLocalDate()))
+                .filter(d -> d.getLastSeenAt() == null ||
+                        !d.getLastSeenAt().toLocalDate().isBefore(activityTime.toLocalDate()))
                 .toList();
 
         if (devices.isEmpty()) return "";
@@ -560,6 +562,7 @@ public class AiAnalysisService {
             case "POWER_METER"    -> "파워미터";
             case "SPEED_SENSOR"   -> "속도 센서";
             case "CADENCE_SENSOR" -> "케이던스 센서";
+            case "BIKE"           -> "자전거";
             default               -> type;
         };
     }

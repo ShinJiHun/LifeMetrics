@@ -13,6 +13,7 @@ import BrevePlanPage from "@/pages/ride/plan/BrevePlanPage";
 import PermanentCoursesPage from "@/pages/ride/plan/PermanentCoursesPage";
 import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
 import ActivityDetailPage from "@/pages/ride/riding/ActivityDetailPage";
+import DeviceListPage from "@/pages/ride/riding/DeviceListPage";
 import RideLivePage from "@/pages/ride/riding/RideLivePage";
 import PersonaPortfolioPage from "@/pages/persona/PersonaPortfolioPage";
 import CareerCompanyDetailPage from "@/pages/persona/CareerCompanyDetailPage";
@@ -98,6 +99,7 @@ export default function App() {
                 <Route path="/lottery/lotto/create" element={<RequireAdmin><LottoCreatePage /></RequireAdmin>} />
 
                 <Route path="/bikes" element={<BikeListPage />} />
+                <Route path="/bikes/devices" element={<DeviceListPage />} />
                 <Route path="/lottery/lotto/records" element={<RequireAdmin><LottoRecordsPage /></RequireAdmin>} />
                 <Route path="/lottery/pension/records" element={<RequireAdmin><PensionRecordsPage /></RequireAdmin>} />
                 <Route path="/lottery/pension/create" element={<RequireAdmin><PensionCreatePage /></RequireAdmin>} />

@@ -156,6 +156,7 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
             {
                 key: "gear", label: "🔧 장비", items: [
                     {to: "/bikes", label: "내 자전거", end: true},
+                    {to: "/bikes/devices", label: "센서·기기"},
                     {to: "/bikes/register", label: "자전거 등록", adminOnly: true},
                 ],
             },
