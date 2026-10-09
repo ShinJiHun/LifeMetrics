@@ -33,6 +33,12 @@ export interface GoalSuggestion {
     weeksAtHalfPercent: number | null;
     weeksAtOnePercent: number | null;
     basis: string;
+    // 기록지 우측 체중조절 영역에 인쇄된 값
+    sheetTargetWeight: number | null;   // 적정체중
+    weightControl: number | null;       // 체중조절
+    fatControl: number | null;          // 지방조절
+    muscleControl: number | null;       // 근육조절
+    canReadSheet: boolean;              // 값은 없지만 원본 기록지가 있어 읽어올 수 있음
 }
 
 export interface GoalStatusView {
@@ -87,6 +93,13 @@ export async function fetchGoals(userId = 1): Promise<BodyGoal[]> {
 export async function fetchGoalSuggestion(userId = 1): Promise<GoalSuggestion> {
     const res = await fetch(`/api/body/goals/suggestion?userId=${userId}`);
     if (!res.ok) throw new Error(await errorMessage(res, "목표 제안을 계산하지 못했습니다."));
+    return res.json();
+}
+
+/** 최신 인바디 기록지에서 체중조절 값을 읽어 저장한 뒤 제안. 이미지 판독 비용이 있어 버튼으로만 부른다. */
+export async function readSheetSuggestion(userId = 1): Promise<GoalSuggestion> {
+    const res = await fetch(`/api/body/goals/suggestion/read-sheet?userId=${userId}`, {method: "POST"});
+    if (!res.ok) throw new Error(await errorMessage(res, "기록지를 읽지 못했습니다."));
     return res.json();
 }
 

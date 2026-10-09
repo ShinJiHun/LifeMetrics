@@ -17,6 +17,8 @@ public final class BodyGoalDto {
      * @param standardWeight    표준 체중(BMI 22). 참고용
      * @param weeksAtHalfPercent 주당 체중의 0.5% 감량 페이스로 걸리는 주 수
      * @param weeksAtOnePercent  주당 1% 페이스
+     * @param sheetTargetWeight 기록지 체중조절 영역의 적정체중. 아래 조절값과 함께 기록지에 인쇄된 값 그대로
+     * @param canReadSheet      조절값이 없지만 원본 기록지 이미지가 있어 읽어올 수 있음
      */
     public record Suggestion(
             String source,
@@ -33,7 +35,12 @@ public final class BodyGoalDto {
             Double standardWeight,
             Double weeksAtHalfPercent,
             Double weeksAtOnePercent,
-            String basis
+            String basis,
+            Double sheetTargetWeight,
+            Double weightControl,
+            Double fatControl,
+            Double muscleControl,
+            boolean canReadSheet
     ) {
     }
 

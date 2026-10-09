@@ -20,7 +20,8 @@ import java.util.Optional;
  * 체성분 목표. 목표 숫자는 규칙으로 정하고, AI 는 정해진 목표에 대한 해설만 쓴다.
  *
  * 목표 제안 우선순위:
- * 1. INBODY — 기록지의 체지방/근육 조절값. 인바디가 표준 체중·표준 체지방률로 계산한 값이다.
+ * 1. INBODY — 기록지 우측 체중조절 영역의 적정체중·지방조절·근육조절. 인바디가 표준 체중·표준 체지방률로
+ *    계산한 값이다. 값이 비어 있으면 readSheetAndSuggest 로 원본 기록지에서 읽어온다.
  * 2. FORMULA — 조절값이 없을 때(재추출 전 기록 등). 제지방량은 유지하고 체지방률만
  *    표준(15%)에 맞춘다. 사이클리스트는 근육량이 많아 BMI 22 표준 체중보다 이 쪽이 현실적이다.
  */
@@ -53,6 +54,7 @@ public class BodyGoalService {
     private final BodyGoalRepository goalRepository;
     private final UserBodyRecordRepository bodyRecordRepository;
     private final RiderZoneSettingService riderZoneSettingService;
+    private final InbodyReExtractService inbodyReExtractService;
     private final ClaudeClient claudeClient;
 
     @Transactional(readOnly = true)
@@ -63,9 +65,26 @@ public class BodyGoalService {
     /** 최신 인바디 기록으로 목표를 제안한다. 저장하지 않는다. */
     @Transactional(readOnly = true)
     public BodyGoalDto.Suggestion suggest(Long userId) {
-        UserBodyRecord r = bodyRecordRepository
+        return suggestFrom(latestInbody(userId));
+    }
+
+    /**
+     * 최신 인바디 기록지에서 체중조절 영역(적정체중·체중조절·지방조절·근육조절)을 읽어 저장한 뒤 제안한다.
+     * 업로드 파이프라인은 이 값을 추출하지 않아 목표 화면에서 필요할 때 읽어온다. 호출 비용이 있다.
+     */
+    @Transactional
+    public BodyGoalDto.Suggestion readSheetAndSuggest(Long userId) {
+        UserBodyRecord updated = inbodyReExtractService.extractWeightControl(latestInbody(userId));
+        return suggestFrom(updated);
+    }
+
+    private UserBodyRecord latestInbody(Long userId) {
+        return bodyRecordRepository
                 .findTopByUserIdAndMeasurementTypeOrderByRecordDateDesc(userId, MeasurementType.INBODY)
                 .orElseThrow(() -> new IllegalStateException("인바디 측정 기록이 없습니다."));
+    }
+
+    private BodyGoalDto.Suggestion suggestFrom(UserBodyRecord r) {
         if (r.getWeight() == null || r.getBodyFatMass() == null) {
             throw new IllegalStateException("최신 인바디 기록에 체중 또는 체지방량이 없어 목표를 계산할 수 없습니다.");
         }
@@ -97,8 +116,7 @@ public class BodyGoalService {
             targetWeight = r.getTargetWeight() != null
                     ? r.getTargetWeight()
                     : weight + (r.getWeightControl() != null ? r.getWeightControl() : fatControl + muscleControl);
-            basis = "%s 인바디 기록지의 조절값 (지방 %+.1fkg, 근육 %+.1fkg)"
-                    .formatted(r.getRecordDate(), fatControl, muscleControl);
+            basis = "%s 인바디 기록지의 체중조절 값".formatted(r.getRecordDate());
         } else {
             source = "FORMULA";
             double fatFreeMass = r.getFatFreeMass() != null ? r.getFatFreeMass() : weight - fat;
@@ -108,8 +126,8 @@ public class BodyGoalService {
             targetFat = Math.min(fat, fatAtStandard);
             targetMuscle = muscle;
             targetWeight = fatFreeMass + targetFat;
-            basis = "기록지 조절값이 없어 계산: 제지방량 %.1fkg 유지, 체지방률 %.0f%%"
-                    .formatted(fatFreeMass, STANDARD_BODY_FAT_PCT);
+            basis = "%s 기록에 체중조절 값이 없어 계산: 제지방량 %.1fkg 유지, 체지방률 %.0f%%"
+                    .formatted(r.getRecordDate(), fatFreeMass, STANDARD_BODY_FAT_PCT);
         }
 
         double loss = Math.max(0, weight - targetWeight);
@@ -123,7 +141,9 @@ public class BodyGoalService {
                 source, r.getId(), r.getRecordDate(),
                 weight, fat, muscle,
                 round(targetWeight, 1), round(targetFat, 1), targetMuscle != null ? round(targetMuscle, 1) : null,
-                targetDate, heightCm, standardWeight, weeksSafe, weeksFast, basis);
+                targetDate, heightCm, standardWeight, weeksSafe, weeksFast, basis,
+                r.getTargetWeight(), r.getWeightControl(), r.getFatControl(), r.getMuscleControl(),
+                "FORMULA".equals(source) && r.getRawFilename() != null && !r.getRawFilename().isBlank());
     }
 
     /** 새 목표 저장. 진행 중인 목표는 하나만 두므로 기존 ACTIVE 는 ABANDONED 로 돌린다. */

@@ -60,7 +60,12 @@ public class InbodyReExtractService {
             }
 
             segmental 은 부위별 근육/체지방 분석의 부위명을 키로, 등급 문자열이나 수치를 값으로 담는다.
+            결과지 우측 "체중조절" 영역의 적정체중은 target_weight, 체중조절은 weight_control,
+            지방조절은 fat_control, 근육조절은 muscle_control 이다. 조절값은 +/- 부호를 그대로 옮긴다.
             """;
+
+    /** 체중조절 값 검증 허용 오차(kg). 기록지가 소수 첫째 자리까지 인쇄해 반올림 차이가 생긴다. */
+    private static final double CONTROL_TOLERANCE_KG = 0.25;
 
     /** 재추출 대상 이미지 디렉터리. prod 는 NAS, 로컬은 샘플 복사본을 가리킨다. */
     @Value("${inbody.processed.path:/mnt/200gb/NAS/inbody/processed/}")
@@ -120,6 +125,48 @@ public class InbodyReExtractService {
                 "withChanges", changed,
                 "failed", failed,
                 "results", results);
+    }
+
+    /**
+     * 기록지 1건에서 체중조절 영역(적정체중·체중조절·지방조절·근육조절)만 읽어 저장한다.
+     * 체성분 목표의 근거로 쓰므로 다른 측정값은 건드리지 않는다.
+     * 적정체중 = 체중 + 체중조절, 체중조절 = 지방조절 + 근육조절 이 맞지 않으면 오독으로 보고 저장하지 않는다.
+     */
+    @Transactional
+    public UserBodyRecord extractWeightControl(UserBodyRecord record) {
+        if (record.getRawFilename() == null || record.getRawFilename().isBlank()) {
+            throw new IllegalStateException(record.getRecordDate() + " 인바디 기록에 원본 기록지 이미지가 없습니다.");
+        }
+
+        JsonNode x;
+        try {
+            x = extractFromImage(record.getRawFilename());
+        } catch (IOException e) {
+            throw new IllegalStateException("기록지를 읽지 못했습니다: " + e.getMessage());
+        }
+
+        Double target = num(x, "target_weight");
+        Double weightControl = num(x, "weight_control");
+        Double fatControl = num(x, "fat_control");
+        Double muscleControl = num(x, "muscle_control");
+        if (target == null || fatControl == null || muscleControl == null) {
+            throw new IllegalStateException("기록지에서 체중조절 값(적정체중·지방조절·근육조절)을 찾지 못했습니다.");
+        }
+        if (weightControl == null) weightControl = fatControl + muscleControl;
+
+        if (Math.abs(weightControl - (fatControl + muscleControl)) > CONTROL_TOLERANCE_KG
+                || (record.getWeight() != null
+                && Math.abs(target - (record.getWeight() + weightControl)) > CONTROL_TOLERANCE_KG)) {
+            throw new IllegalStateException(
+                    "읽은 값이 서로 맞지 않아 저장하지 않았습니다 (적정체중 %s, 체중조절 %s, 지방조절 %s, 근육조절 %s)"
+                            .formatted(target, weightControl, fatControl, muscleControl));
+        }
+
+        record.setTargetWeight(target);
+        record.setWeightControl(weightControl);
+        record.setFatControl(fatControl);
+        record.setMuscleControl(muscleControl);
+        return bodyRecordRepository.save(record);
     }
 
     private JsonNode extractFromImage(String filename) throws IOException {

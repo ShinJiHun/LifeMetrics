@@ -24,11 +24,12 @@ class BodyGoalServiceTest {
     private final BodyGoalRepository goalRepo = mock(BodyGoalRepository.class);
     private final UserBodyRecordRepository recordRepo = mock(UserBodyRecordRepository.class);
     private final RiderZoneSettingService zoneService = mock(RiderZoneSettingService.class);
+    private final InbodyReExtractService reExtract = mock(InbodyReExtractService.class);
     private BodyGoalService service;
 
     @BeforeEach
     void setUp() {
-        service = new BodyGoalService(goalRepo, recordRepo, zoneService, mock(ClaudeClient.class));
+        service = new BodyGoalService(goalRepo, recordRepo, zoneService, reExtract, mock(ClaudeClient.class));
     }
 
     private UserBodyRecord inbody(double weight, double fat, double muscle, double bmi) {
@@ -68,6 +69,37 @@ class BodyGoalServiceTest {
         // 감량 7.5kg / (80 × 0.5%) = 18.75주
         assertThat(s.weeksAtHalfPercent()).isEqualTo(18.8);
         assertThat(s.targetDate()).isEqualTo(LocalDate.now().plusWeeks(19));
+        assertThat(s.sheetTargetWeight()).isEqualTo(72.5);
+        assertThat(s.fatControl()).isEqualTo(-8.5);
+        assertThat(s.canReadSheet()).isFalse();
+    }
+
+    @Test
+    void 조절값이_없고_원본_기록지가_있으면_읽어올_수_있다고_알린다() {
+        UserBodyRecord r = inbody(80.0, 20.0, 36.0, 25.0);
+        r.setRawFilename("inbody_20260901.jpg");
+        latestInbody(r);
+
+        assertThat(service.suggest(1L).canReadSheet()).isTrue();
+    }
+
+    @Test
+    void 기록지를_읽으면_저장된_조절값으로_제안한다() {
+        UserBodyRecord r = inbody(80.0, 20.0, 36.0, 25.0);
+        latestInbody(r);
+        UserBodyRecord read = inbody(80.0, 20.0, 36.0, 25.0);
+        read.setTargetWeight(71.0);
+        read.setWeightControl(-9.0);
+        read.setFatControl(-10.0);
+        read.setMuscleControl(1.0);
+        when(reExtract.extractWeightControl(r)).thenReturn(read);
+
+        BodyGoalDto.Suggestion s = service.readSheetAndSuggest(1L);
+
+        assertThat(s.source()).isEqualTo("INBODY");
+        assertThat(s.targetWeight()).isEqualTo(71.0);
+        assertThat(s.targetFatMass()).isEqualTo(10.0);
+        assertThat(s.targetMuscleMass()).isEqualTo(37.0);
     }
 
     @Test

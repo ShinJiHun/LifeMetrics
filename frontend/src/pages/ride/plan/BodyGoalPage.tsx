@@ -4,7 +4,7 @@
 import {useEffect, useState} from "react";
 import AdminOnly from "@/components/common/AdminOnly";
 import {
-    fetchCurrentGoal, fetchGoalNarrative, fetchGoals, fetchGoalSuggestion, saveGoal, SOURCE_LABEL,
+    fetchCurrentGoal, fetchGoalNarrative, fetchGoals, fetchGoalSuggestion, readSheetSuggestion, saveGoal, SOURCE_LABEL,
 } from "@/api/bodyGoal";
 import type {BodyGoal, GoalStatusView, GoalSuggestion} from "@/api/bodyGoal";
 
@@ -230,26 +230,43 @@ function GoalForm({initial, onCancel, onSaved}: {
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
+    const [reading, setReading] = useState(false);
+
+    const applySuggestion = (s: GoalSuggestion) => {
+        setSuggestion(s);
+        setGoal((g) => ({
+            ...g,
+            source: s.source,
+            baseRecordId: s.baseRecordId,
+            startDate: g.id ? g.startDate : today(),
+            startWeight: s.startWeight,
+            startFatMass: s.startFatMass,
+            startMuscleMass: s.startMuscleMass,
+            targetWeight: s.targetWeight,
+            targetFatMass: s.targetFatMass,
+            targetMuscleMass: s.targetMuscleMass,
+            targetDate: s.targetDate,
+        }));
+    };
+
     const fillFromInbody = async () => {
         setError(null);
         try {
-            const s = await fetchGoalSuggestion();
-            setSuggestion(s);
-            setGoal((g) => ({
-                ...g,
-                source: s.source,
-                baseRecordId: s.baseRecordId,
-                startDate: g.id ? g.startDate : today(),
-                startWeight: s.startWeight,
-                startFatMass: s.startFatMass,
-                startMuscleMass: s.startMuscleMass,
-                targetWeight: s.targetWeight,
-                targetFatMass: s.targetFatMass,
-                targetMuscleMass: s.targetMuscleMass,
-                targetDate: s.targetDate,
-            }));
+            applySuggestion(await fetchGoalSuggestion());
         } catch (e) {
             setError((e as Error).message);
+        }
+    };
+
+    const readSheet = async () => {
+        setError(null);
+        setReading(true);
+        try {
+            applySuggestion(await readSheetSuggestion());
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            setReading(false);
         }
     };
 
@@ -284,6 +301,32 @@ function GoalForm({initial, onCancel, onSaved}: {
             <div className="bg-toolbar">
                 <button className="bg-btn" onClick={fillFromInbody}>📥 인바디 값으로 채우기</button>
             </div>
+
+            {suggestion && suggestion.source === "INBODY" && (
+                <>
+                    <div className="wl-section-title">체중조절 — {suggestion.baseRecordDate} 인바디 기록지</div>
+                    <div className="wl-grid">
+                        <SheetCard title="적정체중" value={suggestion.sheetTargetWeight}/>
+                        <SheetCard title="체중조절" value={suggestion.weightControl} signed/>
+                        <SheetCard title="지방조절" value={suggestion.fatControl} signed/>
+                        <SheetCard title="근육조절" value={suggestion.muscleControl} signed/>
+                    </div>
+                </>
+            )}
+
+            {suggestion && suggestion.source === "FORMULA" && (
+                <div className="wl-notes wl-warn">
+                    {suggestion.baseRecordDate} 인바디 기록에 체중조절 값(적정체중·지방조절·근육조절)이 없어
+                    계산값으로 채웠습니다.
+                    {suggestion.canReadSheet ? (
+                        <div style={{marginTop: 8}}>
+                            <button className="bg-btn" onClick={readSheet} disabled={reading}>
+                                {reading ? "기록지 읽는 중…" : "📄 기록지에서 체중조절 값 읽기"}
+                            </button>
+                        </div>
+                    ) : " 원본 기록지 이미지가 없어 읽어올 수 없습니다. 목표값을 직접 입력해 주세요."}
+                </div>
+            )}
 
             {suggestion && (
                 <div className="bg-basis">
@@ -336,6 +379,19 @@ function GoalForm({initial, onCancel, onSaved}: {
                 </button>
                 <button className="bg-btn" onClick={onCancel}>취소</button>
                 {!goal.id && <span className="wl-ai-hint">저장하면 진행 중인 기존 목표는 중단 처리됩니다.</span>}
+            </div>
+        </div>
+    );
+}
+
+function SheetCard({title, value, signed}: { title: string; value: number | null; signed?: boolean }) {
+    const text = value == null ? "-" : signed && value > 0 ? `+${value}` : `${value}`;
+    return (
+        <div className="wl-card">
+            <div className="wl-card-title">{title}</div>
+            <div className="wl-card-value">
+                {text}
+                <span className="wl-card-unit">kg</span>
             </div>
         </div>
     );

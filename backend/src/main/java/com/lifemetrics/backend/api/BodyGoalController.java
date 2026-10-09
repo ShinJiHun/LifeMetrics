@@ -43,6 +43,16 @@ public class BodyGoalController {
         }
     }
 
+    /** 최신 인바디 기록지에서 체중조절 값을 읽어 저장한 뒤 제안. 이미지 판독 비용이 있어 버튼으로만 부른다. */
+    @PostMapping("/suggestion/read-sheet")
+    public ResponseEntity<?> readSheet(@RequestParam(defaultValue = "1") Long userId) {
+        try {
+            return ResponseEntity.ok(goalService.readSheetAndSuggest(userId));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(422).body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> create(@RequestParam(defaultValue = "1") Long userId,
                                     @RequestBody BodyGoal request) {
