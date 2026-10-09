@@ -348,11 +348,11 @@ function PowerCurve({data}: { data: ActivityAnalytics }) {
 // ── 인터벌 ────────────────────────────────────────────────────────
 
 function Intervals({data}: { data: ActivityAnalytics }) {
-    const threshold = Math.round(data.zoneSetting.ftp * 0.9);
+    const threshold = data.zoneSetting.ftp;
     return (
         <div style={S.panel}>
             <div style={S.panelTitle}>
-                🔁 인터벌 <span style={S.panelHint}>30초 평균 {threshold}W(FTP 90%) 이상 1분 이상 유지</span>
+                🔁 인터벌 <span style={S.panelHint}>30초 평균 {threshold}W(FTP) 이상 1분 이상 유지</span>
             </div>
             {data.intervals.length === 0 ? (
                 <div style={S.emptySmall}>

@@ -40,8 +40,8 @@ public class ActivityAnalyticsService {
     private static final int[] CURVE_SECONDS = {5, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 10800, 18000};
     private static final String[] CURVE_LABELS = {"5초", "15초", "30초", "1분", "2분", "5분", "10분", "20분", "30분", "1시간", "2시간", "3시간", "5시간"};
 
-    /** 인터벌 판정: 30초 평균 파워가 FTP 의 90% 이상인 구간이 60초 이상 */
-    private static final double INTERVAL_FTP_RATIO = 0.9;
+    /** 인터벌 판정: 30초 평균 파워가 FTP 이상인 구간이 60초 이상 */
+    private static final double INTERVAL_FTP_RATIO = 1.0;
     private static final int INTERVAL_MIN_SEC = 60;
     private static final int INTERVAL_MERGE_GAP_SEC = 20;
     private static final int INTERVAL_MAX_COUNT = 30;
