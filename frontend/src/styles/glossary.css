@@ -1,0 +1,176 @@
+/* ── 본문 속 용어 + 툴팁 ─────────────────────────────────── */
+.glossary-term {
+    color: inherit;
+    text-decoration: underline dotted #2563eb;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1.5px;
+    cursor: help;
+}
+.glossary-term:hover {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.08);
+    border-radius: 3px;
+}
+
+.glossary-tooltip {
+    position: fixed;
+    z-index: 2000;
+    transform: translateY(-100%);
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+    font-size: 12.5px;
+    line-height: 1.55;
+    pointer-events: none;
+    text-align: left;
+}
+.glossary-tooltip.below {
+    transform: none;
+}
+.glossary-tooltip-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+.glossary-tooltip-head strong {
+    color: #fff;
+    font-size: 13.5px;
+}
+.glossary-tooltip-head span {
+    color: #94a3b8;
+    font-size: 11px;
+}
+.glossary-tooltip-foot {
+    margin-top: 6px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+/* ── 용어 사전 화면 ─────────────────────────────────────── */
+.glossary-page {
+    padding: 24px;
+    max-width: 1100px;
+}
+.glossary-page h2 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    font-weight: 800;
+}
+.glossary-desc {
+    margin: 0 0 18px;
+    color: #64748b;
+    font-size: 13px;
+}
+.glossary-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.glossary-search {
+    flex: 1 1 240px;
+    max-width: 320px;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+}
+.glossary-search:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.glossary-chip {
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    background: #fff;
+    color: #475569;
+    font-size: 13px;
+    cursor: pointer;
+}
+.glossary-chip.active {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #fff;
+}
+
+.glossary-section {
+    margin-bottom: 28px;
+}
+.glossary-section-title {
+    margin: 0 0 10px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #334155;
+}
+.glossary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+.glossary-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    scroll-margin-top: 24px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.glossary-card.highlight {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.glossary-card-head {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.glossary-card-term {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+}
+.glossary-card-full {
+    font-size: 12px;
+    color: #94a3b8;
+}
+.glossary-card-short {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #334155;
+}
+.glossary-card-detail {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: #64748b;
+}
+.glossary-card-aliases {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.glossary-card-aliases span {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 11px;
+}
+.glossary-empty {
+    color: #94a3b8;
+    font-size: 14px;
+    padding: 40px 0;
+    text-align: center;
+}

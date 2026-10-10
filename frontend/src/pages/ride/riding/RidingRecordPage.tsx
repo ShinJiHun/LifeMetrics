@@ -4,6 +4,7 @@ import {useNavigate} from "react-router-dom";
 import {fetchActivities, fetchActivityCount, mergeActivities} from "@/api/activity";
 import type {Activity} from "@/api/activity";
 import ActivityMap from "@/pages/ride/riding/ActivityMap";
+import GlossaryText from "@/components/glossary/GlossaryText";
 import {useDropzone} from "react-dropzone";
 import {fetchPermanentCourses} from "@/api/permanent";
 import type {PermanentCourse} from "@/api/permanent";
@@ -348,11 +349,11 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
 
                     {tab === "stats" && statSections.map((sec) => (
                         <div key={sec.title} className="analysis-stat-section">
-                            <div className="analysis-stat-section-title">{sec.title}</div>
+                            <div className="analysis-stat-section-title"><GlossaryText>{sec.title}</GlossaryText></div>
                             <div className="analysis-stats-grid-panel">
                                 {sec.items.map((it) => (
                                     <div key={it.label} className="analysis-stat-card">
-                                        <span className="analysis-stat-label">{it.label}</span>
+                                        <span className="analysis-stat-label"><GlossaryText>{it.label}</GlossaryText></span>
                                         <span className="analysis-stat-val">{it.val}</span>
                                     </div>
                                 ))}
@@ -393,7 +394,7 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
                                     <div className="analysis-score-row">
                                         <div className="analysis-score">{analysis.score}</div>
                                         <div>
-                                            <div className="analysis-summary">{analysis.summary}</div>
+                                            <div className="analysis-summary"><GlossaryText>{analysis.summary}</GlossaryText></div>
                                             {analysis.intensity && (
                                                 <span className="analysis-intensity-badge"
                                                       style={{background: intensityColor(analysis.intensity)}}>
@@ -404,22 +405,22 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
                                     </div>
 
                                     {analysis.bodyCondition && (
-                                        <div className="analysis-body-condition">🩺 {analysis.bodyCondition}</div>
+                                        <div className="analysis-body-condition">🩺 <GlossaryText>{analysis.bodyCondition}</GlossaryText></div>
                                     )}
 
                                     {analysis.recoveryAdvice && (
-                                        <div className="analysis-recovery">🛌 {analysis.recoveryAdvice}</div>
+                                        <div className="analysis-recovery">🛌 <GlossaryText>{analysis.recoveryAdvice}</GlossaryText></div>
                                     )}
 
                                     {analysis.weatherImpact && (
-                                        <div className="analysis-weather-impact">🌤 {analysis.weatherImpact}</div>
+                                        <div className="analysis-weather-impact">🌤 <GlossaryText>{analysis.weatherImpact}</GlossaryText></div>
                                     )}
 
                                     {analysis.highlights?.length > 0 && (
                                         <div className="analysis-section">
                                             <div className="analysis-section-title">✅ 잘한 점</div>
                                             {analysis.highlights.map((h, i) => (
-                                                <div key={i} className="analysis-item highlight">· {h}</div>
+                                                <div key={i} className="analysis-item highlight">· <GlossaryText>{h}</GlossaryText></div>
                                             ))}
                                         </div>
                                     )}
@@ -428,7 +429,7 @@ function AnalysisPanel({activity}: { activity: Activity | null }) {
                                         <div className="analysis-section">
                                             <div className="analysis-section-title">💡 개선점</div>
                                             {analysis.suggestions.map((s, i) => (
-                                                <div key={i} className="analysis-item suggestion">· {s}</div>
+                                                <div key={i} className="analysis-item suggestion">· <GlossaryText>{s}</GlossaryText></div>
                                             ))}
                                         </div>
                                     )}

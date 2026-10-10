@@ -10,6 +10,7 @@ import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
 import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
+import GlossaryPage from "@/pages/ride/guide/GlossaryPage";
 import BrevePlanPage from "@/pages/ride/plan/BrevePlanPage";
 import PermanentCoursesPage from "@/pages/ride/plan/PermanentCoursesPage";
 import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
@@ -63,6 +64,7 @@ export default function App() {
                 <Route path="/plan/live" element={<LiveRidePage />} />
                 <Route path="/plan/touring" element={<div style={{ padding: 24 }}>🏕️ 투어링 계획 (준비중)</div>} />
                 <Route path="/plan/body-goal" element={<BodyGoalPage />} />
+                <Route path="/guide/glossary" element={<GlossaryPage />} />
                 <Route path="/plan/fitting" element={<div style={{ padding: 24 }}>🔧 피팅 계획 (준비중)</div>} />
                 <Route path="/plan/gear" element={<div style={{ padding: 24 }}>🔧 장비 변경 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />

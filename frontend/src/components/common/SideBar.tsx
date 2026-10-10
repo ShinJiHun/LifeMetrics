@@ -181,6 +181,12 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
             },
         ],
     },
+    {
+        label: "📚 참고",
+        sections: [
+            {key: "glossary", label: "📖 용어 사전", to: "/guide/glossary"},
+        ],
+    },
 ];
 
 /** 현재 경로가 속한 섹션 (가장 길게 일치하는 메뉴 주소 기준) */
