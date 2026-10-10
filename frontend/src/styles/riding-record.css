@@ -27,6 +27,20 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    /* 우측 AI 분석 패널과 같은 높이로 맞추고 내부 스크롤 */
+    height: var(--riding-layout-h, calc(100vh - 220px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+}
+.activity-feed > * {
+    flex-shrink: 0;
+}
+/* 한 페이지 한 개: 카드가 피드 높이를 채우고, 늘어난 만큼 지도가 커진다 */
+.activity-feed > .activity-card {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ── 카드 ────────────────────────────────────────────────── */
@@ -66,11 +80,13 @@
 
 .activity-map {
     width: 100%;
-    height: 160px;
+    flex: 1 1 auto;
+    min-height: 160px;
     background: #f1f5f9;
 }
 .map-placeholder {
-    height: 160px;
+    height: 100%;
+    min-height: 160px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -141,9 +157,7 @@
     border: 1px solid #e5e7eb;
     border-radius: 16px;
     padding: 20px;
-    position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 80px);
+    height: var(--riding-layout-h, calc(100vh - 220px));
     overflow-y: auto;
     overscroll-behavior: contain;
 }
@@ -193,10 +207,20 @@
         flex-direction: column;
     }
 
+    .activity-feed,
+    .analysis-panel {
+        position: static;
+        height: auto;
+        overflow-y: visible;
+    }
+
+    .activity-map {
+        flex: none;
+        height: 220px;
+    }
+
     .analysis-panel {
         width: 100%;
-        position: static;
-        max-height: none;
     }
 }
 

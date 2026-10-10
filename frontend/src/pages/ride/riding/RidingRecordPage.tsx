@@ -1,5 +1,5 @@
 import AdminOnly from "@/components/common/AdminOnly";
-import {useState, useEffect, useCallback} from "react";
+import {useState, useEffect, useLayoutEffect, useCallback, useRef} from "react";
 import {useNavigate} from "react-router-dom";
 import {fetchActivities, fetchActivityCount, mergeActivities} from "@/api/activity";
 import type {Activity} from "@/api/activity";
@@ -155,7 +155,7 @@ function ActivityCard({activity, selected, onClick, mergeMode, mergeRank}: {
             </div>
             <div className="activity-map">
                 {activity.polyline
-                    ? <ActivityMap polyline={activity.polyline} height={160}/>
+                    ? <ActivityMap polyline={activity.polyline} height="100%"/>
                     : <div className="map-placeholder">경로 데이터 없음</div>}
             </div>
             {/* 상단 4개 */}
@@ -735,7 +735,10 @@ function FitUploadModal({onClose, onSuccess}: {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────────
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 1;
+// 레이아웃 아래 페이지 번호(버튼 32 + 여백 24) + 페이지 하단 여백 만큼 남겨둔다
+const LAYOUT_BOTTOM_SPACE = 88;
+const LAYOUT_MIN_HEIGHT = 420;
 
 // ── 목록 페이지 번호 ─────────────────────────────────────────────
 // 처음/끝 페이지와 현재 페이지 주변 2개만 보여주고 나머지는 … 로 줄인다.
@@ -798,6 +801,10 @@ export default function RidingRecordPage() {
     const [merging, setMerging] = useState(false);
     const [mergeError, setMergeError] = useState<string | null>(null);
 
+    // 좌측 기록·우측 AI 분석을 한 화면에 맞추고 아래 페이지 번호까지 보이도록 높이를 잰다
+    const layoutRef = useRef<HTMLDivElement>(null);
+    const [layoutHeight, setLayoutHeight] = useState<number | null>(null);
+
     const toggleMergeMode = () => {
         setMergeMode((m) => !m);
         setMergeSelection([]);
@@ -842,6 +849,7 @@ export default function RidingRecordPage() {
         Promise.all([fetchActivities(targetPage, PAGE_SIZE), fetchActivityCount()])
             .then(([list, count]) => {
                 setActivities(list);
+                setSelectedActivity(list[0] ?? null);
                 setTotal(count);
                 setPage(targetPage);
             })
@@ -855,6 +863,17 @@ export default function RidingRecordPage() {
     useEffect(() => {
         loadActivities(0);
     }, []);
+
+    useLayoutEffect(() => {
+        const measure = () => {
+            if (!layoutRef.current) return;
+            const top = layoutRef.current.getBoundingClientRect().top;
+            setLayoutHeight(Math.max(LAYOUT_MIN_HEIGHT, window.innerHeight - top - LAYOUT_BOTTOM_SPACE));
+        };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [loading, mergeMode, mergeSelection.length, mergeError]);
 
     if (loading) return <div className="riding-page loading">로딩 중...</div>;
     if (error) return <div className="riding-page error">에러: {error}</div>;
@@ -945,7 +964,11 @@ export default function RidingRecordPage() {
                 </div>
             )}
 
-            <div className="riding-layout">
+            <div
+                className="riding-layout"
+                ref={layoutRef}
+                style={layoutHeight ? {"--riding-layout-h": `${layoutHeight}px`} as React.CSSProperties : undefined}
+            >
                 <div className="activity-feed" style={{opacity: pageLoading ? 0.5 : 1}}>
                     {activities.length === 0 ? <p>라이딩 기록이 없습니다.</p> : (
                         activities.map((activity) => {
@@ -967,16 +990,16 @@ export default function RidingRecordPage() {
                             );
                         })
                     )}
-                    <Pagination
-                        page={page}
-                        totalPages={Math.ceil(total / PAGE_SIZE)}
-                        total={total}
-                        disabled={pageLoading}
-                        onChange={loadActivities}
-                    />
                 </div>
                 <AnalysisPanel activity={selectedActivity}/>
             </div>
+            <Pagination
+                page={page}
+                totalPages={Math.ceil(total / PAGE_SIZE)}
+                total={total}
+                disabled={pageLoading}
+                onChange={loadActivities}
+            />
         </div>
     );
 }

@@ -4,7 +4,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 interface ActivityMapProps {
     polyline?: string;
-    height?: number;
+    height?: number | string;   // 숫자는 px, 문자열은 그대로 (예: "100%")
     segmentCoords?: [number, number][];
     interactive?: boolean;
 }
@@ -140,13 +140,17 @@ export default function ActivityMap({ polyline, height = 200, segmentCoords, int
             mapInstance.fitBounds(bounds, { padding: 30, duration: 0 });
         });
 
-        return () => { mapInstance.remove(); };
+        // 컨테이너 크기가 바뀌면(부모 높이에 맞춘 경우) 지도도 다시 맞춘다
+        const resizeObserver = new ResizeObserver(() => mapInstance.resize());
+        resizeObserver.observe(mapContainer.current);
+
+        return () => { resizeObserver.disconnect(); mapInstance.remove(); };
     }, [polyline, isVisible, segmentCoords]);
 
     return (
         <div
             ref={mapContainer}
-            style={{ width: "100%", height: `${height}px`, background: isVisible ? undefined : "#f3f4f6" }}
+            style={{ width: "100%", height: typeof height === "number" ? `${height}px` : height, background: isVisible ? undefined : "#f3f4f6" }}
         >
             {!isVisible && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#9ca3af" }}>
