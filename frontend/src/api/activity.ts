@@ -56,3 +56,21 @@ export async function mergeActivities(parentId: number, targetId: number): Promi
     );
     if (!res.ok) throw new Error(await res.text() || "병합에 실패했습니다.");
 }
+
+// ── 라이딩 지도 (전체 기록) ──────────────────────────────────────
+export interface MapActivity {
+    id: number;
+    name?: string;
+    startTime: string;
+    rideType?: string;
+    totalDistance?: number;   // m
+    totalAscent?: number;     // m
+    movingTime?: number;      // 초
+    polyline: string;         // 지도 전체 보기용으로 단순화된 경로
+}
+
+export async function fetchMapActivities(userId = 1): Promise<MapActivity[]> {
+    const res = await fetch(`${API_BASE}/api/activity/map?userId=${userId}`);
+    if (!res.ok) throw new Error("라이딩 지도 데이터를 불러오지 못했습니다.");
+    return res.json();
+}

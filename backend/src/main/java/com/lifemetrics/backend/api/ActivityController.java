@@ -2,11 +2,13 @@ package com.lifemetrics.backend.api;
 
 import com.lifemetrics.backend.dto.ActivityAnalyticsDto;
 import com.lifemetrics.backend.dto.ActivityDetailDto;
+import com.lifemetrics.backend.dto.ActivityMapDto;
 import com.lifemetrics.backend.dto.ActivitySegmentDto;
 import com.lifemetrics.backend.dto.ActivitySummaryDto;
 import com.lifemetrics.backend.dto.MonthlyStatsDto;
 import com.lifemetrics.backend.dto.UpdateActivityRequest;
 import com.lifemetrics.backend.service.ActivityAnalyticsService;
+import com.lifemetrics.backend.service.ActivityMapService;
 import com.lifemetrics.backend.service.ActivityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,6 +26,7 @@ public class ActivityController {
 
     private final ActivityService activityService;
     private final ActivityAnalyticsService analyticsService;
+    private final ActivityMapService mapService;
 
     // 라이딩 목록
     @GetMapping("/list")
@@ -34,6 +37,12 @@ public class ActivityController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
         return activityService.getActivityList(userId, startDate, endDate, page, size);
+    }
+
+    // 라이딩 지도: 전체 기록 (단순화된 경로 포함, 지도 전체 보기·월별·타입별·타일 계산용)
+    @GetMapping("/map")
+    public List<ActivityMapDto> getMapActivities(@RequestParam Long userId) {
+        return mapService.getMapActivities(userId);
     }
 
     // 라이딩 전체 개수 (목록 페이지 번호 계산용)

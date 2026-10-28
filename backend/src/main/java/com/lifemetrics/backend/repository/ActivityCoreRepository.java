@@ -16,6 +16,16 @@ public interface ActivityCoreRepository extends JpaRepository<ActivityCore, Long
 
     long countByUserId(Long userId);
 
+    /** 라이딩 지도: 전체 기록 목록 (polyline 제외) */
+    @Query("SELECT a.id AS id, a.name AS name, a.startTime AS startTime, a.rideType AS rideType, " +
+            "a.totalDistance AS totalDistance, a.totalAscent AS totalAscent, a.movingTime AS movingTime " +
+            "FROM ActivityCore a WHERE a.userId = :userId ORDER BY a.startTime DESC")
+    List<ActivityMapRow> findMapRowsByUserId(@Param("userId") Long userId);
+
+    /** 라이딩 지도: 지정한 기록들의 원본 polyline */
+    @Query("SELECT a.id AS id, a.polyline AS polyline FROM ActivityCore a WHERE a.id IN :ids")
+    List<ActivityPolylineRow> findPolylinesByIdIn(@Param("ids") java.util.Collection<Long> ids);
+
     @Query("SELECT a FROM ActivityCore a WHERE a.userId = :userId AND a.startTime >= :start AND a.startTime < :end")
     List<ActivityCore> findByUserIdAndDateRange(
             @Param("userId") Long userId,

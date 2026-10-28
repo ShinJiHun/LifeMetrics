@@ -150,6 +150,7 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
             {
                 key: "riding", label: "🚴 라이딩", items: [
                     {to: "/records/riding", label: "라이딩 기록"},
+                    {to: "/records/riding-map", label: "라이딩 지도"},
                     {to: "/plan/live", label: "라이브 라이딩"},
                 ],
             },
