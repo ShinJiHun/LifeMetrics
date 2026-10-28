@@ -18,6 +18,7 @@ public class FoodSearchItemDto {
     private Double packageSize;   // 제품 1개 용량 (예: 355)
     private String packageUnit;   // mL | g
     private int duplicates;       // 합쳐진 동일 행 수 (1 = 중복 없음)
+    private boolean corrected;    // 원본 오류를 보정한 값인지 (food_nutrition_correction)
 
     private Nutrients per100;     // 기준량(보통 100g/100mL)당
     private Nutrients perPackage; // 제품 1개당 (packageSize 없으면 null)
