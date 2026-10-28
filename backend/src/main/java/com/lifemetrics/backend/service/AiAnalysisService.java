@@ -13,6 +13,7 @@ import com.lifemetrics.backend.entity.ActivityCore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -159,7 +160,10 @@ public class AiAnalysisService {
         }
 
         String prompt = buildExerciseSessionPrompt(session);
-        String analysisJson = callClaudeApi(prompt);
+        String analysisJson = requestClaude(prompt);
+        if (analysisJson == null) {
+            throw new RuntimeException("운동 분석 실패: " + sessionId);
+        }
 
         AiAnalysis analysis = new AiAnalysis();
         analysis.setUserId(userId);
@@ -178,6 +182,44 @@ public class AiAnalysisService {
                 .orElse(null);
     }
 
+    /**
+     * 운동 기록 저장 직후 호출. 같은 날 여러 번 나눠 저장하면 세션에 운동이 계속 붙으므로
+     * 기존 분석이 있어도 세션 전체 기준으로 다시 만들어 덮어쓴다.
+     * 실패하면 기존 분석을 그대로 두고, 분석이 없으면 밤 배치(ExerciseAnalysisScheduler)가 다시 채운다.
+     */
+    @Async
+    public void refreshExerciseSessionAsync(Long userId, Long sessionId, String sessionDate) {
+        try {
+            String month = sessionDate.substring(0, 7);
+            ExerciseHistoryResponse session = exerciseLogService.getHistory(userId, month).stream()
+                    .filter(s -> s.getId().equals(sessionId))
+                    .findFirst()
+                    .orElse(null);
+            if (session == null) return;
+
+            String analysisJson = requestClaude(buildExerciseSessionPrompt(session));
+            if (analysisJson == null) {
+                System.out.println("❌ 운동 분석 실패(밤 배치에서 재시도): " + sessionId);
+                return;
+            }
+
+            AiAnalysis analysis = analysisRepo
+                    .findByUserIdAndAnalysisTypeAndTargetId(userId, "exercise_session", sessionId)
+                    .orElseGet(() -> {
+                        AiAnalysis a = new AiAnalysis();
+                        a.setUserId(userId);
+                        a.setAnalysisType("exercise_session");
+                        a.setTargetId(sessionId);
+                        return a;
+                    });
+            analysis.setAnalysisData(analysisJson);
+            analysisRepo.save(analysis);
+            System.out.println("✅ 운동 분석 갱신: " + sessionId + " (" + sessionDate + ")");
+        } catch (Exception e) {
+            System.out.println("❌ 운동 분석 갱신 에러: " + sessionId + " - " + e.getMessage());
+        }
+    }
+
     public int analyzeAllExerciseSessions(Long userId) {
         int count = 0;
 
@@ -185,7 +227,14 @@ public class AiAnalysisService {
             java.time.LocalDate date = java.time.LocalDate.now().minusMonths(i);
             String month = String.format("%d-%02d", date.getYear(), date.getMonthValue());
 
-            List<ExerciseHistoryResponse> sessions = exerciseLogService.getHistory(userId, month);
+            // 한 달 조회가 터져도 나머지 달은 계속 채운다
+            List<ExerciseHistoryResponse> sessions;
+            try {
+                sessions = exerciseLogService.getHistory(userId, month);
+            } catch (Exception e) {
+                System.out.println("❌ 운동 기록 조회 실패: " + month + " - " + e.getMessage());
+                continue;
+            }
 
             for (ExerciseHistoryResponse session : sessions) {
                 Optional<AiAnalysis> existing = analysisRepo
@@ -198,7 +247,11 @@ public class AiAnalysisService {
 
                 try {
                     String prompt = buildExerciseSessionPrompt(session);
-                    String analysisJson = callClaudeApi(prompt);
+                    String analysisJson = requestClaude(prompt);
+                    if (analysisJson == null) {
+                        System.out.println("❌ 분석 실패: " + session.getSessionDate());
+                        continue;
+                    }
 
                     AiAnalysis analysis = new AiAnalysis();
                     analysis.setUserId(userId);
@@ -747,6 +800,16 @@ public class AiAnalysisService {
         if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
             return "{\"summary\":\"API 키 없음\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
         }
+        String text = requestClaude(prompt);
+        return text != null ? text
+                : "{\"summary\":\"분석 실패\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
+    }
+
+    /** 실패(키 없음·API 에러·JSON 아님)면 null. 실패 결과를 DB 에 남기지 않아야 하는 곳에서 쓴다. */
+    private String requestClaude(String prompt) {
+        if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
+            return null;
+        }
 
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -792,7 +855,7 @@ public class AiAnalysisService {
 
         } catch (Exception e) {
             System.out.println("❌ Claude API 에러: " + e.getMessage());
-            return "{\"summary\":\"분석 실패\",\"highlights\":[],\"suggestions\":[],\"score\":0}";
+            return null;
         }
     }
     // ================================================================

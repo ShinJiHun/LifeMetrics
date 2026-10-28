@@ -47,7 +47,9 @@ public class SecurityConfig {
                                 "/assets/**",
                                 "/gif/**",
                                 "/models/**",
-                                "/muscles/**"
+                                "/muscles/**",
+                                // 예외 시 Spring 이 /error 로 포워딩한다. 막혀 있으면 500/404 가 전부 401 로 보인다.
+                                "/error"
                         ).permitAll()
                         .requestMatchers("/api/**").permitAll()
                         // SPA 클라이언트 라우트(/lottery/... 등) 직접 접속/새로고침 → SpaForwardController 가 index.html 로 포워딩

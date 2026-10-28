@@ -47,8 +47,9 @@ public class ExerciseLogService {
     // ================================================================
     // saveExerciseLog
     // ================================================================
+    /** @return 기록이 붙은 세션 id (같은 날짜 세션이 있으면 거기에 이어 붙인다) */
     @Transactional
-    public void saveExerciseLog(ExerciseLogRequest request) {
+    public Long saveExerciseLog(ExerciseLogRequest request) {
         LocalDate sessionDate = LocalDate.parse(request.getSessionDate());
 
         ExerciseSession session = sessionRepository
@@ -101,6 +102,7 @@ public class ExerciseLogService {
                 setRepository.save(exerciseSet);
             }
         }
+        return session.getId();
     }
 
     // ================================================================
@@ -182,7 +184,7 @@ public class ExerciseLogService {
                                         .setNumber(set.getSetNumber())
                                         .weight(set.getWeight() != null
                                                 ? set.getWeight().doubleValue() : 0)
-                                        .reps(set.getReps())
+                                        .reps(set.getReps() != null ? set.getReps() : 0)
                                         .build())
                                 .toList();
 
@@ -249,7 +251,7 @@ public class ExerciseLogService {
             return ExerciseHistoryResponse.builder()
                     .id(session.getId())
                     .sessionDate(session.getSessionDate().toString())
-                    .isPT(session.getIsPT())
+                    .isPT(Boolean.TRUE.equals(session.getIsPT()))
                     .memo(session.getMemo())
                     .logs(logDtos)
                     .estimatedCalories(Math.round(estimatedCalories * 10) / 10.0)

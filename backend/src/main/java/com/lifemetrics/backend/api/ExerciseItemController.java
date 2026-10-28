@@ -4,6 +4,7 @@ import com.lifemetrics.backend.dto.ExerciseHistoryResponse;
 import com.lifemetrics.backend.dto.ExerciseItemDto;
 import com.lifemetrics.backend.dto.ExerciseLogRequest;
 import com.lifemetrics.backend.entity.ExerciseCategory;
+import com.lifemetrics.backend.service.AiAnalysisService;
 import com.lifemetrics.backend.service.ExerciseCategoryService;
 import com.lifemetrics.backend.service.ExerciseLogService;
 import com.lifemetrics.backend.service.ExerciseService;
@@ -31,6 +32,7 @@ public class ExerciseItemController {
     private final ExerciseCategoryService categoryService;
     private final ExerciseLogService logService;
     private final ExerciseService exerciseService;
+    private final AiAnalysisService analysisService;
 
     @Value("${exercise.gif.path:/mnt/200gb/NAS/exercise-gifs/}")
     private String gifBasePath;
@@ -53,7 +55,9 @@ public class ExerciseItemController {
     @PostMapping("/log")
     public ResponseEntity<String> saveExerciseLog(@RequestBody ExerciseLogRequest request) {
         try {
-            logService.saveExerciseLog(request);
+            Long sessionId = logService.saveExerciseLog(request);
+            // 저장 응답을 기다리게 하지 않도록 분석은 백그라운드에서 (세션 전체 기준으로 다시 만든다)
+            analysisService.refreshExerciseSessionAsync(request.getUserId(), sessionId, request.getSessionDate());
             return ResponseEntity.ok("저장 완료");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("저장 실패: " + e.getMessage());

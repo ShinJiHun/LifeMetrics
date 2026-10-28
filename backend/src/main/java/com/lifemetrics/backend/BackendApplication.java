@@ -3,11 +3,13 @@ package com.lifemetrics.backend;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import jakarta.annotation.PostConstruct;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.TimeZone;
 
 @EnableScheduling  // ← 추가
+@EnableAsync  // 운동 기록 저장 후 AI 분석
 @SpringBootApplication
 public class BackendApplication {
 
