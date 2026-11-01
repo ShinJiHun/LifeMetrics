@@ -61,6 +61,15 @@ public class FoodNutritionService {
         return merged.values().stream().limit(max).toList();
     }
 
+    /** 식품 코드로 1건 조회한다(보정 적용). amount 를 주면 perAmount 도 계산한다. */
+    @Transactional(readOnly = true)
+    public Optional<FoodSearchItemDto> find(String foodCd, Double amount) {
+        Double correction = correctionRepository.findById(foodCd)
+                .map(FoodNutritionCorrection::getScale)
+                .orElse(null);
+        return repository.findById(foodCd).map(f -> toDto(f, correction, amount));
+    }
+
     /** @param correction 원본 오류 보정 배율(없으면 null) */
     private FoodSearchItemDto toDto(FoodNutritionMaster f, Double correction, Double amount) {
         double c = correction != null ? correction : 1.0;
