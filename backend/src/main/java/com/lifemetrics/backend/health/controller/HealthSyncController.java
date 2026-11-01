@@ -1,18 +1,23 @@
 package com.lifemetrics.backend.health.controller;
 
 import com.lifemetrics.backend.health.dto.HealthSyncRequest;
+import com.lifemetrics.backend.health.service.HealthDataQueryService;
 import com.lifemetrics.backend.health.service.HealthSyncService;
 import com.lifemetrics.backend.security.AdminWriteFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * 폰 앱(Health Connect)의 하루 1번 동기화를 받는다.
@@ -26,7 +31,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class HealthSyncController {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
     private final HealthSyncService service;
+    private final HealthDataQueryService queryService;
     private final AdminWriteFilter adminWriteFilter;
 
     @Value("${HEALTH_SYNC_TOKEN:}")
@@ -67,6 +75,41 @@ public class HealthSyncController {
         Map<String, Object> body = new HashMap<>();
         body.put("lastSync", last);
         return ResponseEntity.ok(body);
+    }
+
+    /** 일별 활동량. 조회 3종 모두 from/to(yyyy-MM-dd, 양끝 포함)를 받고, 생략하면 최근 30일이다. */
+    @GetMapping("/daily")
+    public ResponseEntity<?> daily(HttpServletRequest request,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return query(request, from, to, range -> queryService.dailyActivity(userId, range));
+    }
+
+    @GetMapping("/exercises")
+    public ResponseEntity<?> exercises(HttpServletRequest request,
+                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return query(request, from, to, range -> queryService.exercises(userId, range));
+    }
+
+    @GetMapping("/nutrition")
+    public ResponseEntity<?> nutrition(HttpServletRequest request,
+                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return query(request, from, to, range -> queryService.nutrition(userId, range));
+    }
+
+    private ResponseEntity<?> query(HttpServletRequest request, LocalDate from, LocalDate to,
+                                    Function<HealthDataQueryService.DateRange, Object> reader) {
+        if (!hasValidToken(request) && !adminWriteFilter.isAdmin(request)) {
+            return ResponseEntity.status(401).body(Map.of("message", "동기화 토큰 또는 관리자 로그인이 필요합니다."));
+        }
+        try {
+            return ResponseEntity.ok(reader.apply(
+                    HealthDataQueryService.resolveRange(from, to, LocalDate.now(KST))));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
     private boolean hasValidToken(HttpServletRequest request) {
