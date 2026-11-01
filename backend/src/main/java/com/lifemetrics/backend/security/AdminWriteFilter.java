@@ -48,7 +48,9 @@ public class AdminWriteFilter extends OncePerRequestFilter {
             "/api/ai/chat/activity/**",
             "/api/activity/predict",
             "/api/todos/verify",
-            "/api/todos/notify"
+            "/api/todos/notify",
+            // 폰 앱(Health Connect) 동기화: 관리자 쿠키 대신 HealthSyncController 가 Bearer 토큰을 검사한다
+            "/api/health-sync"
     );
 
     private final AdminAuthService adminAuthService;
