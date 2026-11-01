@@ -79,10 +79,12 @@ public class HealthSyncService {
         }
 
         jdbc.update("""
-                INSERT INTO hc_sync_log (user_id, device, day_count, nutrition_count, exercise_count, deleted_count)
-                VALUES (:u, :device, :days, :nutrition, :exercises, :deleted)
+                INSERT INTO hc_sync_log (user_id, device, synced_at, day_count, nutrition_count, exercise_count, deleted_count)
+                VALUES (:u, :device, :syncedAt, :days, :nutrition, :exercises, :deleted)
                 """, new MapSqlParameterSource()
                 .addValue("u", userId)
+                // DB 서버 시계는 UTC 라 CURRENT_TIMESTAMP 대신 KST 로 직접 넣는다
+                .addValue("syncedAt", LocalDateTime.now(KST))
                 .addValue("device", truncate(req.device(), 100))
                 .addValue("days", req.daysOrEmpty().size())
                 .addValue("nutrition", req.nutritionOrEmpty().size())
@@ -102,7 +104,12 @@ public class HealthSyncService {
                 SELECT device, synced_at, day_count, nutrition_count, exercise_count, deleted_count
                 FROM hc_sync_log WHERE user_id = :u ORDER BY synced_at DESC, id DESC LIMIT 1
                 """, Map.of("u", userId));
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) return null;
+        Map<String, Object> row = new java.util.LinkedHashMap<>(rows.get(0));
+        if (row.get("synced_at") instanceof java.sql.Timestamp ts) {
+            row.put("synced_at", ts.toLocalDateTime().toString()); // KST 로 저장된 값을 그대로 노출
+        }
+        return row;
     }
 
     // ── 검증 ─────────────────────────────────────────
