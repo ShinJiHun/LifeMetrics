@@ -17,6 +17,7 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -26,12 +27,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class HealthSyncControllerTest {
 
     private final HealthDataQueryService queryService = mock(HealthDataQueryService.class);
+    private final com.lifemetrics.backend.health.service.DailySummaryService summaryService =
+            mock(com.lifemetrics.backend.health.service.DailySummaryService.class);
     private final AdminWriteFilter adminWriteFilter = mock(AdminWriteFilter.class);
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        var controller = new HealthSyncController(mock(HealthSyncService.class), queryService, adminWriteFilter);
+        var controller = new HealthSyncController(mock(HealthSyncService.class), queryService, summaryService, adminWriteFilter);
         ReflectionTestUtils.setField(controller, "syncToken", "secret");
         ReflectionTestUtils.setField(controller, "userId", 1L);
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
@@ -43,6 +46,16 @@ class HealthSyncControllerTest {
             mvc.perform(get("/api/health-sync/" + path)).andExpect(status().isUnauthorized());
         }
         verifyNoInteractions(queryService);
+    }
+
+    @Test
+    void 하루_집계는_인증이_필요하고_토큰이_있으면_날짜대로_조회한다() throws Exception {
+        mvc.perform(get("/api/health-sync/summary?date=2026-10-31")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(summaryService);
+
+        mvc.perform(get("/api/health-sync/summary?date=2026-10-31").header("Authorization", "Bearer secret"))
+                .andExpect(status().isOk());
+        verify(summaryService).summarize(eq(1L), eq(LocalDate.of(2026, 10, 31)), any(LocalDate.class));
     }
 
     @Test

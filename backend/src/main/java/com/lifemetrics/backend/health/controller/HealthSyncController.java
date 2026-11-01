@@ -1,6 +1,7 @@
 package com.lifemetrics.backend.health.controller;
 
 import com.lifemetrics.backend.health.dto.HealthSyncRequest;
+import com.lifemetrics.backend.health.service.DailySummaryService;
 import com.lifemetrics.backend.health.service.HealthDataQueryService;
 import com.lifemetrics.backend.health.service.HealthSyncService;
 import com.lifemetrics.backend.security.AdminWriteFilter;
@@ -35,6 +36,7 @@ public class HealthSyncController {
 
     private final HealthSyncService service;
     private final HealthDataQueryService queryService;
+    private final DailySummaryService summaryService;
     private final AdminWriteFilter adminWriteFilter;
 
     @Value("${HEALTH_SYNC_TOKEN:}")
@@ -97,6 +99,21 @@ public class HealthSyncController {
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return query(request, from, to, range -> queryService.nutrition(userId, range));
+    }
+
+    /** 하루치 기록 집계와 에너지 수지. date 를 생략하면 어제(KST)다. */
+    @GetMapping("/summary")
+    public ResponseEntity<?> summary(HttpServletRequest request,
+                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        if (!hasValidToken(request) && !adminWriteFilter.isAdmin(request)) {
+            return ResponseEntity.status(401).body(Map.of("message", "동기화 토큰 또는 관리자 로그인이 필요합니다."));
+        }
+        LocalDate today = LocalDate.now(KST);
+        try {
+            return ResponseEntity.ok(summaryService.summarize(userId, date != null ? date : today.minusDays(1), today));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 
     private ResponseEntity<?> query(HttpServletRequest request, LocalDate from, LocalDate to,

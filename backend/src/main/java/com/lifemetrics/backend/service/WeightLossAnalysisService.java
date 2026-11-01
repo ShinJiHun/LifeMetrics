@@ -57,6 +57,11 @@ public class WeightLossAnalysisService {
     private final ActivityCoreRepository activityCoreRepository;
     private final ClaudeClient claudeClient;
 
+    /** 제지방량(kg)으로 계산한 기초대사량(kcal). */
+    public static double bmrFromFatFreeMass(double fatFreeMassKg) {
+        return BMR_INTERCEPT + BMR_PER_FFM_KG * fatFreeMassKg;
+    }
+
     @Transactional(readOnly = true)
     public WeightLossAnalysisResponse analyze(Long userId) {
         UserBodyRecord record = bodyRecordRepository
@@ -75,7 +80,7 @@ public class WeightLossAnalysisService {
         // 기록지에서 추출된 값이 있으면 우선한다. 인바디 기록은 대체로 비어 있어 계산으로 채운다.
         boolean bmrEstimated = record.getBasalMetabolicRate() == null;
         double bmr = bmrEstimated
-                ? BMR_INTERCEPT + BMR_PER_FFM_KG * fatFreeMass
+                ? bmrFromFatFreeMass(fatFreeMass)
                 : record.getBasalMetabolicRate();
 
         PowerRideStats stats = activityCoreRepository.getPowerRideStats(userId);
