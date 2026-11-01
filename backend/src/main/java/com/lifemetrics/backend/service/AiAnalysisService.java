@@ -806,7 +806,8 @@ public class AiAnalysisService {
     }
 
     /** 실패(키 없음·API 에러·JSON 아님)면 null. 실패 결과를 DB 에 남기지 않아야 하는 곳에서 쓴다. */
-    private String requestClaude(String prompt) {
+    /** 프롬프트를 보내고 JSON 문자열을 받는다. 키가 없거나 실패·비정상 JSON 이면 null. */
+    String requestClaude(String prompt) {
         if (anthropicApiKey == null || anthropicApiKey.isEmpty()) {
             return null;
         }

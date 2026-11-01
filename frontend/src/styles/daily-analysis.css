@@ -1,0 +1,175 @@
+.da-page {
+    padding: 24px 32px;
+    max-width: 1000px;
+}
+
+.da-page h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+}
+
+.da-subtitle {
+    color: #64748b;
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+
+.da-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.da-toolbar button,
+.da-toolbar input {
+    height: 36px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #1e293b;
+    padding: 0 12px;
+    font-size: 14px;
+}
+
+.da-toolbar button {
+    cursor: pointer;
+}
+
+.da-toolbar button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.da-toolbar .da-run {
+    margin-left: auto;
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+    font-weight: 600;
+}
+
+.da-state {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
+    color: #64748b;
+    padding: 32px;
+    text-align: center;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.da-state.da-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+    padding: 16px;
+}
+
+.da-summary {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f8fafc;
+    padding: 20px 24px;
+    font-size: 15px;
+    line-height: 1.7;
+    color: #1e293b;
+    margin-bottom: 16px;
+}
+
+.da-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.da-stat {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px 16px;
+}
+
+.da-stat-label {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.da-stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    font-variant-numeric: tabular-nums;
+}
+
+.da-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.da-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px 20px;
+    font-size: 14px;
+    line-height: 1.65;
+    color: #334155;
+}
+
+.da-card h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 8px;
+}
+
+.da-card p {
+    margin: 0;
+}
+
+.da-card ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.da-good {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.da-improve {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.da-notes {
+    background: #f8fafc;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.da-meta {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: right;
+}
+
+@media (max-width: 640px) {
+    .da-page {
+        padding: 16px;
+    }
+
+    .da-toolbar .da-run {
+        margin-left: 0;
+        width: 100%;
+    }
+}

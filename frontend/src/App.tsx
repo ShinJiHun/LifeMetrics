@@ -4,6 +4,7 @@ import Layout from "@/components/common/Layout";
 import { RequireAdmin } from "@/components/common/AdminOnly";
 import BodyRecordPage from "@/pages/ride/body/BodyRecordPage";
 import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
+import DailyAnalysisPage from "@/pages/ride/analysis/DailyAnalysisPage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/" element={<PersonaGateRoute />} />
 
             <Route element={<Layout />}>
+                <Route path="/records/daily-analysis" element={<RequireAdmin><DailyAnalysisPage /></RequireAdmin>} />
                 <Route path="/records/body" element={<BodyRecordPage />} />
                 <Route path="/records/body/weight-loss" element={<WeightLossAnalysisPage />} />
                 <Route path="/records/body/health-checkup" element={<RequireAdmin><HealthCheckupPage /></RequireAdmin>} />

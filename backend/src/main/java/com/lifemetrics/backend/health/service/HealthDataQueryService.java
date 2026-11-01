@@ -24,6 +24,12 @@ public class HealthDataQueryService {
     static final int DEFAULT_DAYS = 30;
     static final int MAX_DAYS = 400;
 
+    private static final String NUTRITION_SELECT = """
+            SELECT hc_record_id, log_date, meal_type, food_name, eat_time,
+                   calories, carbs, protein, fat, sodium, sugar, dietary_fiber
+            FROM food_log
+            """;
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public HealthDataQueryService(@Qualifier("ridingDataSource") DataSource dataSource) {
@@ -85,26 +91,35 @@ public class HealthDataQueryService {
     }
 
     public List<NutritionEntry> nutrition(long userId, DateRange range) {
-        return jdbc.query("""
-                SELECT hc_record_id, log_date, meal_type, food_name, eat_time,
-                       calories, carbs, protein, fat, sodium, sugar, dietary_fiber
-                FROM food_log
+        return jdbc.query(NUTRITION_SELECT + """
                 WHERE user_id = :u AND log_date BETWEEN :from AND :to AND data_source = :source
                 ORDER BY log_date, eat_time, id
                 """, params(userId, range).addValue("source", HealthSyncService.DATA_SOURCE),
-                (rs, i) -> new NutritionEntry(
-                        rs.getString("hc_record_id"),
-                        rs.getDate("log_date").toLocalDate(),
-                        rs.getString("meal_type"),
-                        rs.getString("food_name"),
-                        nullableDateTime(rs, "eat_time"),
-                        nullableDouble(rs, "calories"),
-                        nullableDouble(rs, "carbs"),
-                        nullableDouble(rs, "protein"),
-                        nullableDouble(rs, "fat"),
-                        nullableDouble(rs, "sodium"),
-                        nullableDouble(rs, "sugar"),
-                        nullableDouble(rs, "dietary_fiber")));
+                HealthDataQueryService::mapNutrition);
+    }
+
+    /** 일일 분석용: 출처와 상관없이 그날 먹은 기록 전부. */
+    public List<NutritionEntry> allNutritionOfDay(long userId, LocalDate date) {
+        return jdbc.query(NUTRITION_SELECT + """
+                WHERE user_id = :u AND log_date BETWEEN :from AND :to
+                ORDER BY eat_time, id
+                """, params(userId, new DateRange(date, date)), HealthDataQueryService::mapNutrition);
+    }
+
+    private static NutritionEntry mapNutrition(ResultSet rs, int rowNum) throws SQLException {
+        return new NutritionEntry(
+                rs.getString("hc_record_id"),
+                rs.getDate("log_date").toLocalDate(),
+                rs.getString("meal_type"),
+                rs.getString("food_name"),
+                nullableDateTime(rs, "eat_time"),
+                nullableDouble(rs, "calories"),
+                nullableDouble(rs, "carbs"),
+                nullableDouble(rs, "protein"),
+                nullableDouble(rs, "fat"),
+                nullableDouble(rs, "sodium"),
+                nullableDouble(rs, "sugar"),
+                nullableDouble(rs, "dietary_fiber"));
     }
 
     private static MapSqlParameterSource params(long userId, DateRange range) {
