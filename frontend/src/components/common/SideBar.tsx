@@ -134,6 +134,7 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
     {
         label: "📋 기록",
         sections: [
+            {key: "athlete-chat", label: "🤖 애슐리트 페르소나", to: "/records/athlete-chat", adminOnly: true},
             {key: "daily-analysis", label: "📊 일일 분석", to: "/records/daily-analysis", adminOnly: true},
             {key: "checkup", label: "🩺 건강검진", to: "/records/body/health-checkup", adminOnly: true},
             {
