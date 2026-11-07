@@ -29,7 +29,7 @@ import java.util.TreeSet;
  * <p>
  * - 식단은 기존 food_log 에 data_source='health_connect' 로 넣어 일일 분석(daily_analysis.py)이 그대로 읽게 한다.
  * - 같은 묶음을 다시 보내도 결과가 같도록 모든 쓰기는 upsert 다 (식단·운동은 hc_record_id, 활동량은 날짜).
- * - 식단이 바뀐 날짜는 food_daily_summary 를 food_log 기준으로 다시 계산한다.
+ * - 식단이 바뀐 날짜는 food_daily_summary 를 그날 food_log 전체(출처 무관) 기준으로 다시 계산한다.
  */
 @Slf4j
 @Service
@@ -233,13 +233,18 @@ public class HealthSyncService {
                 Map.of("ids", hcIds), LocalDate.class);
     }
 
-    /** 해당 날짜의 food_log 전체로 일일 요약을 다시 만든다. 남은 기록이 없으면 health_connect 요약을 지운다. */
+    /**
+     * 해당 날짜의 food_log 전체(출처 무관)로 일일 요약을 다시 만든다.
+     * food_daily_summary 는 (user_id, log_date) 당 한 줄인 "그날 합계"라서, 다른 출처(서버 식단 저장 API 등)가
+     * 같은 날 써도 누가 마지막에 계산하든 결과가 같다. data_source 는 출처가 하나면 그 값, 섞이면 'mixed'.
+     * 남은 기록이 없으면 출처와 상관없이 요약을 지운다.
+     */
     private void recomputeFoodSummary(long userId, LocalDate date) {
-        var p = new MapSqlParameterSource().addValue("u", userId).addValue("d", date).addValue("source", DATA_SOURCE);
+        var p = new MapSqlParameterSource().addValue("u", userId).addValue("d", date);
         Integer rows = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM food_log WHERE user_id = :u AND log_date = :d", p, Integer.class);
         if (rows == null || rows == 0) {
-            jdbc.update("DELETE FROM food_daily_summary WHERE user_id = :u AND log_date = :d AND data_source = :source", p);
+            jdbc.update("DELETE FROM food_daily_summary WHERE user_id = :u AND log_date = :d", p);
             return;
         }
         jdbc.update("""
@@ -251,7 +256,8 @@ public class HealthSyncService {
                        COALESCE(SUM(protein), 0), COALESCE(SUM(fat), 0),
                        SUM(sodium), SUM(sugar), SUM(dietary_fiber),
                        COUNT(DISTINCT CASE WHEN meal_type <> 'unknown' THEN meal_type END),
-                       :source
+                       CASE WHEN COUNT(DISTINCT COALESCE(data_source, '')) = 1 THEN MAX(data_source)
+                            ELSE 'mixed' END
                 FROM food_log WHERE user_id = :u AND log_date = :d
                 ON DUPLICATE KEY UPDATE
                     total_calories = VALUES(total_calories), total_carbs = VALUES(total_carbs),
