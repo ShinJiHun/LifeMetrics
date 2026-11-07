@@ -44,6 +44,7 @@ public class SecurityConfig {
                                 "/",
                                 "/index.html",
                                 "/vite.svg",
+                                "/deploy.json",
                                 "/assets/**",
                                 "/gif/**",
                                 "/models/**",

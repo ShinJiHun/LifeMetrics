@@ -26,6 +26,17 @@ fi
 SSH=(ssh -i "$SSH_KEY" "$USER@$SERVER")
 SSH_E="ssh -i $SSH_KEY"
 
+kst_now() { TZ=Asia/Seoul date '+%Y-%m-%d %H:%M'; }
+
+# 첫 페이지 우측 하단에 보이는 배포 정보. prod 승격 때는 env·deployedAt 만 바꿔 쓴다.
+write_deploy_info() {
+    local commit dirty=""
+    commit="$(git -C "$REPO_PATH" rev-parse --short HEAD)"
+    git -C "$REPO_PATH" diff --quiet HEAD -- || dirty="+dirty"
+    printf '{"env":"dev","deployedAt":"%s","builtAt":"%s","commit":"%s%s"}\n' \
+        "$(kst_now)" "$(kst_now)" "$commit" "$dirty" > "$1"
+}
+
 usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 remote() { "${SSH[@]}" "bash -s -- $1 $SERVER" < "$REPO_PATH/deploy/remote.sh"; }
@@ -54,6 +65,7 @@ deploy_dev() {
     if $build_frontend; then
         echo "[3/4] Frontend 빌드 및 전송..."
         (cd "$REPO_PATH/frontend" && rm -rf dist && npm run build)
+        write_deploy_info "$REPO_PATH/frontend/dist/deploy.json"
         rsync -az --delete --progress -e "$SSH_E" "$REPO_PATH/frontend/dist/" "$USER@$SERVER:$DEV_DIR/static/"
     else
         echo "[3/4] Frontend 스킵"
@@ -85,6 +97,7 @@ promote_prod() {
         cp $DEV_DIR/lifemetrics.jar $PROD_DIR/lifemetrics.jar
         cp $DEV_DIR/Dockerfile $PROD_DIR/Dockerfile
         rsync -a --delete $DEV_DIR/static/ $PROD_DIR/static/
+        [ -f $PROD_DIR/static/deploy.json ] && sed -i -e 's/\"env\":\"dev\"/\"env\":\"prod\"/' -e 's/\"deployedAt\":\"[^\"]*\"/\"deployedAt\":\"$(kst_now)\"/' $PROD_DIR/static/deploy.json
         echo '✓ 산출물 승격 완료'"
 
     remote prod

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { CSSProperties } from "react";
 import SettingsTodoModal from "./SettingsTodoModal";
+import DeployInfo from "./DeployInfo";
 import AdminBadge from "@/components/common/AdminBadge";
 import { useAdmin } from "@/lib/admin";
 
@@ -296,6 +297,7 @@ export default function PersonaGate({ onSelect }: PersonaGateProps) {
                         </article>
                     ))}
                 </div>
+                <DeployInfo />
             </div>
 
             {showSettings && <SettingsTodoModal onClose={() => setShowSettings(false)} />}
