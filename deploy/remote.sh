@@ -27,6 +27,7 @@ run_container() {   # $1 = 이미지 태그
         -e SPRING_PROFILES_ACTIVE=prod
         -v "$DIR/static:/app/static:ro"
         -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw
+        -v /mnt/200gb/NAS/inbody/processed:/mnt/200gb/NAS/inbody/processed:ro   # 기록지에서 체중조절 값 읽기(InbodyReExtractService)
         -v /mnt/200gb/NAS/career-media:/mnt/200gb/NAS/career-media
         -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet
         -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent
