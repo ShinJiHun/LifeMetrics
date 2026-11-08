@@ -62,7 +62,8 @@ class BodyGoalServiceTest {
         assertThat(s.source()).isEqualTo("INBODY");
         assertThat(s.targetWeight()).isEqualTo(72.5);
         assertThat(s.targetFatMass()).isEqualTo(9.5);
-        assertThat(s.targetMuscleMass()).isEqualTo(37.0);
+        // 근육조절 +1.0 은 제지방 기준 → 골격근 비율(36/62)만큼: 36 + 0.58 = 36.6
+        assertThat(s.targetMuscleMass()).isEqualTo(36.6);
         // 키 = sqrt(80/25) = 1.789m, 표준체중 = 22 × 3.2 = 70.4
         assertThat(s.heightCm()).isEqualTo(178.9);
         assertThat(s.standardWeight()).isEqualTo(70.4);
@@ -72,6 +73,19 @@ class BodyGoalServiceTest {
         assertThat(s.sheetTargetWeight()).isEqualTo(72.5);
         assertThat(s.fatControl()).isEqualTo(-8.5);
         assertThat(s.canReadSheet()).isFalse();
+    }
+
+    @Test
+    void 근육조절은_기록지의_제지방량이_있으면_그_비율로_골격근에_반영한다() {
+        UserBodyRecord r = inbody(80.0, 20.0, 36.0, 25.0);
+        r.setFatFreeMass(64.0);   // 체중-체지방(60)과 다르게 기록지 값을 우선한다
+        r.setTargetWeight(78.0);
+        r.setFatControl(-6.0);
+        r.setMuscleControl(4.0);
+        latestInbody(r);
+
+        // 36 + 4 × 36/64 = 38.25
+        assertThat(service.suggest(1L).targetMuscleMass()).isEqualTo(38.3);
     }
 
     @Test
@@ -99,7 +113,7 @@ class BodyGoalServiceTest {
         assertThat(s.source()).isEqualTo("INBODY");
         assertThat(s.targetWeight()).isEqualTo(71.0);
         assertThat(s.targetFatMass()).isEqualTo(10.0);
-        assertThat(s.targetMuscleMass()).isEqualTo(37.0);
+        assertThat(s.targetMuscleMass()).isEqualTo(36.6);
     }
 
     @Test

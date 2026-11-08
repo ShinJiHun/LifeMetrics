@@ -112,11 +112,19 @@ public class BodyGoalService {
             double fatControl = r.getFatControl() != null ? r.getFatControl() : 0.0;
             double muscleControl = r.getMuscleControl() != null ? r.getMuscleControl() : 0.0;
             targetFat = fat + fatControl;
-            targetMuscle = muscle != null ? muscle + muscleControl : null;
+            // 기록지의 근육조절은 제지방량(체중조절 = 지방조절 + 근육조절) 기준이라 골격근량에 그대로 더하면 과하다.
+            // 지금 몸의 골격근량/제지방량 비율만큼만 골격근 목표에 반영한다.
+            double fatFreeMass = r.getFatFreeMass() != null ? r.getFatFreeMass() : weight - fat;
+            targetMuscle = muscle != null && fatFreeMass > 0
+                    ? muscle + muscleControl * (muscle / fatFreeMass)
+                    : null;
             targetWeight = r.getTargetWeight() != null
                     ? r.getTargetWeight()
                     : weight + (r.getWeightControl() != null ? r.getWeightControl() : fatControl + muscleControl);
-            basis = "%s 인바디 기록지의 체중조절 값".formatted(r.getRecordDate());
+            basis = muscle != null && fatFreeMass > 0 && muscleControl != 0
+                    ? "%s 인바디 기록지의 체중조절 값 (근육조절 %+.1fkg 는 제지방 기준이라 골격근 비율 %.0f%% 만큼 반영)"
+                            .formatted(r.getRecordDate(), muscleControl, muscle / fatFreeMass * 100)
+                    : "%s 인바디 기록지의 체중조절 값".formatted(r.getRecordDate());
         } else {
             source = "FORMULA";
             double fatFreeMass = r.getFatFreeMass() != null ? r.getFatFreeMass() : weight - fat;
