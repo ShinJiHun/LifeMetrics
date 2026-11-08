@@ -48,7 +48,7 @@ public class BodyGoalService {
             - 체중보다 체지방량 변화를 주 지표로 본다. 골격근량은 유지 또는 증가가 목표다.
             - W/kg 변화가 라이딩에 주는 의미를 짚는다.
             - 의학적 처방이 아니라 참고 의견임을 밝힌다.
-            - 한국어로, 400자 내외의 문단 2~3개. 목록이나 마크다운 없이 서술형으로 쓴다.
+            - 한국어로, 문단 2~3개에 전체 600자 이내. 목록이나 마크다운 없이 서술형으로 쓰고 문장을 끝까지 맺는다.
             """;
 
     private final BodyGoalRepository goalRepository;
@@ -217,7 +217,7 @@ public class BodyGoalService {
                 s.ftp(), s.ftpEstimated() ? " (설정값 없음, 체중×3.0 추정)" : "",
                 nv(s.wkgStart()), nv(s.wkgCurrent()), nv(s.wkgTarget()));
 
-        return claudeClient.complete(AI_SYSTEM_PROMPT, facts, 1000);
+        return claudeClient.complete(AI_SYSTEM_PROMPT, facts, 2000);
     }
 
     private BodyGoalDto.Status buildStatus(Long userId, BodyGoal goal) {

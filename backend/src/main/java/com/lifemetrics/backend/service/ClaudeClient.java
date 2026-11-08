@@ -88,6 +88,10 @@ public class ClaudeClient {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(API_URL, request, String.class);
             JsonNode json = objectMapper.readTree(response.getBody());
+            if ("max_tokens".equals(json.path("stop_reason").asText())) {
+                // 응답이 한도에서 잘렸다. 호출하는 쪽의 maxTokens 를 늘려야 한다.
+                System.out.println("⚠️ [ClaudeClient] max_tokens(" + maxTokens + ") 에 걸려 응답이 잘림");
+            }
             // content 는 블록 배열이고 첫 블록이 항상 text 는 아니다.
             // 확장 사고를 켠 모델은 thinking 블록을 먼저 넣으므로 text 블록을 찾아 써야 한다.
             for (JsonNode block : json.path("content")) {
