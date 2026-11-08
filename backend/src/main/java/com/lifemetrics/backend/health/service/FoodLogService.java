@@ -14,7 +14,10 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
-/** 식품 검색 결과를 메뉴명·섭취량과 함께 food_log 에 저장한다. */
+/**
+ * 식품 검색 결과를 메뉴명·섭취량과 함께 food_log 에 저장한다.
+ * 쓸 때마다 그날(날짜를 옮기면 이전 날짜도) food_daily_summary 를 다시 계산한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class FoodLogService {
@@ -23,6 +26,7 @@ public class FoodLogService {
 
     private final FoodLogRepository repository;
     private final FoodNutritionService nutritionService;
+    private final FoodDailySummaryService summaryService;
 
     @Transactional(readOnly = true)
     public List<FoodLog> list(Long userId, LocalDate date) {
@@ -45,14 +49,28 @@ public class FoodLogService {
         log.setMemo(req.getMemo());
         log.setDataSource(FoodLog.SOURCE_NUTRITION_DB);
         applyFood(log, req.getFoodCd(), req.getAmount(), req.getFoodName());
-        return repository.save(log);
+        FoodLog saved = repository.saveAndFlush(log);
+        summaryService.recompute(userId, saved.getLogDate());
+        return saved;
     }
 
     @Transactional
     public FoodLog update(Long id, FoodLogRequest req) {
         FoodLog log = repository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("식단 기록을 찾을 수 없습니다: " + id));
+        LocalDate oldDate = log.getLogDate();
 
+        applyUpdate(log, req);
+
+        repository.flush();
+        summaryService.recompute(log.getUserId(), log.getLogDate());
+        if (!log.getLogDate().equals(oldDate)) {
+            summaryService.recompute(log.getUserId(), oldDate);
+        }
+        return log;
+    }
+
+    private void applyUpdate(FoodLog log, FoodLogRequest req) {
         if (req.getLogDate() != null) log.setLogDate(req.getLogDate());
         if (req.getMealType() != null) log.setMealType(validMealType(req.getMealType()));
         if (req.getEatTime() != null) log.setEatTime(req.getEatTime());
@@ -61,7 +79,7 @@ public class FoodLogService {
         boolean foodChanged = !isBlank(req.getFoodCd()) && !req.getFoodCd().equals(log.getFoodCd());
         if (foodChanged) {
             applyFood(log, req.getFoodCd(), req.getAmount() != null ? req.getAmount() : log.getAmount(), req.getFoodName());
-            return log;
+            return;
         }
         if (req.getAmount() != null) {
             if (log.getFoodCd() == null) {
@@ -70,15 +88,15 @@ public class FoodLogService {
             applyFood(log, log.getFoodCd(), req.getAmount(), log.getFoodName());
         }
         if (!isBlank(req.getFoodName())) log.setFoodName(req.getFoodName().trim());
-        return log;
     }
 
     @Transactional
     public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new NoSuchElementException("식단 기록을 찾을 수 없습니다: " + id);
-        }
-        repository.deleteById(id);
+        FoodLog log = repository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("식단 기록을 찾을 수 없습니다: " + id));
+        repository.delete(log);
+        repository.flush();
+        summaryService.recompute(log.getUserId(), log.getLogDate());
     }
 
     /** 식품 정보와 섭취량 기준 영양값을 채운다. amount 가 없으면 제품 1개 용량을 쓴다. */

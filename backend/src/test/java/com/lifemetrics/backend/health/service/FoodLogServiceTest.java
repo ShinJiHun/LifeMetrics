@@ -15,18 +15,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FoodLogServiceTest {
 
     private final FoodLogRepository repository = mock(FoodLogRepository.class);
     private final FoodNutritionService nutrition = mock(FoodNutritionService.class);
+    private final FoodDailySummaryService summary = mock(FoodDailySummaryService.class);
     private FoodLogService service;
 
     @BeforeEach
     void setUp() {
-        service = new FoodLogService(repository, nutrition);
-        when(repository.save(any())).thenAnswer(i -> i.getArgument(0));
+        service = new FoodLogService(repository, nutrition, summary);
+        when(repository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
     }
 
     private static FoodSearchItemDto food(Double packageSize, Double amount) {
@@ -58,6 +61,7 @@ class FoodLogServiceTest {
         assertThat(log.getCalories()).isEqualTo(80.0);
         assertThat(log.getMealType()).isEqualTo("unknown");
         assertThat(log.getDataSource()).isEqualTo(FoodLog.SOURCE_NUTRITION_DB);
+        verify(summary).recompute(1L, LocalDate.of(2026, 11, 10));
     }
 
     @Test
@@ -89,7 +93,7 @@ class FoodLogServiceTest {
 
     @Test
     void 섭취량만_수정하면_메뉴명은_유지하고_영양값을_다시_계산한다() {
-        FoodLog existing = new FoodLog();
+        FoodLog existing = existing(LocalDate.of(2026, 11, 10));
         existing.setFoodCd("F1");
         existing.setFoodName("점심 사이다");
         when(repository.findById(5L)).thenReturn(Optional.of(existing));
@@ -101,11 +105,48 @@ class FoodLogServiceTest {
 
         assertThat(log.getFoodName()).isEqualTo("점심 사이다");
         assertThat(log.getCalories()).isEqualTo(40.0);
+        verify(summary).recompute(1L, LocalDate.of(2026, 11, 10));
+    }
+
+    @Test
+    void 날짜를_옮기면_두_날짜의_요약을_모두_다시_계산한다() {
+        when(repository.findById(5L)).thenReturn(Optional.of(existing(LocalDate.of(2026, 11, 10))));
+
+        FoodLogRequest req = new FoodLogRequest();
+        req.setLogDate(LocalDate.of(2026, 11, 11));
+        service.update(5L, req);
+
+        verify(summary).recompute(1L, LocalDate.of(2026, 11, 11));
+        verify(summary).recompute(1L, LocalDate.of(2026, 11, 10));
+    }
+
+    @Test
+    void 삭제하면_그날_요약을_다시_계산한다() {
+        FoodLog log = existing(LocalDate.of(2026, 11, 10));
+        when(repository.findById(5L)).thenReturn(Optional.of(log));
+
+        service.delete(5L);
+
+        verify(repository).delete(log);
+        verify(summary).recompute(1L, LocalDate.of(2026, 11, 10));
+    }
+
+    @Test
+    void 저장이_거부되면_요약을_건드리지_않는다() {
+        assertThatThrownBy(() -> service.create(1L, request(0.0, null))).isInstanceOf(IllegalArgumentException.class);
+        verify(summary, never()).recompute(any(Long.class), any());
+    }
+
+    private static FoodLog existing(LocalDate date) {
+        FoodLog log = new FoodLog();
+        log.setUserId(1L);
+        log.setLogDate(date);
+        return log;
     }
 
     @Test
     void 식품코드_없는_기록의_섭취량은_바꿀_수_없다() {
-        when(repository.findById(5L)).thenReturn(Optional.of(new FoodLog()));
+        when(repository.findById(5L)).thenReturn(Optional.of(existing(LocalDate.of(2026, 11, 10))));
         FoodLogRequest req = new FoodLogRequest();
         req.setAmount(100.0);
 

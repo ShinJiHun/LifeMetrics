@@ -43,9 +43,12 @@ public class HealthSyncService {
     static final int MAX_RECORDS = 5000;
 
     private final NamedParameterJdbcTemplate jdbc;
+    private final FoodDailySummaryService foodSummary;
 
-    public HealthSyncService(@Qualifier("ridingDataSource") DataSource dataSource) {
+    public HealthSyncService(@Qualifier("ridingDataSource") DataSource dataSource,
+                             FoodDailySummaryService foodSummary) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
+        this.foodSummary = foodSummary;
     }
 
     public record Result(int days, int nutrition, int exercises, int deleted, Set<LocalDate> summaryDates) {}
@@ -75,7 +78,7 @@ public class HealthSyncService {
             deleted = deleteRecords(req.deletedIdsOrEmpty());
         }
         for (LocalDate date : touchedFoodDates) {
-            recomputeFoodSummary(userId, date);
+            foodSummary.recompute(userId, date);
         }
 
         jdbc.update("""
@@ -231,41 +234,6 @@ public class HealthSyncService {
     private List<LocalDate> foodDatesOf(List<String> hcIds) {
         return jdbc.queryForList("SELECT DISTINCT log_date FROM food_log WHERE hc_record_id IN (:ids)",
                 Map.of("ids", hcIds), LocalDate.class);
-    }
-
-    /**
-     * 해당 날짜의 food_log 전체(출처 무관)로 일일 요약을 다시 만든다.
-     * food_daily_summary 는 (user_id, log_date) 당 한 줄인 "그날 합계"라서, 다른 출처(서버 식단 저장 API 등)가
-     * 같은 날 써도 누가 마지막에 계산하든 결과가 같다. data_source 는 출처가 하나면 그 값, 섞이면 'mixed'.
-     * 남은 기록이 없으면 출처와 상관없이 요약을 지운다.
-     */
-    private void recomputeFoodSummary(long userId, LocalDate date) {
-        var p = new MapSqlParameterSource().addValue("u", userId).addValue("d", date);
-        Integer rows = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM food_log WHERE user_id = :u AND log_date = :d", p, Integer.class);
-        if (rows == null || rows == 0) {
-            jdbc.update("DELETE FROM food_daily_summary WHERE user_id = :u AND log_date = :d", p);
-            return;
-        }
-        jdbc.update("""
-                INSERT INTO food_daily_summary
-                    (user_id, log_date, total_calories, total_carbs, total_protein, total_fat,
-                     total_sodium, total_sugar, total_dietary_fiber, meal_count, data_source)
-                SELECT :u, :d,
-                       COALESCE(SUM(calories), 0), COALESCE(SUM(carbs), 0),
-                       COALESCE(SUM(protein), 0), COALESCE(SUM(fat), 0),
-                       SUM(sodium), SUM(sugar), SUM(dietary_fiber),
-                       COUNT(DISTINCT CASE WHEN meal_type <> 'unknown' THEN meal_type END),
-                       CASE WHEN COUNT(DISTINCT COALESCE(data_source, '')) = 1 THEN MAX(data_source)
-                            ELSE 'mixed' END
-                FROM food_log WHERE user_id = :u AND log_date = :d
-                ON DUPLICATE KEY UPDATE
-                    total_calories = VALUES(total_calories), total_carbs = VALUES(total_carbs),
-                    total_protein = VALUES(total_protein), total_fat = VALUES(total_fat),
-                    total_sodium = VALUES(total_sodium), total_sugar = VALUES(total_sugar),
-                    total_dietary_fiber = VALUES(total_dietary_fiber), meal_count = VALUES(meal_count),
-                    data_source = VALUES(data_source), updated_at = CURRENT_TIMESTAMP
-                """, p);
     }
 
     // ── 운동 ─────────────────────────────────────────
