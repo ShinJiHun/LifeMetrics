@@ -50,7 +50,7 @@ public class WeightLossAnalysisService {
             - 기초대사량만 먹는 계획은 적자가 크다는 점을 짚어준다.
             - 체중계 체중과 체지방은 다르다는 점을 전제로 말한다.
             - 의학적 처방이 아니라 참고 의견임을 밝힌다.
-            - 한국어로, 400자 내외의 문단 2~3개. 목록이나 마크다운 없이 서술형으로 쓴다.
+            - 한국어로, 문단 2~3개에 전체 600자 이내. 목록이나 마크다운 없이 서술형으로 쓰고 문장을 끝까지 맺는다.
             """;
 
     private final UserBodyRecordRepository bodyRecordRepository;
@@ -165,7 +165,7 @@ public class WeightLossAnalysisService {
                 primary.getHoursPerKg(), primary.getKmPerKg(),
                 a.getDailyDeficitKcal(), a.getDailyDeficitDaysPerKg());
 
-        return claudeClient.complete(AI_SYSTEM_PROMPT, facts, 1000);
+        return claudeClient.complete(AI_SYSTEM_PROMPT, facts, 2000);
     }
 
     private WeightLossAnalysisResponse.Scenario scenario(
