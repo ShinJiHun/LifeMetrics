@@ -9,7 +9,11 @@ import type {BikeFit, FitNumberKey} from "@/api/bikeFit";
 
 const fmt = (v: number | null | undefined, unit: string) => (v == null ? "-" : `${v}${unit === "°" ? "°" : ` ${unit}`}`);
 
-export default function BikeFitSection({bikeId}: { bikeId: number | string }) {
+export default function BikeFitSection({bikeId, onLoaded}: {
+    bikeId: number | string;
+    /** 피팅 기록을 불러올 때마다 최신순 목록을 넘긴다 (피팅 데이터 페이지의 참고 계산용) */
+    onLoaded?: (fits: BikeFit[]) => void;
+}) {
     const [fits, setFits] = useState<BikeFit[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState<BikeFit | null>(null);
@@ -17,7 +21,7 @@ export default function BikeFitSection({bikeId}: { bikeId: number | string }) {
 
     const load = () => {
         fetchBikeFits(bikeId)
-            .then((list) => { setFits(list); setSelected(0); })
+            .then((list) => { setFits(list); setSelected(0); onLoaded?.(list); })
             .catch((e) => setError(e.message));
     };
 
@@ -209,7 +213,8 @@ function FitForm({bikeId, fit, onCancel, onSaved}: {
     );
 }
 
-const S: Record<string, CSSProperties> = {
+/** 피팅 데이터 페이지의 신체 치수 섹션도 같은 모양을 쓴다 */
+export const fitStyles: Record<string, CSSProperties> = {
     header: {display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap"},
     desc: {margin: "4px 0 16px", color: "#94a3b8", fontSize: 13},
     empty: {color: "#94a3b8", fontSize: 14},
@@ -240,3 +245,5 @@ const S: Record<string, CSSProperties> = {
         color: "#475569", fontSize: 13, cursor: "pointer",
     },
 };
+
+const S = fitStyles;

@@ -8,6 +8,7 @@ import DailyAnalysisPage from "@/pages/ride/analysis/DailyAnalysisPage";
 import AthleteChatPage from "@/pages/ride/analysis/AthleteChatPage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
+import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
@@ -71,7 +72,7 @@ export default function App() {
                 <Route path="/plan/touring" element={<div style={{ padding: 24 }}>🏕️ 투어링 계획 (준비중)</div>} />
                 <Route path="/plan/body-goal" element={<BodyGoalPage />} />
                 <Route path="/guide/glossary" element={<GlossaryPage />} />
-                <Route path="/plan/fitting" element={<div style={{ padding: 24 }}>🔧 피팅 계획 (준비중)</div>} />
+                <Route path="/plan/fitting" element={<FittingDataPage />} />
                 <Route path="/plan/gear" element={<div style={{ padding: 24 }}>🔧 장비 변경 계획 (준비중)</div>} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
                 <Route path="/records/riding/:id/live" element={<RideLivePage />} />

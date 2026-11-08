@@ -177,8 +177,8 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
                 ],
             },
             {
-                key: "fit-gear", label: "🔧 피팅·장비 계획", items: [
-                    {to: "/plan/fitting", label: "피팅 계획"},
+                key: "fit-gear", label: "🔧 피팅·장비", items: [
+                    {to: "/plan/fitting", label: "피팅 데이터"},
                     {to: "/plan/gear", label: "장비 변경 계획"},
                 ],
             },
