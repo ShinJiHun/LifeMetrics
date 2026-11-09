@@ -28,3 +28,8 @@ CREATE TABLE IF NOT EXISTS `riding_db`.`rider_measurement` (
     `updated_at`            DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_rider_measurement_user_date` (`user_id`, `measure_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='라이더 신체 치수 (피팅용)';
+
+-- 2026-11-09: 스캐너/측정지 상세 항목 원본(JSON). 핵심 값은 위 컬럼, 나머지는 여기.
+--   {"unit": "mm", "items": [{"item": "Foot length", "left": 252, "right": 256}, ...]}
+ALTER TABLE `riding_db`.`rider_measurement`
+    ADD COLUMN IF NOT EXISTS `detail_json` JSON NULL COMMENT '스캐너/측정지 상세 항목 원본' AFTER `flexibility`;

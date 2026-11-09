@@ -1,12 +1,15 @@
 package com.lifemetrics.backend.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 자전거 피팅 기록. fitDate 부터 이 세팅이 적용된 것으로 본다.
@@ -69,6 +72,11 @@ public class BikeFit {
 
     @Column(name = "cleat_right")
     private String cleatRight;
+
+    /** 아직 컬럼이 없는 추가 피팅 값. 자주 쓰게 되면 컬럼으로 승격한다. 예: {"pedal_stack_mm": 11} */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extra_json", columnDefinition = "json")
+    private Map<String, Object> extraJson;
 
     @Column(columnDefinition = "TEXT")
     private String notes;

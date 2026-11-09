@@ -16,6 +16,8 @@ export interface BikeFit {
     crankLengthMm: number | null;
     cleatLeft: string | null;
     cleatRight: string | null;
+    /** 아직 컬럼이 없는 추가 피팅 값 (예: {pedal_stack_mm: 11}) */
+    extraJson?: Record<string, unknown> | null;
     notes: string | null;
 }
 

@@ -1,12 +1,15 @@
 package com.lifemetrics.backend.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 라이더 신체 치수(피팅용). 측정일별로 쌓아 변화를 본다. 길이는 mm(키만 cm).
@@ -76,6 +79,14 @@ public class RiderMeasurement {
     private String insole;
 
     private String flexibility;
+
+    /**
+     * 스캐너/측정지의 상세 항목 원본. 위 컬럼은 피팅 계산·화면용 핵심 값, 여기는 나머지 전부.
+     * {"unit": "mm", "items": [{"item": "Foot length", "left": 252, "right": 256}, {"item": "...", "value": n}]}
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "detail_json", columnDefinition = "json")
+    private Map<String, Object> detailJson;
 
     @Column(columnDefinition = "TEXT")
     private String notes;

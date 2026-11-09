@@ -41,6 +41,8 @@ public class BikeFitController {
                     if (request.getFitDate() == null) return ResponseEntity.badRequest().<BikeFit>build();
                     request.setId(existing.getId());
                     request.setBikeId(existing.getBikeId());
+                    // 화면이 extraJson 을 안 보내도 기존 값이 지워지지 않게
+                    if (request.getExtraJson() == null) request.setExtraJson(existing.getExtraJson());
                     return ResponseEntity.ok(fitRepository.save(request));
                 })
                 .orElse(ResponseEntity.notFound().build());

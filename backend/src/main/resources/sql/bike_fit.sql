@@ -25,3 +25,7 @@ CREATE TABLE IF NOT EXISTS `riding_db`.`bike_fit` (
     `updated_at`         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_bike_fit_bike_date` (`bike_id`, `fit_date`)
 );
+
+-- 2026-11-09: 아직 컬럼이 없는 추가 피팅 값. 자주 쓰게 되면 컬럼으로 승격한다.
+ALTER TABLE `bike_fit`
+    ADD COLUMN IF NOT EXISTS `extra_json` JSON NULL COMMENT '추가 피팅 값 (컬럼화 전 임시 보관)' AFTER `cleat_right`;

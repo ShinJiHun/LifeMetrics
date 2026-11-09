@@ -20,7 +20,14 @@ export interface RiderMeasurement {
     shoeModel: string | null;
     insole: string | null;
     flexibility: string | null;
+    /** 스캐너/측정지 상세 항목 원본. 좌우 항목은 left/right, 아니면 value */
+    detailJson?: MeasurementDetail | null;
     notes: string | null;
+}
+
+export interface MeasurementDetail {
+    unit: string;
+    items: { item: string; left?: number; right?: number; value?: number }[];
 }
 
 export type MeasureNumberKey =

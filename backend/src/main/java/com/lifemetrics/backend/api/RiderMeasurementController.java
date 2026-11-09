@@ -43,6 +43,8 @@ public class RiderMeasurementController {
                     if (!valid(request)) return ResponseEntity.badRequest().<RiderMeasurement>build();
                     request.setId(existing.getId());
                     request.setUserId(existing.getUserId());
+                    // 화면 폼이 detailJson 을 안 보내도 스캔 원본이 지워지지 않게
+                    if (request.getDetailJson() == null) request.setDetailJson(existing.getDetailJson());
                     return ResponseEntity.ok(repository.save(request));
                 })
                 .orElse(ResponseEntity.notFound().build());
