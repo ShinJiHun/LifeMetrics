@@ -1,8 +1,8 @@
 import AdminOnly from "@/components/common/AdminOnly";
 import {useState, useEffect, useLayoutEffect, useCallback, useRef} from "react";
-import {useNavigate} from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router-dom";
 import {fetchActivities, fetchActivityCount, mergeActivities} from "@/api/activity";
-import type {Activity} from "@/api/activity";
+import type {Activity, ActivitySource} from "@/api/activity";
 import ActivityMap from "@/pages/ride/riding/ActivityMap";
 import GlossaryText from "@/components/glossary/GlossaryText";
 import {useDropzone} from "react-dropzone";
@@ -787,7 +787,15 @@ function Pagination({page, totalPages, total, disabled, onChange}: {
     );
 }
 
+const SOURCE_TABS: Array<{ key: ActivitySource; label: string }> = [
+    {key: "garmin", label: "⌚ 가민"},
+    {key: "ddareungi", label: "🚲 따릉이"},
+];
+
 export default function RidingRecordPage() {
+    // 탭은 URL(?tab=ddareungi)에 둬서 새로고침·뒤로가기에도 유지한다
+    const [searchParams, setSearchParams] = useSearchParams();
+    const source: ActivitySource = searchParams.get("tab") === "ddareungi" ? "ddareungi" : "garmin";
     const [activities, setActivities] = useState<Activity[]>([]);
     const [page, setPage] = useState(0);
     const [total, setTotal] = useState(0);
@@ -847,9 +855,9 @@ export default function RidingRecordPage() {
     };
 
     // 첫 로드만 전체 로딩 화면, 페이지 이동은 목록만 흐리게 처리
-    const loadActivities = (targetPage = page) => {
+    const loadActivities = (targetPage = page, targetSource = source) => {
         setPageLoading(true);
-        Promise.all([fetchActivities(targetPage, PAGE_SIZE), fetchActivityCount()])
+        Promise.all([fetchActivities(targetPage, PAGE_SIZE, 1, targetSource), fetchActivityCount(1, targetSource)])
             .then(([list, count]) => {
                 setActivities(list);
                 setSelectedActivity(list[0] ?? null);
@@ -864,8 +872,16 @@ export default function RidingRecordPage() {
     };
 
     useEffect(() => {
-        loadActivities(0);
-    }, []);
+        loadActivities(0, source);
+    }, [source]);
+
+    const switchSource = (next: ActivitySource) => {
+        if (next === source) return;
+        setMergeMode(false);
+        setMergeSelection([]);
+        setMergeError(null);
+        setSearchParams(next === "garmin" ? {} : {tab: next}, {replace: true});
+    };
 
     useLayoutEffect(() => {
         const measure = () => {
@@ -914,6 +930,7 @@ export default function RidingRecordPage() {
                 <h2 style={{margin: 0}}>🚴 라이딩 기록</h2>
                 <div style={{display: "flex", gap: 8, flexWrap: "wrap"}}>
                     <AdminOnly>
+                        {source === "garmin" && (
                         <button
                             onClick={() => setShowUpload(true)}
                             style={{
@@ -923,6 +940,8 @@ export default function RidingRecordPage() {
                         >
                             📁 FIT 업로드
                         </button>
+                        )}
+                        {source === "ddareungi" && (
                         <button
                             onClick={() => setShowDdareungi(true)}
                             style={{
@@ -932,6 +951,8 @@ export default function RidingRecordPage() {
                         >
                             🚲 따릉이 업로드
                         </button>
+                        )}
+                        {source === "garmin" && (
                         <button
                             onClick={toggleMergeMode}
                             style={{
@@ -946,8 +967,25 @@ export default function RidingRecordPage() {
                         >
                             {mergeMode ? "✕ 병합 취소" : "🔗 라이딩 병합"}
                         </button>
+                        )}
                     </AdminOnly>
                 </div>
+            </div>
+
+            <div className="riding-source-tabs" role="tablist">
+                {SOURCE_TABS.map((t) => (
+                    <button
+                        key={t.key}
+                        role="tab"
+                        aria-selected={source === t.key}
+                        className={`riding-source-tab ${source === t.key ? "active" : ""}`}
+                        disabled={pageLoading}
+                        onClick={() => switchSource(t.key)}
+                    >
+                        {t.label}
+                        {source === t.key && <span className="riding-source-count">{total}</span>}
+                    </button>
+                ))}
             </div>
 
             {mergeMode && (
@@ -989,7 +1027,7 @@ export default function RidingRecordPage() {
                 style={layoutHeight ? {"--riding-layout-h": `${layoutHeight}px`} as React.CSSProperties : undefined}
             >
                 <div className="activity-feed" style={{opacity: pageLoading ? 0.5 : 1}}>
-                    {activities.length === 0 ? <p>라이딩 기록이 없습니다.</p> : (
+                    {activities.length === 0 ? <p>{source === "ddareungi" ? "따릉이 기록이 없습니다." : "라이딩 기록이 없습니다."}</p> : (
                         activities.map((activity) => {
                             const mergeIdx = mergeSelection.findIndex((a) => a.id === activity.id);
                             return (

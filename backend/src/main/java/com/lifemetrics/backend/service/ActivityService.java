@@ -42,11 +42,20 @@ public class ActivityService {
     // ═══════════════════════════════════════════════════════════════
     // 라이딩 목록
     // ═══════════════════════════════════════════════════════════════
-    public long countActivities(Long userId) {
+    private static final String DDAREUNGI = "DDAREUNGI";
+
+    /** source: "garmin"(따릉이 제외 전부) / "ddareungi" / 그 외·null = 전체 */
+    public long countActivities(Long userId, String source) {
+        if ("ddareungi".equalsIgnoreCase(source)) return coreRepository.countByUserIdAndRideType(userId, DDAREUNGI);
+        if ("garmin".equalsIgnoreCase(source)) return coreRepository.countByUserIdExcludingRideType(userId, DDAREUNGI);
         return coreRepository.countByUserId(userId);
     }
 
     public List<ActivitySummaryDto> getActivityList(Long userId, LocalDate startDate, LocalDate endDate, int page, int size) {
+        return getActivityList(userId, startDate, endDate, page, size, null);
+    }
+
+    public List<ActivitySummaryDto> getActivityList(Long userId, LocalDate startDate, LocalDate endDate, int page, int size, String source) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startTime"));
         List<ActivityCore> activities;
 
@@ -57,6 +66,10 @@ public class ActivityService {
                     endDate.plusDays(1).atStartOfDay(),
                     pageable
             );
+        } else if ("ddareungi".equalsIgnoreCase(source)) {
+            activities = coreRepository.findByUserIdAndRideType(userId, DDAREUNGI, pageable);
+        } else if ("garmin".equalsIgnoreCase(source)) {
+            activities = coreRepository.findByUserIdExcludingRideType(userId, DDAREUNGI, pageable);
         } else {
             activities = coreRepository.findByUserId(userId, pageable);
         }

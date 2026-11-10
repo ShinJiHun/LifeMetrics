@@ -36,14 +36,19 @@ export interface Activity {
     permanentNo?: string;
 }
 
-export async function fetchActivities(page = 0, size = 5, userId = 1): Promise<Activity[]> {
-    const res = await fetch(`${API_BASE}/api/activity/list?userId=${userId}&page=${page}&size=${size}`);
+// 라이딩 기록 탭: garmin = 따릉이 외 전부(FIT), ddareungi = 따릉이 캡처. 생략하면 전체.
+export type ActivitySource = "garmin" | "ddareungi";
+
+const sourceParam = (source?: ActivitySource) => (source ? `&source=${source}` : "");
+
+export async function fetchActivities(page = 0, size = 5, userId = 1, source?: ActivitySource): Promise<Activity[]> {
+    const res = await fetch(`${API_BASE}/api/activity/list?userId=${userId}&page=${page}&size=${size}${sourceParam(source)}`);
     if (!res.ok) throw new Error("Failed to fetch activities");
     return res.json();
 }
 
-export async function fetchActivityCount(userId = 1): Promise<number> {
-    const res = await fetch(`${API_BASE}/api/activity/count?userId=${userId}`);
+export async function fetchActivityCount(userId = 1, source?: ActivitySource): Promise<number> {
+    const res = await fetch(`${API_BASE}/api/activity/count?userId=${userId}${sourceParam(source)}`);
     if (!res.ok) throw new Error("Failed to fetch activity count");
     return res.json();
 }

@@ -16,6 +16,21 @@ public interface ActivityCoreRepository extends JpaRepository<ActivityCore, Long
 
     long countByUserId(Long userId);
 
+    // ── 라이딩 기록 탭: 따릉이(ride_type=DDAREUNGI) / 가민(그 외 전부) ──
+    List<ActivityCore> findByUserIdAndRideType(Long userId, String rideType, Pageable pageable);
+
+    long countByUserIdAndRideType(Long userId, String rideType);
+
+    @Query("SELECT a FROM ActivityCore a WHERE a.userId = :userId " +
+            "AND (a.rideType IS NULL OR a.rideType <> :rideType)")
+    List<ActivityCore> findByUserIdExcludingRideType(@Param("userId") Long userId,
+                                                     @Param("rideType") String rideType,
+                                                     Pageable pageable);
+
+    @Query("SELECT COUNT(a) FROM ActivityCore a WHERE a.userId = :userId " +
+            "AND (a.rideType IS NULL OR a.rideType <> :rideType)")
+    long countByUserIdExcludingRideType(@Param("userId") Long userId, @Param("rideType") String rideType);
+
     /** 라이딩 지도: 전체 기록 목록 (polyline 제외) */
     @Query("SELECT a.id AS id, a.name AS name, a.startTime AS startTime, a.rideType AS rideType, " +
             "a.totalDistance AS totalDistance, a.totalAscent AS totalAscent, a.movingTime AS movingTime " +

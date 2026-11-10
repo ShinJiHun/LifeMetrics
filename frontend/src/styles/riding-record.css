@@ -502,3 +502,43 @@
     font-size: 12px;
     color: #94a3b8;
 }
+
+/* ── 가민 / 따릉이 탭 ─────────────────────────────────────── */
+.riding-source-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.riding-source-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    margin-bottom: -1px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.riding-source-tab:hover:not(:disabled) {
+    color: #1e293b;
+}
+.riding-source-tab.active {
+    color: #1e293b;
+    border-bottom-color: #1e293b;
+}
+.riding-source-tab:disabled:not(.active) {
+    opacity: 0.5;
+    cursor: default;
+}
+.riding-source-count {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #1e293b;
+    color: #fff;
+    font-size: 11px;
+}

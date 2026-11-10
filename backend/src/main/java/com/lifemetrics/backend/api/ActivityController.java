@@ -35,8 +35,9 @@ public class ActivityController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size) {
-        return activityService.getActivityList(userId, startDate, endDate, page, size);
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(required = false) String source) {
+        return activityService.getActivityList(userId, startDate, endDate, page, size, source);
     }
 
     // 라이딩 지도: 전체 기록 (단순화된 경로 포함, 지도 전체 보기·월별·타입별·타일 계산용)
@@ -47,8 +48,8 @@ public class ActivityController {
 
     // 라이딩 전체 개수 (목록 페이지 번호 계산용)
     @GetMapping("/count")
-    public long getCount(@RequestParam Long userId) {
-        return activityService.countActivities(userId);
+    public long getCount(@RequestParam Long userId, @RequestParam(required = false) String source) {
+        return activityService.countActivities(userId, source);
     }
 
     // 라이딩 상세
