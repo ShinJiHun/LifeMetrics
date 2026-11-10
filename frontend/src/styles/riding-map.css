@@ -340,3 +340,8 @@
         max-height: 50vh;
     }
 }
+
+/* 출처(가민/따릉이) 세그먼트 안의 개수 */
+.rm-segment .rm-chip-count {
+    margin-left: 6px;
+}

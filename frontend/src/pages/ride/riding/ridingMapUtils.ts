@@ -142,20 +142,34 @@ export function computeTileStats(points: LngLat[]): TileStats {
 // ── 타입 묶음 ──
 export const RANDO_TYPES = ["BREVET", "PERMANENT", "FLECHE", "POPULAIRE"];
 
-export type TypeFilter = "ALL" | "RANDO" | "TOURING" | "GENERAL" | "DDAREUNGI";
+// ── 출처: 가민(FIT, 따릉이 외 전부) / 따릉이(이용내역 캡처) ──
+export type SourceFilter = "ALL" | "GARMIN" | "DDAREUNGI";
+
+export const SOURCE_FILTERS: { key: SourceFilter; label: string }[] = [
+    {key: "ALL", label: "전체"},
+    {key: "GARMIN", label: "⌚ 가민"},
+    {key: "DDAREUNGI", label: "🚲 따릉이"},
+];
+
+export function matchesSource(rideType: string | undefined, f: SourceFilter): boolean {
+    if (f === "ALL") return true;
+    const isDdareungi = rideType === "DDAREUNGI";
+    return f === "DDAREUNGI" ? isDdareungi : !isDdareungi;
+}
+
+// 타입 칩은 가민 기록 안에서의 구분 (따릉이는 출처 필터로 고른다)
+export type TypeFilter = "ALL" | "RANDO" | "TOURING" | "GENERAL";
 
 export const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
     {key: "ALL", label: "전체"},
     {key: "RANDO", label: "랜도 (브레베·퍼머넌트·플레쉬·포퓨레어)"},
     {key: "TOURING", label: "투어링"},
     {key: "GENERAL", label: "일반"},
-    {key: "DDAREUNGI", label: "따릉이"},
 ];
 
 export function matchesType(rideType: string | undefined, f: TypeFilter): boolean {
     if (f === "ALL") return true;
     if (f === "RANDO") return !!rideType && RANDO_TYPES.includes(rideType);
     if (f === "TOURING") return rideType === "TOURING";
-    if (f === "DDAREUNGI") return rideType === "DDAREUNGI";
     return !rideType || rideType === "GENERAL";
 }

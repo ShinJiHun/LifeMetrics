@@ -1,5 +1,5 @@
 import {useEffect, useLayoutEffect, useMemo, useRef, useState} from "react";
-import {Link} from "react-router-dom";
+import {Link, useSearchParams} from "react-router-dom";
 import * as mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import {fetchMapActivities, type MapActivity} from "@/api/activity";
@@ -8,10 +8,13 @@ import {
     computeTileStats,
     decodeRoute,
     densify,
+    matchesSource,
     matchesType,
+    SOURCE_FILTERS,
     tileRectPolygon,
     TYPE_FILTERS,
     type LngLat,
+    type SourceFilter,
     type TypeFilter,
 } from "@/pages/ride/riding/ridingMapUtils";
 import "@/styles/riding-map.css";
@@ -58,6 +61,14 @@ export default function RidingMapPage() {
     const [year, setYear] = useState<number | "ALL">("ALL");
     const [month, setMonth] = useState<number | "ALL">("ALL");
     const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+    // 출처는 URL(?src=garmin|ddareungi)에 둬서 새로고침해도 유지
+    const [searchParams, setSearchParams] = useSearchParams();
+    const srcParam = searchParams.get("src");
+    const source: SourceFilter = srcParam === "garmin" ? "GARMIN" : srcParam === "ddareungi" ? "DDAREUNGI" : "ALL";
+    const changeSource = (next: SourceFilter) => {
+        setTypeFilter("ALL");
+        setSearchParams(next === "ALL" ? {} : {src: next.toLowerCase()}, {replace: true});
+    };
     const [mode, setMode] = useState<ViewMode>("routes");
     const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -82,8 +93,11 @@ export default function RidingMapPage() {
 
     const years = useMemo(() => [...new Set(rides.map((r) => r.year))].sort((a, b) => b - a), [rides]);
 
-    // 타입만 적용한 목록 (연/월 막대그래프용)
-    const typeRides = useMemo(() => rides.filter((r) => matchesType(r.rideType, typeFilter)), [rides, typeFilter]);
+    // 출처만 적용한 목록 (타입 칩 개수용)
+    const sourceRides = useMemo(() => rides.filter((r) => matchesSource(r.rideType, source)), [rides, source]);
+
+    // 출처+타입 적용한 목록 (연/월 막대그래프용)
+    const typeRides = useMemo(() => sourceRides.filter((r) => matchesType(r.rideType, typeFilter)), [sourceRides, typeFilter]);
 
     const filtered = useMemo(() => typeRides.filter((r) =>
         (year === "ALL" || r.year === year) && (month === "ALL" || r.month === month),
@@ -287,18 +301,26 @@ export default function RidingMapPage() {
             </div>
 
             <div className="rm-filters">
+                <div className="rm-segment">
+                    {SOURCE_FILTERS.map((f) => (
+                        <button key={f.key} className={source === f.key ? "active" : ""} onClick={() => changeSource(f.key)}>
+                            {f.label}
+                            <span className="rm-chip-count">{rides.filter((r) => matchesSource(r.rideType, f.key)).length}</span>
+                        </button>
+                    ))}
+                </div>
                 <select className="rm-select" value={year} onChange={(e) => changeYear(e.target.value)}>
                     <option value="ALL">전체 기간</option>
                     {years.map((y) => <option key={y} value={y}>{y}년</option>)}
                 </select>
-                {TYPE_FILTERS.map((t) => (
+                {source !== "DDAREUNGI" && TYPE_FILTERS.map((t) => (
                     <button
                         key={t.key}
                         className={`rm-chip${typeFilter === t.key ? " active" : ""}`}
                         onClick={() => setTypeFilter(t.key)}
                     >
                         {t.label}
-                        <span className="rm-chip-count">{rides.filter((r) => matchesType(r.rideType, t.key)).length}</span>
+                        <span className="rm-chip-count">{sourceRides.filter((r) => matchesType(r.rideType, t.key)).length}</span>
                     </button>
                 ))}
             </div>
