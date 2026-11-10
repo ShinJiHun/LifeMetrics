@@ -3,6 +3,8 @@ import {useDropzone} from "react-dropzone";
 
 // 따릉이 이용내역 캡처 → 활동 추가.
 // 1) 미리보기(dryRun)로 인식 결과를 보여주고 2) "저장"을 누르면 같은 이미지로 다시 저장 요청한다.
+// 인식이 수십 초 걸려 한 요청으로 기다리면 모바일 회선에서 끊기므로("Failed to fetch"),
+// 서버에 작업으로 등록하고 결과를 폴링한다. 업로드 전에 이미지를 줄여 전송 시간도 줄인다.
 interface RideResult {
     status: "saved" | "duplicate" | "preview" | "fail";
     activityId?: number;
@@ -32,6 +34,76 @@ const STATUS_LABEL: Record<string, string> = {
     fail: "❌ 실패",
 };
 
+interface Job {
+    id: string;
+    status: "running" | "done" | "error";
+    total: number;
+    done: number;
+    results: FileResult[];
+    message?: string;
+}
+
+const POLL_MS = 2000;
+const POLL_LIMIT_MS = 5 * 60 * 1000;
+// Claude 는 긴 변 1568px 를 넘는 이미지를 어차피 줄여서 본다 → 미리 줄여 보내도 인식 품질은 같다.
+const MAX_EDGE = 1568;
+
+/** 긴 변이 MAX_EDGE 를 넘으면 JPEG 로 줄인다. 실패하면 원본 그대로. */
+async function shrinkImage(file: File): Promise<File> {
+    try {
+        const bmp = await createImageBitmap(file);
+        const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+        if (scale === 1 && file.size < 1.5 * 1024 * 1024) {
+            bmp.close();
+            return file;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(bmp.width * scale);
+        canvas.height = Math.round(bmp.height * scale);
+        canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        bmp.close();
+        const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9));
+        if (!blob) return file;
+        return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", {type: "image/jpeg"});
+    } catch {
+        return file;
+    }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function runJob(targets: File[], dryRun: boolean, onProgress: (j: Job) => void): Promise<FileResult[]> {
+    const formData = new FormData();
+    for (const f of await Promise.all(targets.map(shrinkImage))) formData.append("files", f);
+
+    const res = await fetch(`/api/ddareungi/upload/jobs?dryRun=${dryRun}`, {method: "POST", body: formData});
+    if (res.status === 403) throw new Error("관리자 로그인이 필요합니다");
+    if (!res.ok) throw new Error(`업로드 실패 (HTTP ${res.status})`);
+    let job: Job = await res.json();
+    onProgress(job);
+
+    const startedAt = Date.now();
+    let netErrors = 0;
+    while (job.status === "running") {
+        if (Date.now() - startedAt > POLL_LIMIT_MS) throw new Error("처리가 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요");
+        await sleep(POLL_MS);
+        try {
+            const r = await fetch(`/api/ddareungi/upload/jobs/${job.id}`);
+            if (r.status === 404) throw new Error("작업을 찾을 수 없습니다 (서버 재시작?) — 다시 올려 주세요");
+            if (!r.ok) throw new Error(`상태 확인 실패 (HTTP ${r.status})`);
+            job = await r.json();
+            netErrors = 0;
+            onProgress(job);
+        } catch (e) {
+            // 폴링 한두 번의 네트워크 끊김은 다음 폴링에서 회복
+            if (e instanceof TypeError && ++netErrors < 5) continue;
+            throw e;
+        }
+    }
+    if (job.status === "error") throw new Error(job.message || "처리 중 오류");
+    return job.results;
+}
+
 const ROUTE_LABEL: Record<string, string> = {
     route: "추정 경로",
     straight: "직선 표시",
@@ -49,16 +121,17 @@ export default function DdareungiUploadModal({onClose, onSuccess}: {
     const [busy, setBusy] = useState<"" | "preview" | "save">("");
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState(false);
+    const [progress, setProgress] = useState<{done: number; total: number} | null>(null);
 
     const send = useCallback(async (targets: File[], dryRun: boolean) => {
         setBusy(dryRun ? "preview" : "save");
         setError(null);
-        const formData = new FormData();
-        targets.forEach(f => formData.append("files", f));
+        setProgress(null);
         try {
-            const res = await fetch(`/api/ddareungi/upload?dryRun=${dryRun}`, {method: "POST", body: formData});
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data: FileResult[] = await res.json();
+            const data = await runJob(targets, dryRun, (j) => {
+                setProgress({done: j.done, total: j.total});
+                if (j.results.length) setResults(j.results);
+            });
             setResults(data);
             if (!dryRun) {
                 setSaved(true);
@@ -118,7 +191,8 @@ export default function DdareungiUploadModal({onClose, onSuccess}: {
 
                 {busy && (
                     <p style={{color: "#94a3b8", textAlign: "center", marginTop: 14}}>
-                        ⏳ {busy === "preview" ? "이미지 인식 중..." : "저장 중..."}
+                        ⏳ {busy === "preview" ? "이미지 인식 중" : "저장 중"}
+                        {progress && progress.total > 1 ? ` (${progress.done}/${progress.total})` : ""}… 보통 20~60초 걸려요
                     </p>
                 )}
                 {error && <p style={{color: "#f87171", fontSize: 13, marginTop: 12}}>{error}</p>}

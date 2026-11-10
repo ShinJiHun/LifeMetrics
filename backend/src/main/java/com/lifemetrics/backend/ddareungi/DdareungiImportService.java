@@ -94,14 +94,22 @@ public class DdareungiImportService {
     public record FileResult(String filename, String status, String message, List<RideResult> rides) {}
 
     public FileResult importImage(MultipartFile file, Long userId, boolean dryRun) {
-        String filename = file.getOriginalFilename();
         try {
-            String mediaType = file.getContentType() != null ? file.getContentType() : "image/jpeg";
+            return importImage(file.getOriginalFilename(), file.getContentType(), file.getBytes(), userId, dryRun);
+        } catch (java.io.IOException e) {
+            return new FileResult(file.getOriginalFilename(), "fail", "파일을 읽지 못했습니다", List.of());
+        }
+    }
+
+    /** 요청이 끝난 뒤(비동기 작업)에도 쓸 수 있도록 바이트로 받는 버전. */
+    public FileResult importImage(String filename, String contentType, byte[] bytes, Long userId, boolean dryRun) {
+        try {
+            String mediaType = contentType != null ? contentType : "image/jpeg";
             if (!Set.of("image/jpeg", "image/png", "image/gif", "image/webp").contains(mediaType)) {
                 return new FileResult(filename, "fail", "지원하지 않는 이미지 형식: " + mediaType + " (jpg/png/webp)", List.of());
             }
             String raw = claudeClient.completeWithImage(SYSTEM, PROMPT.formatted(LocalDate.now()),
-                    file.getBytes(), mediaType, 2048);
+                    bytes, mediaType, 2048);
             if (raw == null) {
                 return new FileResult(filename, "fail", "이미지 인식 실패 (Claude 응답 없음)", List.of());
             }
