@@ -7,6 +7,7 @@ import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
 import DailyAnalysisPage from "@/pages/ride/analysis/DailyAnalysisPage";
 import AthleteChatPage from "@/pages/ride/analysis/AthleteChatPage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
+import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
 import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
@@ -97,6 +98,9 @@ export default function App() {
                         <Route path={`/${p}/post/:postId/edit`} element={<RequireAdmin><PostEditorPage /></RequireAdmin>} />
                     </Route>
                 ))}
+
+                {/* 인간 페르소나 - 핸들러 월별 정산 PDF (관리자 전용) */}
+                <Route path="/human/handler-settlement" element={<RequireAdmin><HandlerSettlementPage /></RequireAdmin>} />
 
                 {/* 인간 페르소나 - 로또 (관리자 전용) */}
                 {/* 인간 페르소나 - 연금복권 (관리자 전용) */}

@@ -66,6 +66,7 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                     <PersonaContentMenu persona={persona} accent={meta.accent} />
                 )}
 
+                {persona === "human" && isAdmin && <HumanHandlerMenu accent={meta.accent} />}
                 {persona === "human" && isAdmin && <HumanLottoMenu accent={meta.accent} />}
             </div>
 
@@ -89,6 +90,21 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                 </NavLink>
             )}
         </aside>
+    );
+}
+
+function HumanHandlerMenu({ accent }: { accent: string }) {
+    return (
+        <div style={{ marginTop: 24 }}>
+            <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
+                💼 핸들러
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <NavLink to="/human/handler-settlement" style={subLinkStyle(accent)}>
+                    📄 월별 정산
+                </NavLink>
+            </nav>
+        </div>
     );
 }
 

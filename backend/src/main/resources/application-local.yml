@@ -105,6 +105,11 @@ career:
   media:
     path: /tmp/career-media/
 
+# 인간 페르소나 - 핸들러 월별 정산서 PDF 보관 폴더 (HandlerSettlementController)
+handler:
+  settlement:
+    path: /tmp/handler-settlement/
+
 exercise:
   gif:
     path: /tmp/exercise-gifs/   # 로컬은 안 씀

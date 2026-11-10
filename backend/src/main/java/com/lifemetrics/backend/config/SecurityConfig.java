@@ -38,6 +38,8 @@ public class SecurityConfig {
                 // 쓰기 요청은 관리자만. 읽기는 모두 허용.
                 .addFilterBefore(adminWriteFilter, AuthorizationFilter.class)
                 .csrf(csrf -> csrf.disable())
+                // 기본 DENY → 같은 사이트 iframe 은 허용 (핸들러 정산 PDF 미리보기). 외부 사이트 임베드는 계속 차단.
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
