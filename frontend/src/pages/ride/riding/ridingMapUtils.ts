@@ -142,18 +142,20 @@ export function computeTileStats(points: LngLat[]): TileStats {
 // ── 타입 묶음 ──
 export const RANDO_TYPES = ["BREVET", "PERMANENT", "FLECHE", "POPULAIRE"];
 
-export type TypeFilter = "ALL" | "RANDO" | "TOURING" | "GENERAL";
+export type TypeFilter = "ALL" | "RANDO" | "TOURING" | "GENERAL" | "DDAREUNGI";
 
 export const TYPE_FILTERS: { key: TypeFilter; label: string }[] = [
     {key: "ALL", label: "전체"},
     {key: "RANDO", label: "랜도 (브레베·퍼머넌트·플레쉬·포퓨레어)"},
     {key: "TOURING", label: "투어링"},
     {key: "GENERAL", label: "일반"},
+    {key: "DDAREUNGI", label: "따릉이"},
 ];
 
 export function matchesType(rideType: string | undefined, f: TypeFilter): boolean {
     if (f === "ALL") return true;
     if (f === "RANDO") return !!rideType && RANDO_TYPES.includes(rideType);
     if (f === "TOURING") return rideType === "TOURING";
+    if (f === "DDAREUNGI") return rideType === "DDAREUNGI";
     return !rideType || rideType === "GENERAL";
 }

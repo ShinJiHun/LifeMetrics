@@ -146,3 +146,7 @@ slack:
 
 settings:
   password: ${SETTINGS_PASSWORD:lifemetrics}
+
+seoul:
+  # 서울 열린데이터광장 인증키 (따릉이 대여소 좌표 동기화용)
+  openapi-key: ${SEOUL_OPENAPI_KEY:}
