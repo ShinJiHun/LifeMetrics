@@ -8,9 +8,11 @@ export const RIDE_TYPES: Array<{ code: string; label: string }> = [
     {code: "TOURING", label: "투어링"},
 ];
 
-export const RIDE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
-    RIDE_TYPES.map((t) => [t.code, t.label])
-);
+// 따릉이는 이용내역 캡처로만 들어오므로 FIT 업로드 선택지(RIDE_TYPES)에는 넣지 않고 라벨/색만 둔다
+export const RIDE_TYPE_LABEL: Record<string, string> = {
+    ...Object.fromEntries(RIDE_TYPES.map((t) => [t.code, t.label])),
+    DDAREUNGI: "따릉이",
+};
 
 export const RIDE_TYPE_COLOR: Record<string, string> = {
     GENERAL: "#475569",
@@ -19,4 +21,5 @@ export const RIDE_TYPE_COLOR: Record<string, string> = {
     FLECHE: "#8b5cf6",
     POPULAIRE: "#10b981",
     TOURING: "#ec4899",
+    DDAREUNGI: "#16a34a",
 };

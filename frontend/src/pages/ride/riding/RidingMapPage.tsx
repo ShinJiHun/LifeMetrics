@@ -421,7 +421,7 @@ function MapLegend({mode}: { mode: ViewMode }) {
     return (
         <div className="rm-legend">
             <span><i style={{background: DEFAULT_COLOR}}/>일반</span>
-            {["BREVET", "PERMANENT", "FLECHE", "POPULAIRE", "TOURING"].map((t) => (
+            {["BREVET", "PERMANENT", "FLECHE", "POPULAIRE", "TOURING", "DDAREUNGI"].map((t) => (
                 <span key={t}><i style={{background: RIDE_TYPE_COLOR[t]}}/>{RIDE_TYPE_LABEL[t]}</span>
             ))}
         </div>

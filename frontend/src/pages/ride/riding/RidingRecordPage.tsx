@@ -9,6 +9,7 @@ import {useDropzone} from "react-dropzone";
 import {fetchPermanentCourses} from "@/api/permanent";
 import type {PermanentCourse} from "@/api/permanent";
 import {RIDE_TYPES, RIDE_TYPE_LABEL, RIDE_TYPE_COLOR} from "@/constants/rideType";
+import DdareungiUploadModal from "./DdareungiUploadModal";
 import "@/styles/riding-record.css";
 
 const formatDistance = (meters: number) => (meters / 1000).toFixed(1);
@@ -795,6 +796,7 @@ export default function RidingRecordPage() {
     const [error, setError] = useState<string | null>(null);
     const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
     const [showUpload, setShowUpload] = useState(false);
+    const [showDdareungi, setShowDdareungi] = useState(false);
 
     const [mergeMode, setMergeMode] = useState(false);
     const [mergeSelection, setMergeSelection] = useState<Activity[]>([]);
@@ -890,6 +892,13 @@ export default function RidingRecordPage() {
                 />
             )}
 
+            {showDdareungi && (
+                <DdareungiUploadModal
+                    onClose={() => setShowDdareungi(false)}
+                    onSuccess={() => loadActivities(0)}
+                />
+            )}
+
             {showMergeConfirm && mergeSelection.length === 2 && (
                 <MergeConfirmModal
                     parent={mergeSelection[0]}
@@ -913,6 +922,15 @@ export default function RidingRecordPage() {
                             }}
                         >
                             📁 FIT 업로드
+                        </button>
+                        <button
+                            onClick={() => setShowDdareungi(true)}
+                            style={{
+                                padding: "6px 14px", background: "#14532d", border: "1px solid #16a34a",
+                                borderRadius: 8, color: "#86efac", cursor: "pointer", fontSize: 13
+                            }}
+                        >
+                            🚲 따릉이 업로드
                         </button>
                         <button
                             onClick={toggleMergeMode}

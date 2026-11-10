@@ -546,6 +546,7 @@ export default function ActivityDetailPage() {
                                 }}>
                                     {RIDE_TYPE_LABEL[activity.rideType] ?? activity.rideType}
                                     {activity.rideType === "PERMANENT" && activity.permanentNo ? ` · ${activity.permanentNo}` : ""}
+                                    {activity.rideType === "DDAREUNGI" ? " · 추정 경로" : ""}
                                 </span>
                             ) : (
                                 <span>{rideTypeLabel(activity.totalDistance)}</span>
