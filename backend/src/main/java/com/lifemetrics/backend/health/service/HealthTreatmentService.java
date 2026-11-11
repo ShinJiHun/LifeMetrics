@@ -63,6 +63,8 @@ public class HealthTreatmentService {
             throw new IllegalArgumentException("종료일이 시작일보다 빠릅니다.");
         }
         t.setName(req.getName().trim());
+        t.setDiagnosisCode(blankToNull(req.getDiagnosisCode()));
+        t.setSourceFile(blankToNull(req.getSourceFile()));
         t.setBodyPart(blankToNull(req.getBodyPart()));
         t.setStartDate(req.getStartDate());
         t.setEndDate(req.getEndDate());
@@ -81,6 +83,7 @@ public class HealthTreatmentService {
         return activeOn(userId, date).stream().map(t -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("name", t.getName());
+            if (t.getDiagnosisCode() != null) m.put("diagnosisCode", t.getDiagnosisCode());
             if (t.getBodyPart() != null) m.put("bodyPart", t.getBodyPart());
             m.put("startDate", t.getStartDate().toString());
             m.put("daysSinceStart", date.toEpochDay() - t.getStartDate().toEpochDay());
@@ -100,6 +103,7 @@ public class HealthTreatmentService {
         StringBuilder sb = new StringBuilder("[진행 중인 치료·부상 (본인 입력)]\n");
         for (HealthTreatment t : active) {
             sb.append("- ").append(t.getName());
+            if (t.getDiagnosisCode() != null) sb.append(" [").append(t.getDiagnosisCode()).append(']');
             if (t.getBodyPart() != null) sb.append(" (").append(t.getBodyPart()).append(')');
             sb.append(": ").append(t.getStartDate()).append("부터 치료 중, ")
                     .append(date.toEpochDay() - t.getStartDate().toEpochDay()).append("일째\n");

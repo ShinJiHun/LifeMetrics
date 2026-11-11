@@ -32,12 +32,13 @@ class HealthTreatmentServiceTest {
     void 프롬프트_블록은_치료명_경과일_제한을_담고_해석_지시를_붙인다() {
         HealthTreatment t = treatment("장경인대 증후군", START, null);
         t.setBodyPart("오른쪽 무릎 바깥쪽");
+        t.setDiagnosisCode("M76.3");
         t.setRestrictions("하체 고중량·러닝 자제");
 
         String block = HealthTreatmentService.promptBlock(List.of(t), LocalDate.of(2026, 11, 11));
 
         assertThat(block)
-                .contains("장경인대 증후군 (오른쪽 무릎 바깥쪽)")
+                .contains("장경인대 증후군 [M76.3] (오른쪽 무릎 바깥쪽)")
                 .contains("2026-10-01부터 치료 중, 41일째")
                 .contains("운동 제한·권고: 하체 고중량·러닝 자제")
                 .contains("적절한 조절");

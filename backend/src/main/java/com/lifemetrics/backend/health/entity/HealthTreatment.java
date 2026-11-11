@@ -30,6 +30,10 @@ public class HealthTreatment {
     @Column(nullable = false)
     private String name;
 
+    /** KCD 상병코드 (예: M76.3) */
+    @Column(name = "diagnosis_code")
+    private String diagnosisCode;
+
     @Column(name = "body_part")
     private String bodyPart;
 
@@ -46,6 +50,10 @@ public class HealthTreatment {
 
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    /** 진단서에서 읽어 채운 경우 원본 파일명 (파일 자체는 저장하지 않는다) */
+    @Column(name = "source_file")
+    private String sourceFile;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;

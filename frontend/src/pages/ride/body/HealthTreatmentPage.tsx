@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import {
     createHealthTreatment,
     deleteHealthTreatment,
     emptyHealthTreatment,
+    extractTreatmentDocument,
     fetchHealthTreatments,
     updateHealthTreatment,
     type HealthTreatment,
@@ -29,6 +30,8 @@ export default function HealthTreatmentPage() {
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState<HealthTreatment | null>(null);
     const [saving, setSaving] = useState(false);
+    const [reading, setReading] = useState(false);
+    const fileRef = useRef<HTMLInputElement>(null);
 
     const load = async () => {
         setLoading(true);
@@ -82,6 +85,38 @@ export default function HealthTreatmentPage() {
         }
     };
 
+    /**
+     * 진단서를 읽어 폼을 채운다. 비어 있는 칸만 채우고 이미 적은 값은 덮어쓰지 않는다(메모는 뒤에 덧붙임).
+     * 편집 중이 아니면 새 기록으로 연다.
+     */
+    const readDocument = async (file: File) => {
+        setReading(true);
+        setError(null);
+        try {
+            const doc = await extractTreatmentDocument(file);
+            setEditing((prev) => {
+                const base = prev ?? { ...emptyHealthTreatment(), startDate: "" };
+                const pick = <K extends keyof HealthTreatment>(k: K) => (base[k] ? base[k] : (doc[k] ?? base[k])) as HealthTreatment[K];
+                return {
+                    ...base,
+                    name: pick("name"),
+                    diagnosisCode: pick("diagnosisCode"),
+                    bodyPart: pick("bodyPart"),
+                    startDate: base.startDate || doc.startDate || todayKst(),
+                    endDate: pick("endDate"),
+                    restrictions: pick("restrictions"),
+                    notes: base.notes && doc.notes ? `${base.notes}\n${doc.notes}` : base.notes || doc.notes,
+                    sourceFile: doc.sourceFile,
+                };
+            });
+        } catch (e) {
+            setError(errorMessage(e, "진단서를 읽지 못했습니다. 직접 입력해 주세요."));
+        } finally {
+            setReading(false);
+            if (fileRef.current) fileRef.current.value = "";
+        }
+    };
+
     const setField = (key: keyof HealthTreatment, value: string) =>
         setEditing((prev) => (prev ? { ...prev, [key]: value === "" && key !== "name" && key !== "startDate" ? null : value } : prev));
 
@@ -102,17 +137,31 @@ export default function HealthTreatmentPage() {
 
             {error && <div style={S.errorBox}>{error}</div>}
 
+            <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                style={{ display: "none" }}
+                onChange={(e) => e.target.files?.[0] && readDocument(e.target.files[0])}
+            />
+            {reading && <div style={S.infoBox}>📄 진단서를 읽는 중입니다… (10~30초)</div>}
+
             {editing ? (
                 <TreatmentForm
                     value={editing}
                     saving={saving}
                     onField={setField}
+                    reading={reading}
+                    onReadDocument={() => fileRef.current?.click()}
                     onCancel={() => setEditing(null)}
                     onSave={save}
                 />
             ) : (
                 <>
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                        <button type="button" style={S.ghostBtn} disabled={reading} onClick={() => fileRef.current?.click()}>
+                            📄 진단서로 추가
+                        </button>
                         <button
                             type="button"
                             style={S.primaryBtn}
@@ -187,9 +236,13 @@ function TreatmentCard({
                 <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1b2236" }}>
                         {t.name}
+                        {t.diagnosisCode && <span style={S.code}>{t.diagnosisCode}</span>}
                         {t.bodyPart && <span style={{ fontWeight: 500, fontSize: 13, color: "#6b7280" }}> · {t.bodyPart}</span>}
                     </div>
-                    <div style={{ fontSize: 12.5, color: "#8a90a3", marginTop: 4 }}>{period}</div>
+                    <div style={{ fontSize: 12.5, color: "#8a90a3", marginTop: 4 }}>
+                        {period}
+                        {t.sourceFile && <span> · 📄 {t.sourceFile}</span>}
+                    </div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <button type="button" style={S.miniBtn} onClick={onEdit}>
@@ -224,12 +277,16 @@ function TreatmentCard({
 function TreatmentForm({
     value,
     saving,
+    reading,
+    onReadDocument,
     onField,
     onCancel,
     onSave,
 }: {
     value: HealthTreatment;
     saving: boolean;
+    reading: boolean;
+    onReadDocument: () => void;
     onField: (key: keyof HealthTreatment, value: string) => void;
     onCancel: () => void;
     onSave: () => void;
@@ -238,7 +295,20 @@ function TreatmentForm({
 
     return (
         <section style={S.card}>
-            <h3 style={S.groupTitle}>{value.id ? "치료 기록 수정" : "새 치료 기록"}</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                <h3 style={{ ...S.groupTitle, margin: 0 }}>
+                    {value.id ? "치료 기록 수정" : "새 치료 기록"}
+                    {value.sourceFile && <span style={{ fontWeight: 400, fontSize: 12, color: "#8a90a3" }}> · 📄 {value.sourceFile}</span>}
+                </h3>
+                <button type="button" style={S.ghostBtn} disabled={reading || saving} onClick={onReadDocument}>
+                    {reading ? "읽는 중…" : "📄 진단서에서 채우기"}
+                </button>
+            </div>
+            {value.sourceFile && (
+                <div style={{ ...S.infoBox, marginBottom: 14 }}>
+                    진단서에서 읽은 값입니다. 저장 전에 확인해 주세요. 빈 칸만 채우고 이미 적은 값은 바꾸지 않습니다. 파일은 저장하지 않습니다.
+                </div>
+            )}
             <div style={S.grid}>
                 <label style={S.field}>
                     <span style={S.label}>진단명/부상명 *</span>
@@ -247,6 +317,15 @@ function TreatmentForm({
                         placeholder="예: 장경인대 증후군"
                         value={text("name")}
                         onChange={(e) => onField("name", e.target.value)}
+                    />
+                </label>
+                <label style={S.field}>
+                    <span style={S.label}>상병코드</span>
+                    <input
+                        style={S.input}
+                        placeholder="예: M76.3"
+                        value={text("diagnosisCode")}
+                        onChange={(e) => onField("diagnosisCode", e.target.value)}
                     />
                 </label>
                 <label style={S.field}>
@@ -307,6 +386,8 @@ const S: Record<string, CSSProperties> = {
     kicker: { fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", color: "#ef4444" },
     title: { margin: "6px 0 0", fontSize: 26, fontWeight: 800, color: "#1b2236" },
     subtitle: { margin: "8px 0 0", fontSize: 14, color: "#8a90a3", lineHeight: 1.6 },
+    infoBox: { background: "#eef2ff", border: "1px solid #c7d2fe", color: "#3730a3", padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13 },
+    code: { marginLeft: 8, padding: "1px 7px", borderRadius: 6, background: "#f3f4f6", color: "#4b5563", fontSize: 12, fontWeight: 600 },
     errorBox: { background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13 },
     primaryBtn: { padding: "9px 16px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" },
     ghostBtn: { padding: "9px 14px", borderRadius: 8, border: "1px solid #d8dbe6", background: "#fff", color: "#374151", fontWeight: 600, fontSize: 13, cursor: "pointer" },

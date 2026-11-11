@@ -2,12 +2,16 @@ package com.lifemetrics.backend.health.controller;
 
 import com.lifemetrics.backend.health.entity.HealthTreatment;
 import com.lifemetrics.backend.health.service.HealthTreatmentService;
+import com.lifemetrics.backend.health.service.TreatmentDocumentService;
 import com.lifemetrics.backend.security.AdminWriteFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 import java.util.Map;
 
@@ -23,6 +27,7 @@ import java.util.Map;
 public class HealthTreatmentController {
 
     private final HealthTreatmentService service;
+    private final TreatmentDocumentService documentService;
     private final AdminWriteFilter adminWriteFilter;
 
     @GetMapping
@@ -31,6 +36,20 @@ public class HealthTreatmentController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
         return ResponseEntity.ok(service.list(userId));
+    }
+
+    /** 진단서·소견서(PDF·사진) → AI 추출 결과. 저장하지 않으며 화면에서 검토 후 POST 로 저장한다. */
+    @PostMapping("/extract")
+    public ResponseEntity<?> extract(@RequestParam("file") MultipartFile file) {
+        try {
+            return ResponseEntity.ok(documentService.extract(file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(422).body(Map.of("message", e.getMessage()));
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "파일을 읽지 못했습니다."));
+        }
     }
 
     @PostMapping

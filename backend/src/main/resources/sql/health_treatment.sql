@@ -18,3 +18,8 @@ CREATE TABLE IF NOT EXISTS `riding_db`.`health_treatment` (
     `updated_at`    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX `idx_health_treatment_user_dates` (`user_id`, `start_date`, `end_date`)
 );
+
+-- 2026-11-11: 진단서 업로드로 채우기 — 상병코드와 원본 파일명 (파일 자체는 저장하지 않는다)
+ALTER TABLE `riding_db`.`health_treatment`
+    ADD COLUMN IF NOT EXISTS `diagnosis_code` VARCHAR(20)  NULL COMMENT 'KCD 상병코드 (예: M76.3)' AFTER `name`,
+    ADD COLUMN IF NOT EXISTS `source_file`    VARCHAR(255) NULL COMMENT '진단서에서 읽어 채운 경우 원본 파일명' AFTER `notes`;

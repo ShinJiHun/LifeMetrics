@@ -47,16 +47,26 @@ public class ClaudeClient {
      */
     public String completeWithImage(String systemPrompt, String userText,
                                     byte[] image, String mediaType, int maxTokens) {
-        Map<String, Object> imageBlock = Map.of(
-                "type", "image",
+        return completeWithFile(systemPrompt, userText, image, mediaType, maxTokens);
+    }
+
+    /**
+     * 파일 1개 + 지시문 호출. PDF 는 document 블록(스캔본도 페이지 이미지로 읽힌다), 그 외는 image 블록으로 보낸다.
+     *
+     * @param mediaType application/pdf, image/png, image/jpeg 등
+     */
+    public String completeWithFile(String systemPrompt, String userText,
+                                   byte[] file, String mediaType, int maxTokens) {
+        Map<String, Object> fileBlock = Map.of(
+                "type", "application/pdf".equals(mediaType) ? "document" : "image",
                 "source", Map.of(
                         "type", "base64",
                         "media_type", mediaType,
-                        "data", Base64.getEncoder().encodeToString(image)));
+                        "data", Base64.getEncoder().encodeToString(file)));
 
         Map<String, Object> message = Map.of(
                 "role", "user",
-                "content", List.of(imageBlock, Map.of("type", "text", "text", userText)));
+                "content", List.of(fileBlock, Map.of("type", "text", "text", userText)));
 
         return callApi(systemPrompt, List.of(message), maxTokens);
     }
