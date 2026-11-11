@@ -128,18 +128,18 @@ class DailyAnalysisServiceTest {
     }
 
     @Test
-    void 새벽_배치는_오늘을_빼고_어제부터_3일을_살핀다() {
-        LocalDate today = LocalDate.of(2026, 11, 2);
+    void 새벽_배치는_오늘을_빼고_어제부터_14일을_살핀다() {
+        LocalDate today = LocalDate.of(2026, 11, 20);
         steps(today, 1);
         steps(today.minusDays(1), 2);
-        steps(today.minusDays(3), 3);
-        steps(today.minusDays(4), 4);
+        steps(today.minusDays(14), 3);
+        steps(today.minusDays(15), 4);
 
         assertThat(service.runNightly(1L, today)).isEqualTo(2);
 
         verify(health, never()).dailyActivity(eq(1L), eq(new HealthDataQueryService.DateRange(today, today)));
         verify(health, never()).dailyActivity(eq(1L),
-                eq(new HealthDataQueryService.DateRange(today.minusDays(4), today.minusDays(4))));
+                eq(new HealthDataQueryService.DateRange(today.minusDays(15), today.minusDays(15))));
     }
 
     @Test

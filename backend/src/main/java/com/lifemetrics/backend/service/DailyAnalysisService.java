@@ -42,8 +42,12 @@ public class DailyAnalysisService {
     /** ai_analysis.target_id 는 NOT NULL 이고, 기간 단위 분석은 0 을 쓴다. */
     static final long TARGET_ID = 0L;
     public static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    /** 동기화·입력이 늦거나 호출이 실패한 날을 채우기 위해 어제부터 며칠을 다시 살핀다. */
-    static final int LOOKBACK_DAYS = 3;
+    /**
+     * 동기화·입력이 늦거나 호출이 실패한 날을 채우기 위해 어제부터 며칠을 다시 살핀다.
+     * PT 운동일지는 구글 시트에 적었다가 며칠 뒤 sync_pt_sheet.py 로 들어오기도 해서 넉넉히 잡는다.
+     * 입력 해시가 그대로인 날은 AI 를 다시 부르지 않으므로 기간을 늘려도 호출은 바뀐 날만큼만 는다.
+     */
+    static final int LOOKBACK_DAYS = 14;
 
     private final AiAnalysisRepository analysisRepo;
     private final AiAnalysisService aiAnalysisService;
