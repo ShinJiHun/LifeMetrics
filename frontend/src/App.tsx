@@ -7,6 +7,7 @@ import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
 import DailyAnalysisPage from "@/pages/ride/analysis/DailyAnalysisPage";
 import AthleteChatPage from "@/pages/ride/analysis/AthleteChatPage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
+import HealthTreatmentPage from "@/pages/ride/body/HealthTreatmentPage";
 import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
 import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
@@ -61,6 +62,7 @@ export default function App() {
                 <Route path="/records/body" element={<BodyRecordPage />} />
                 <Route path="/records/body/weight-loss" element={<WeightLossAnalysisPage />} />
                 <Route path="/records/body/health-checkup" element={<RequireAdmin><HealthCheckupPage /></RequireAdmin>} />
+                <Route path="/records/body/treatments" element={<RequireAdmin><HealthTreatmentPage /></RequireAdmin>} />
                 <Route path="/records/health" element={<Navigate to="/records/health/history" replace />} />
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />

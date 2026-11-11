@@ -153,6 +153,7 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
             {key: "athlete-chat", label: "🤖 애슐리트 페르소나", to: "/records/athlete-chat", adminOnly: true},
             {key: "daily-analysis", label: "📊 일일 분석", to: "/records/daily-analysis", adminOnly: true},
             {key: "checkup", label: "🩺 건강검진", to: "/records/body/health-checkup", adminOnly: true},
+            {key: "treatment", label: "🩹 치료·부상", to: "/records/body/treatments", adminOnly: true},
             {
                 key: "inbody", label: "⚖️ 인바디", items: [
                     {to: "/records/body", label: "인바디 기록", end: true},

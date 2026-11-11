@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.lifemetrics.backend.health.service.HealthTreatmentService;
 import com.lifemetrics.backend.dto.*;
 import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.entity.ActivityWeatherPoint;
@@ -34,6 +35,7 @@ public class AiAnalysisService {
     private final ActivityWeatherPointRepository weatherPointRepo;
     private final ExerciseLogService exerciseLogService;
     private final DeviceInfoRepository deviceInfoRepo;
+    private final HealthTreatmentService treatmentService;
     private final ObjectMapper objectMapper;
 
     @Value("${anthropic.api-key:}")
@@ -159,7 +161,7 @@ public class AiAnalysisService {
             throw new RuntimeException("Exercise session not found: " + sessionId);
         }
 
-        String prompt = buildExerciseSessionPrompt(session);
+        String prompt = buildExerciseSessionPrompt(userId, session);
         String analysisJson = requestClaude(prompt);
         if (analysisJson == null) {
             throw new RuntimeException("운동 분석 실패: " + sessionId);
@@ -197,7 +199,7 @@ public class AiAnalysisService {
                     .orElse(null);
             if (session == null) return;
 
-            String analysisJson = requestClaude(buildExerciseSessionPrompt(session));
+            String analysisJson = requestClaude(buildExerciseSessionPrompt(userId, session));
             if (analysisJson == null) {
                 System.out.println("❌ 운동 분석 실패(밤 배치에서 재시도): " + sessionId);
                 return;
@@ -246,7 +248,7 @@ public class AiAnalysisService {
                 }
 
                 try {
-                    String prompt = buildExerciseSessionPrompt(session);
+                    String prompt = buildExerciseSessionPrompt(userId, session);
                     String analysisJson = requestClaude(prompt);
                     if (analysisJson == null) {
                         System.out.println("❌ 분석 실패: " + session.getSessionDate());
@@ -488,6 +490,11 @@ public class AiAnalysisService {
             sb.append("\n");
         }
 
+        // 진행 중인 치료·부상 (관리자 입력)
+        if (a.getStartTime() != null) {
+            sb.append(treatmentService.promptBlock(userId, a.getStartTime().toLocalDate()));
+        }
+
         // 라이더 주관적 컨디션
         if (condition != null && !condition.isBlank()) {
             sb.append("[라이더 주관적 컨디션 (본인 작성)]\n");
@@ -530,6 +537,8 @@ public class AiAnalysisService {
                    - 체감 강도와 데이터 강도가 어긋나면 그 원인(누적 피로, 수면 부족, 탈수 등)을 추정
                    - 통증/불편 언급 시 부위별 원인 추정(피팅, 케이던스, 근피로)과 대처 제시
                    - recoveryAdvice/nextRideTip 도 이 몸상태를 반영해 조정
+                   진행 중인 치료·부상이 있으면 그 부위에 걸리는 부하(케이던스·토크·고강도 구간 등)와 연결해 평가하고,
+                   recoveryAdvice/nextRideTip 도 치료 중임을 전제로 제시.
                    주관적 컨디션이 없으면 데이터만으로 추정하고, 추정임을 밝힐 것.
                 
                 ---
@@ -624,9 +633,12 @@ public class AiAnalysisService {
     // 프롬프트 빌더 — 운동 (기존 유지)
     // ================================================================
 
-    private String buildExerciseSessionPrompt(ExerciseHistoryResponse session) {
+    private String buildExerciseSessionPrompt(Long userId, ExerciseHistoryResponse session) {
         StringBuilder sb = new StringBuilder();
         sb.append(String.format("다음은 %s 운동 세션 데이터입니다.\n\n", session.getSessionDate()));
+        if (session.getSessionDate() != null) {
+            sb.append(treatmentService.promptBlock(userId, java.time.LocalDate.parse(session.getSessionDate().substring(0, 10))));
+        }
 
         if (session.getIsPT()) sb.append("⚡ PT 세션\n\n");
 

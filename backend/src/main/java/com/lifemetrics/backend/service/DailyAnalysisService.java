@@ -9,6 +9,7 @@ import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.entity.UserBodyRecord;
 import com.lifemetrics.backend.health.service.HealthDataQueryService;
 import com.lifemetrics.backend.health.service.HealthDataQueryService.DateRange;
+import com.lifemetrics.backend.health.service.HealthTreatmentService;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.AiAnalysisRepository;
 import com.lifemetrics.backend.repository.UserBodyRecordRepository;
@@ -48,6 +49,7 @@ public class DailyAnalysisService {
      * 입력 해시가 그대로인 날은 AI 를 다시 부르지 않으므로 기간을 늘려도 호출은 바뀐 날만큼만 는다.
      */
     static final int LOOKBACK_DAYS = 14;
+    static final String TREATMENTS = "treatments";
 
     private final AiAnalysisRepository analysisRepo;
     private final AiAnalysisService aiAnalysisService;
@@ -55,6 +57,7 @@ public class DailyAnalysisService {
     private final ExerciseLogService exerciseLogService;
     private final ActivityCoreRepository activityRepo;
     private final UserBodyRecordRepository bodyRepo;
+    private final HealthTreatmentService treatmentService;
     private final ObjectMapper objectMapper;
 
     /** 분석 호출이 실패했을 때. 컨트롤러가 502 로 바꾼다. */
@@ -149,11 +152,17 @@ public class DailyAnalysisService {
         input.put("fitness", fitnessOf(userId, date));
         input.put("rides", ridesOf(userId, date));
         input.put("bodyRecords", bodyOf(userId, date));
+        // 치료가 없는 날은 키를 아예 넣지 않는다: 빈 키가 생기면 입력 해시가 바뀌어 지난 분석이 전부 다시 돌기 때문
+        List<Map<String, Object>> treatments = treatmentService.inputOf(userId, date);
+        if (!treatments.isEmpty()) input.put(TREATMENTS, treatments);
         return input;
     }
 
+    /** 치료 기록만 있는 날은 분석할 활동이 없으므로 빈 날로 본다. */
     static boolean isEmpty(Map<String, Object> input) {
-        return input.values().stream().allMatch(v -> ((List<?>) v).isEmpty());
+        return input.entrySet().stream()
+                .filter(e -> !TREATMENTS.equals(e.getKey()))
+                .allMatch(e -> ((List<?>) e.getValue()).isEmpty());
     }
 
     private List<Map<String, Object>> fitnessOf(long userId, LocalDate date) {
@@ -235,6 +244,9 @@ public class DailyAnalysisService {
                 - fitness: 직접 입력한 웨이트 트레이닝.
                 - meals: 식단 기록. 끼니가 일부만 입력됐을 수 있으니 합계를 하루 총 섭취량으로 단정하지 마세요.
                 - bodyRecords: 이 날 측정한 체성분. 없으면 언급하지 마세요.
+                - treatments: 이 날 진행 중이던 치료·부상(본인 입력). 있으면 운동 강도·부위 선택·볼륨을 이 상황에 맞춰 해석하세요.
+                  치료 때문에 일부러 가볍게 하거나 피한 운동은 부족함이 아니라 적절한 조절로 평가하고, 제한·권고(restrictions)를
+                  어긴 것으로 보이는 부분이 있으면 짚으세요. 잘한 점·개선할 점도 치료 중임을 전제로 쓰세요. 없으면 언급하지 마세요.
                 - 이 사람은 랜도너스(200~1000km 장거리 자전거 대회)를 탑니다. 하루 10시간 이상, 1만kcal 이상 라이딩도 실제 대회 기록이니 이상치로 보지 말고 그대로 분석하세요.
                 - 그 밖에 기기 오류로 보이는 값(같은 운동이 겹쳐 두 번 기록 등)만 dataNotes 에 적으세요.
 

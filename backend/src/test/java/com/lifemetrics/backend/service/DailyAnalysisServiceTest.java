@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.lifemetrics.backend.entity.AiAnalysis;
 import com.lifemetrics.backend.health.dto.HealthDataDto.DailyActivity;
+import com.lifemetrics.backend.health.entity.HealthTreatment;
+import com.lifemetrics.backend.health.repository.HealthTreatmentRepository;
 import com.lifemetrics.backend.health.service.HealthDataQueryService;
+import com.lifemetrics.backend.health.service.HealthTreatmentService;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.AiAnalysisRepository;
 import com.lifemetrics.backend.repository.UserBodyRecordRepository;
@@ -34,13 +37,15 @@ class DailyAnalysisServiceTest {
     private final ExerciseLogService exerciseLog = mock(ExerciseLogService.class);
     private final ActivityCoreRepository activity = mock(ActivityCoreRepository.class);
     private final UserBodyRecordRepository body = mock(UserBodyRecordRepository.class);
+    private final HealthTreatmentRepository treatments = mock(HealthTreatmentRepository.class);
     private final ObjectMapper om = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private DailyAnalysisService service;
 
     @BeforeEach
     void setUp() {
-        service = new DailyAnalysisService(analysisRepo, ai, health, exerciseLog, activity, body, om);
+        service = new DailyAnalysisService(analysisRepo, ai, health, exerciseLog, activity, body,
+                new HealthTreatmentService(treatments), om);
         when(analysisRepo.findByUserIdAndAnalysisTypeAndTargetIdAndTargetPeriod(any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
         when(ai.requestClaude(anyString())).thenReturn(RESULT);
@@ -150,6 +155,62 @@ class DailyAnalysisServiceTest {
         when(ai.requestClaude(anyString())).thenReturn(null).thenReturn(RESULT);
 
         assertThat(service.runNightly(1L, today)).isEqualTo(1);
+    }
+
+    private void treating(LocalDate date, String name, LocalDate start) {
+        HealthTreatment t = new HealthTreatment();
+        t.setName(name);
+        t.setBodyPart("오른쪽 무릎 바깥쪽");
+        t.setStartDate(start);
+        t.setRestrictions("하체 고중량 자제");
+        when(treatments.findActiveOn(1L, date)).thenReturn(List.of(t));
+    }
+
+    @Test
+    void 치료_중인_날은_치료_정보를_입력에_넣는다() throws Exception {
+        steps(DAY, 1000);
+        treating(DAY, "장경인대 증후군", LocalDate.of(2026, 10, 1));
+
+        var data = om.readTree(savedAfterFirstRun().getAnalysisData());
+
+        var t = data.path("input").path("treatments").get(0);
+        assertThat(t.path("name").asText()).isEqualTo("장경인대 증후군");
+        assertThat(t.path("daysSinceStart").asLong()).isEqualTo(30);
+        assertThat(t.path("restrictions").asText()).isEqualTo("하체 고중량 자제");
+        verify(ai).requestClaude(contains("장경인대 증후군"));
+    }
+
+    @Test
+    void 치료가_없는_날은_입력에_키를_넣지_않아_기존_해시가_유지된다() throws Exception {
+        steps(DAY, 1000);
+
+        var data = om.readTree(savedAfterFirstRun().getAnalysisData());
+
+        assertThat(data.path("input").has("treatments")).isFalse();
+    }
+
+    @Test
+    void 치료가_새로_등록되면_입력이_바뀌어_다시_분석한다() {
+        steps(DAY, 1000);
+        savedAfterFirstRun();
+
+        treating(DAY, "장경인대 증후군", LocalDate.of(2026, 10, 1));
+
+        assertThat(service.analyzeIfChanged(1L, DAY)).isTrue();
+        verify(ai, times(2)).requestClaude(anyString());
+    }
+
+    @Test
+    void 치료_기록만_있는_날은_분석하지_않는다() {
+        treating(DAY, "장경인대 증후군", LocalDate.of(2026, 10, 1));
+
+        assertThat(service.analyzeIfChanged(1L, DAY)).isFalse();
+        verifyNoInteractions(ai);
+    }
+
+    @Test
+    void 프롬프트는_치료_정보를_해석하는_규칙을_담는다() {
+        assertThat(DailyAnalysisService.buildPrompt(DAY, "{}")).contains("treatments").contains("적절한 조절");
     }
 
     @Test
