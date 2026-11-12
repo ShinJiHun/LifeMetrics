@@ -18,13 +18,18 @@ case "$TARGET" in
 esac
 
 run_container() {   # $1 = 이미지 태그
+    # DB_URL 은 파이썬 파이프라인용(비밀번호가 URL 에 평문으로 들어 있음). 백엔드는 안 쓰므로 컨테이너에 넣지 않는다.
+    # (docker 가 /dev/fd 를 못 열어서 프로세스 치환 대신 600 임시 파일 사용)
+    local env_tmp
+    env_tmp=$(mktemp)
+    chmod 600 "$env_tmp"
+    grep -v '^DB_URL=' "$ENV_FILE" > "$env_tmp"
     # dev 와 prod 는 같은 DB·NAS 를 쓴다(개발 서버에서 만든 데이터/파일이 운영에도 그대로 보임).
     # dev 는 "중복 실행되면 안 되는 부수효과"만 끈다: 자동 동기화 스케줄러, 슬랙 알림.
     local args=(
         -d --name "$NAME" -p "$PORT:8080"
         --add-host=host.docker.internal:host-gateway
-        # DB_URL 은 파이썬 파이프라인용(비밀번호가 URL 에 평문으로 들어 있음). 백엔드는 안 쓰므로 컨테이너에 넣지 않는다.
-        --env-file <(grep -v '^DB_URL=' "$ENV_FILE")
+        --env-file "$env_tmp"
         -e SPRING_PROFILES_ACTIVE=prod
         -v "$DIR/static:/app/static:ro"
         -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw
@@ -47,7 +52,10 @@ run_container() {   # $1 = 이미지 태그
         )
     fi
 
-    docker run "${args[@]}" "$1" >/dev/null
+    local rc=0
+    docker run "${args[@]}" "$1" >/dev/null || rc=$?
+    rm -f "$env_tmp"
+    return $rc
 }
 
 wait_healthy() {    # 최대 120초 동안 / 가 200 을 돌려줄 때까지 대기
