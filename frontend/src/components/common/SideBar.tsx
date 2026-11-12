@@ -103,6 +103,9 @@ function HumanHandlerMenu({ accent }: { accent: string }) {
                 <NavLink to="/human/handler-settlement" style={subLinkStyle(accent)}>
                     📄 월별 정산
                 </NavLink>
+                <NavLink to="/human/handler-trips" style={subLinkStyle(accent)}>
+                    🚗 핸들 기록
+                </NavLink>
             </nav>
         </div>
     );

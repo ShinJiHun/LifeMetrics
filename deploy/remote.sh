@@ -23,7 +23,8 @@ run_container() {   # $1 = 이미지 태그
     local args=(
         -d --name "$NAME" -p "$PORT:8080"
         --add-host=host.docker.internal:host-gateway
-        --env-file "$ENV_FILE"
+        # DB_URL 은 파이썬 파이프라인용(비밀번호가 URL 에 평문으로 들어 있음). 백엔드는 안 쓰므로 컨테이너에 넣지 않는다.
+        --env-file <(grep -v '^DB_URL=' "$ENV_FILE")
         -e SPRING_PROFILES_ACTIVE=prod
         -v "$DIR/static:/app/static:ro"
         -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw
