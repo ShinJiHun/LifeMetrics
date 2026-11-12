@@ -5,6 +5,11 @@ import com.lifemetrics.backend.entity.ActivityCore;
 import com.lifemetrics.backend.entity.BodyGoal;
 import com.lifemetrics.backend.entity.UserBodyRecord;
 import com.lifemetrics.backend.health.dto.DailySummary;
+import com.lifemetrics.backend.health.entity.HealthTreatment;
+import com.lifemetrics.backend.health.entity.HealthTreatmentVisit;
+import com.lifemetrics.backend.health.repository.HealthTreatmentRepository;
+import com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository;
+import com.lifemetrics.backend.health.service.TreatmentVisitService;
 import com.lifemetrics.backend.health.service.DailySummaryService;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.BodyGoalRepository;
@@ -19,6 +24,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -35,6 +41,8 @@ public class AthleteContextService {
     static final int FITNESS_DAYS = 30;
     static final int BODY_RECORDS = 8;
     static final int RANDO_MAX = 40;
+    static final int CARE_DAYS = 180;
+    static final int CARE_MAX = 40;
     static final Set<String> RANDO_TYPES = Set.of("BREVET", "PERMANENT", "FLECHE", "POPULAIRE");
 
     private final DailySummaryService dailySummaryService;
@@ -42,6 +50,8 @@ public class AthleteContextService {
     private final ExerciseLogService exerciseLogService;
     private final UserBodyRecordRepository bodyRepo;
     private final BodyGoalRepository goalRepo;
+    private final HealthTreatmentRepository treatmentRepo;
+    private final HealthTreatmentVisitRepository visitRepo;
 
     public String build(long userId, LocalDate today) {
         StringBuilder sb = new StringBuilder();
@@ -52,6 +62,9 @@ public class AthleteContextService {
         section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
         section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId));
         section(sb, "최근 " + FITNESS_DAYS + "일 웨이트 트레이닝", () -> fitness(userId, today));
+        section(sb, "치료·부상 (본인 입력, 진행 중 먼저)", () -> treatments(userId, today));
+        section(sb, "진료·처방 내역 (처방전·영수증·세부내역서에서 읽음, 최근 " + CARE_DAYS + "일, 최신순)",
+                () -> careVisits(userId, today));
         return sb.toString();
     }
 
@@ -196,6 +209,61 @@ public class AthleteContextService {
         }
         lines.sort(null);
         return lines;
+    }
+
+    // ── 치료·진료 ─────────────────────────────────────
+
+    private List<String> treatments(long userId, LocalDate today) {
+        return treatmentRepo.findAllForList(userId).stream().map(t -> treatmentLine(t, today)).toList();
+    }
+
+    static String treatmentLine(HealthTreatment t, LocalDate today) {
+        StringBuilder l = new StringBuilder(t.getName());
+        if (t.getDiagnosisCode() != null) l.append(" [").append(t.getDiagnosisCode()).append(']');
+        if (t.getBodyPart() != null) l.append(" (").append(t.getBodyPart()).append(')');
+        l.append(": ").append(t.getStartDate()).append(" 시작");
+        if (t.getEndDate() == null) {
+            l.append(", 치료 중 ").append(today.toEpochDay() - t.getStartDate().toEpochDay()).append("일째");
+        } else {
+            l.append(" ~ ").append(t.getEndDate()).append(" 종료");
+        }
+        if (t.getRestrictions() != null) l.append(" / 운동 제한·권고: ").append(t.getRestrictions());
+        if (t.getNotes() != null) l.append(" / 메모: ").append(t.getNotes());
+        return l.toString();
+    }
+
+    private List<String> careVisits(long userId, LocalDate today) {
+        Map<Long, String> names = new java.util.HashMap<>();
+        treatmentRepo.findAllForList(userId).forEach(t -> names.put(t.getId(), t.getName()));
+        LocalDate from = today.minusDays(CARE_DAYS);
+        return visitRepo.findByUserIdOrderByVisitDateDescIdDesc(userId).stream()
+                .filter(v -> !v.getVisitDate().isBefore(from) && !v.getVisitDate().isAfter(today))
+                .limit(CARE_MAX)
+                .map(v -> visitLine(v, names.get(v.getTreatmentId()), today))
+                .toList();
+    }
+
+    /** "2026-11-05 정형외과의원 정형외과 [진료비 세부내역서] (장경인대 증후군 치료): 주사: …; 약: … — 오늘 복용 기간 중 / 본인부담 12,300원" */
+    static String visitLine(HealthTreatmentVisit v, String treatmentName, LocalDate today) {
+        long daysAgo = today.toEpochDay() - v.getVisitDate().toEpochDay();
+        StringBuilder l = new StringBuilder(v.getVisitDate().toString());
+        if (v.getInstitution() != null) l.append(' ').append(v.getInstitution());
+        if (v.getDepartment() != null) l.append(' ').append(v.getDepartment());
+        if (v.getDocType() != null) l.append(" [").append(v.getDocType()).append(']');
+        if (treatmentName != null) l.append(" (").append(treatmentName).append(" 치료)");
+        l.append(": ");
+        List<String> items = new ArrayList<>();
+        for (Map<String, Object> it : v.getItems() == null ? List.<Map<String, Object>>of() : v.getItems()) {
+            if ("진찰".equals(it.get("category")) || "재료".equals(it.get("category"))) continue;
+            boolean ongoing = "약".equals(it.get("category"))
+                    && it.get("days") instanceof Number n && daysAgo < n.intValue();
+            items.add(TreatmentVisitService.itemLine(it) + (ongoing ? " — 오늘 복용 기간 중" : ""));
+        }
+        if (!items.isEmpty()) l.append(String.join("; ", items));
+        else l.append(v.getSummary() != null ? v.getSummary() : "진찰만");
+        if (v.getDiagnosis() != null) l.append(" / 상병 ").append(v.getDiagnosis());
+        if (v.getPatientAmount() != null) l.append(String.format(Locale.ROOT, " / 본인부담 %,d원", v.getPatientAmount()));
+        return l.toString();
     }
 
     // ── 형식 ─────────────────────────────────────────

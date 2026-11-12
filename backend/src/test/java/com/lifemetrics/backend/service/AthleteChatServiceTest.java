@@ -4,6 +4,8 @@ import com.lifemetrics.backend.client.ClaudeChatClient;
 import com.lifemetrics.backend.dto.PersonaChatRequest;
 import com.lifemetrics.backend.entity.ActivityCore;
 import com.lifemetrics.backend.health.dto.DailySummary;
+import com.lifemetrics.backend.health.entity.HealthTreatment;
+import com.lifemetrics.backend.health.entity.HealthTreatmentVisit;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -11,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -105,5 +108,33 @@ class AthleteChatServiceTest {
         assertThat(AthleteContextService.num(15.27, "%")).isEqualTo("15.3%");
         assertThat(AthleteContextService.num(null, "kg")).isEqualTo("-");
         assertThat(AthleteContextService.signed(300)).isEqualTo("+300");
+    }
+
+    @Test
+    void 치료_한_줄() {
+        HealthTreatment t = new HealthTreatment();
+        t.setName("장경인대 증후군");
+        t.setDiagnosisCode("M76.3");
+        t.setStartDate(LocalDate.of(2026, 10, 1));
+        t.setRestrictions("고강도 인터벌 2주 금지");
+        assertThat(AthleteContextService.treatmentLine(t, LocalDate.of(2026, 11, 12)))
+                .isEqualTo("장경인대 증후군 [M76.3]: 2026-10-01 시작, 치료 중 42일째 / 운동 제한·권고: 고강도 인터벌 2주 금지");
+    }
+
+    @Test
+    void 진료_한_줄은_진찰을_빼고_복용_중인_약을_표시한다() {
+        HealthTreatmentVisit v = new HealthTreatmentVisit();
+        v.setVisitDate(LocalDate.of(2026, 11, 10));
+        v.setInstitution("튼튼정형외과의원");
+        v.setDocType("진료비 세부내역서");
+        v.setPatientAmount(12300);
+        v.setItems(List.of(
+                Map.of("category", "진찰", "name", "재진진찰료"),
+                Map.of("category", "물리치료", "name", "체외충격파"),
+                Map.of("category", "약", "name", "록소프로펜정", "dose", "1정", "timesPerDay", 3, "days", 5,
+                        "drugClass", "소염진통제(NSAID)")));
+        assertThat(AthleteContextService.visitLine(v, "장경인대 증후군", LocalDate.of(2026, 11, 12)))
+                .isEqualTo("2026-11-10 튼튼정형외과의원 [진료비 세부내역서] (장경인대 증후군 치료): 물리치료: 체외충격파; "
+                        + "약: 록소프로펜정 1정×3회 5일분 (소염진통제(NSAID)) — 오늘 복용 기간 중 / 본인부담 12,300원");
     }
 }

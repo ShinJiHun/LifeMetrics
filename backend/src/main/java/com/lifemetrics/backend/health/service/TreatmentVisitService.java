@@ -254,7 +254,7 @@ public class TreatmentVisitService {
     }
 
     /** "약: 록소프로펜정 1정×3회 5일분 (소염진통제(NSAID))" */
-    static String itemLine(Map<String, Object> it) {
+    public static String itemLine(Map<String, Object> it) {
         StringBuilder sb = new StringBuilder().append(it.get("category")).append(": ").append(it.get("name"));
         if (it.get("dose") != null) sb.append(' ').append(it.get("dose"));
         if (it.get("timesPerDay") != null) sb.append('×').append(num(it.get("timesPerDay"))).append("회");
