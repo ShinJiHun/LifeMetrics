@@ -3,11 +3,17 @@ import type { CSSProperties } from "react";
 import {
     createHealthTreatment,
     deleteHealthTreatment,
+    deleteTreatmentVisit,
     emptyHealthTreatment,
     extractTreatmentDocument,
+    extractTreatmentVisits,
     fetchHealthTreatments,
+    fetchTreatmentVisits,
+    saveTreatmentVisits,
     updateHealthTreatment,
     type HealthTreatment,
+    type TreatmentVisit,
+    type TreatmentVisitItem,
 } from "@/api/healthTreatment";
 
 function todayKst(): string {
@@ -32,11 +38,20 @@ export default function HealthTreatmentPage() {
     const [saving, setSaving] = useState(false);
     const [reading, setReading] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+    const [visits, setVisits] = useState<TreatmentVisit[]>([]);
+    /** 진료·처방 문서를 올릴 치료 id */
+    const [visitTarget, setVisitTarget] = useState<number | null>(null);
+    const [visitReading, setVisitReading] = useState<number | null>(null);
+    const [preview, setPreview] = useState<{ treatmentId: number; visits: TreatmentVisit[] } | null>(null);
+    const [previewSaving, setPreviewSaving] = useState(false);
+    const visitFileRef = useRef<HTMLInputElement>(null);
 
     const load = async () => {
         setLoading(true);
         try {
-            setList(await fetchHealthTreatments());
+            const [ts, vs] = await Promise.all([fetchHealthTreatments(), fetchTreatmentVisits()]);
+            setList(ts);
+            setVisits(vs);
             setError(null);
         } catch (e) {
             setError(errorMessage(e, "치료 기록을 불러오지 못했습니다."));
@@ -117,6 +132,56 @@ export default function HealthTreatmentPage() {
         }
     };
 
+    const pickVisitDocument = (treatmentId: number) => {
+        setVisitTarget(treatmentId);
+        visitFileRef.current?.click();
+    };
+
+    /** 처방전·영수증·세부내역서를 읽어 날짜별 진료 미리보기를 띄운다(아직 저장 안 함). */
+    const readVisitDocument = async (file: File) => {
+        const treatmentId = visitTarget;
+        if (!treatmentId) return;
+        setVisitReading(treatmentId);
+        setError(null);
+        try {
+            const found = await extractTreatmentVisits(treatmentId, file);
+            setPreview((prev) =>
+                prev && prev.treatmentId === treatmentId
+                    ? { treatmentId, visits: [...prev.visits, ...found].sort((a, b) => a.visitDate.localeCompare(b.visitDate)) }
+                    : { treatmentId, visits: found },
+            );
+        } catch (e) {
+            setError(errorMessage(e, "문서를 읽지 못했습니다."));
+        } finally {
+            setVisitReading(null);
+            if (visitFileRef.current) visitFileRef.current.value = "";
+        }
+    };
+
+    const savePreview = async () => {
+        if (!preview) return;
+        setPreviewSaving(true);
+        try {
+            await saveTreatmentVisits(preview.treatmentId, preview.visits);
+            setPreview(null);
+            await load();
+        } catch (e) {
+            setError(errorMessage(e, "진료 내역을 저장하지 못했습니다."));
+        } finally {
+            setPreviewSaving(false);
+        }
+    };
+
+    const removeVisit = async (v: TreatmentVisit) => {
+        if (!v.id || !window.confirm(`${v.visitDate} ${v.institution ?? ""} 진료 내역을 삭제할까요?`)) return;
+        try {
+            await deleteTreatmentVisit(v.id);
+            await load();
+        } catch (e) {
+            setError(errorMessage(e, "삭제하지 못했습니다."));
+        }
+    };
+
     const setField = (key: keyof HealthTreatment, value: string) =>
         setEditing((prev) => (prev ? { ...prev, [key]: value === "" && key !== "name" && key !== "startDate" ? null : value } : prev));
 
@@ -143,6 +208,13 @@ export default function HealthTreatmentPage() {
                 accept="application/pdf,image/jpeg,image/png,image/webp"
                 style={{ display: "none" }}
                 onChange={(e) => e.target.files?.[0] && readDocument(e.target.files[0])}
+            />
+            <input
+                ref={visitFileRef}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                style={{ display: "none" }}
+                onChange={(e) => e.target.files?.[0] && readVisitDocument(e.target.files[0])}
             />
             {reading && <div style={S.infoBox}>📄 진단서를 읽는 중입니다… (10~30초)</div>}
 
@@ -187,6 +259,17 @@ export default function HealthTreatmentPage() {
                                     onEdit={() => setEditing({ ...t })}
                                     onFinish={() => finish(t)}
                                     onDelete={() => remove(t)}
+                                    visits={visits.filter((v) => v.treatmentId === t.id)}
+                                    visitReading={visitReading === t.id}
+                                    preview={preview && preview.treatmentId === t.id ? preview.visits : null}
+                                    previewSaving={previewSaving}
+                                    onAddVisitDocument={() => t.id && pickVisitDocument(t.id)}
+                                    onDeleteVisit={removeVisit}
+                                    onPreviewRemove={(i) =>
+                                        setPreview((p) => (p ? { ...p, visits: p.visits.filter((_, j) => j !== i) } : p))
+                                    }
+                                    onPreviewSave={savePreview}
+                                    onPreviewCancel={() => setPreview(null)}
                                 />
                             ))}
 
@@ -200,6 +283,17 @@ export default function HealthTreatmentPage() {
                                             today={today}
                                             onEdit={() => setEditing({ ...t })}
                                             onDelete={() => remove(t)}
+                                            visits={visits.filter((v) => v.treatmentId === t.id)}
+                                            visitReading={visitReading === t.id}
+                                            preview={preview && preview.treatmentId === t.id ? preview.visits : null}
+                                            previewSaving={previewSaving}
+                                            onAddVisitDocument={() => t.id && pickVisitDocument(t.id)}
+                                            onDeleteVisit={removeVisit}
+                                            onPreviewRemove={(i) =>
+                                                setPreview((p) => (p ? { ...p, visits: p.visits.filter((_, j) => j !== i) } : p))
+                                            }
+                                            onPreviewSave={savePreview}
+                                            onPreviewCancel={() => setPreview(null)}
                                         />
                                     ))}
                                 </>
@@ -218,12 +312,30 @@ function TreatmentCard({
     onEdit,
     onFinish,
     onDelete,
+    visits,
+    visitReading,
+    preview,
+    previewSaving,
+    onAddVisitDocument,
+    onDeleteVisit,
+    onPreviewRemove,
+    onPreviewSave,
+    onPreviewCancel,
 }: {
     t: HealthTreatment;
     today: string;
     onEdit: () => void;
     onFinish?: () => void;
     onDelete: () => void;
+    visits: TreatmentVisit[];
+    visitReading: boolean;
+    preview: TreatmentVisit[] | null;
+    previewSaving: boolean;
+    onAddVisitDocument: () => void;
+    onDeleteVisit: (v: TreatmentVisit) => void;
+    onPreviewRemove: (index: number) => void;
+    onPreviewSave: () => void;
+    onPreviewCancel: () => void;
 }) {
     const ongoing = !t.endDate || t.endDate >= today;
     const period = t.endDate
@@ -270,7 +382,189 @@ function TreatmentCard({
                     <div style={S.text}>{t.notes}</div>
                 </div>
             )}
+
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px dashed #eceef5" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <div style={S.label}>진료·처방 내역 {visits.length > 0 && `(${visits.length}회)`}</div>
+                    <button type="button" style={S.miniBtn} disabled={visitReading || previewSaving} onClick={onAddVisitDocument}>
+                        {visitReading ? "읽는 중…" : "📄 처방전·영수증·세부내역서 추가"}
+                    </button>
+                </div>
+                {visitReading && (
+                    <div style={{ ...S.infoBox, marginTop: 10, marginBottom: 0 }}>
+                        📄 문서를 읽는 중입니다… 세부내역서처럼 긴 문서는 1분 넘게 걸릴 수 있습니다.
+                    </div>
+                )}
+
+                {preview && (
+                    <div style={S.previewBox}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: "#3730a3", marginBottom: 8 }}>
+                            문서에서 읽은 진료 {preview.length}건 — 확인 후 저장하세요
+                        </div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 10 }}>
+                            같은 날짜·기관·문서 종류의 기존 내역은 새 내용으로 바뀝니다. 파일과 개인정보는 저장하지 않습니다.
+                            다른 문서를 더 올리면 아래에 이어 붙습니다.
+                        </div>
+                        {preview.map((v, i) => (
+                            <VisitRow key={`${v.visitDate}-${i}`} v={v} onRemove={() => onPreviewRemove(i)} removeLabel="빼기" />
+                        ))}
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+                            <button type="button" style={S.ghostBtn} onClick={onPreviewCancel} disabled={previewSaving}>
+                                취소
+                            </button>
+                            <button
+                                type="button"
+                                style={S.primaryBtn}
+                                onClick={onPreviewSave}
+                                disabled={previewSaving || preview.length === 0}
+                            >
+                                {previewSaving ? "저장 중…" : `${preview.length}건 저장`}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {visits.length > 0 ? (
+                    <VisitList visits={visits} today={today} onDelete={onDeleteVisit} />
+                ) : (
+                    !preview && (
+                        <div style={{ fontSize: 12.5, color: "#8a90a3", marginTop: 6 }}>
+                            처방전, 약제비 영수증, 진료비 세부내역서, 건강보험 앱 처방조제내역 캡처를 올리면 날짜별로 정리되고 분석에도 반영됩니다.
+                        </div>
+                    )
+                )}
+            </div>
         </section>
+    );
+}
+
+const CATEGORY_ICON: Record<string, string> = {
+    진찰: "🩺",
+    검사: "🔬",
+    영상: "🩻",
+    주사: "💉",
+    물리치료: "⚡",
+    처치: "🩹",
+    약: "💊",
+    재료: "📦",
+    기타: "•",
+};
+const CATEGORY_ORDER = ["주사", "물리치료", "처치", "약", "검사", "영상", "진찰", "재료", "기타"];
+
+function addDays(date: string, days: number): string {
+    return new Date(Date.parse(date) + days * 86_400_000).toISOString().slice(0, 10);
+}
+
+function won(n: number | null | undefined): string {
+    return n == null ? "" : `${n.toLocaleString("ko-KR")}원`;
+}
+
+function itemText(it: TreatmentVisitItem): string {
+    let s = it.name;
+    if (it.dose) s += ` ${it.dose}`;
+    if (it.timesPerDay) s += `×${it.timesPerDay}회`;
+    if (it.days) s += ` ${it.days}일분`;
+    return s;
+}
+
+/** 진료 요약(횟수·최근 진료·복용 중인 약) + 날짜별 목록. 기본은 최근 3회만 보여 준다. */
+function VisitList({ visits, today, onDelete }: { visits: TreatmentVisit[]; today: string; onDelete: (v: TreatmentVisit) => void }) {
+    const [all, setAll] = useState(false);
+    const sorted = [...visits].sort((a, b) => b.visitDate.localeCompare(a.visitDate) || (b.id ?? 0) - (a.id ?? 0));
+
+    const counts: Record<string, number> = {};
+    for (const v of visits) {
+        for (const c of new Set(v.items.map((it) => it.category))) {
+            if (c !== "진찰" && c !== "재료") counts[c] = (counts[c] ?? 0) + 1;
+        }
+    }
+    const onMeds = visits.flatMap((v) =>
+        v.items
+            .filter((it) => it.category === "약" && it.days && addDays(v.visitDate, it.days - 1) >= today && v.visitDate <= today)
+            .map((it) => ({ ...it, until: addDays(v.visitDate, (it.days ?? 1) - 1) })),
+    );
+    const paid = visits.reduce((sum, v) => sum + (v.patientAmount ?? 0), 0);
+    const visitDays = new Set(visits.map((v) => v.visitDate)).size;
+
+    return (
+        <div style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                <span style={S.chip}>
+                    진료일 {visitDays}일 · 최근 {sorted[0].visitDate}
+                </span>
+                {CATEGORY_ORDER.filter((c) => counts[c]).map((c) => (
+                    <span key={c} style={S.chip}>
+                        {CATEGORY_ICON[c]} {c} {counts[c]}회
+                    </span>
+                ))}
+                {paid > 0 && <span style={S.chip}>본인부담 {won(paid)}</span>}
+            </div>
+            {onMeds.length > 0 && (
+                <div style={{ ...S.infoBox, background: "#fff7ed", borderColor: "#fed7aa", color: "#9a3412", marginBottom: 10 }}>
+                    💊 복용 중:{" "}
+                    {onMeds.map((m, i) => (
+                        <span key={i}>
+                            {i > 0 && ", "}
+                            {m.name}
+                            {m.drugClass && ` (${m.drugClass})`} ~{m.until.slice(5)}
+                        </span>
+                    ))}
+                </div>
+            )}
+            {(all ? sorted : sorted.slice(0, 3)).map((v) => (
+                <VisitRow key={v.id} v={v} onRemove={() => onDelete(v)} removeLabel="삭제" />
+            ))}
+            {sorted.length > 3 && (
+                <button type="button" style={{ ...S.miniBtn, marginTop: 4 }} onClick={() => setAll((x) => !x)}>
+                    {all ? "접기" : `지난 진료 ${sorted.length - 3}회 더 보기`}
+                </button>
+            )}
+        </div>
+    );
+}
+
+function VisitRow({ v, onRemove, removeLabel }: { v: TreatmentVisit; onRemove: () => void; removeLabel: string }) {
+    const byCategory = CATEGORY_ORDER.map((c) => [c, v.items.filter((it) => (CATEGORY_ORDER.includes(it.category) ? it.category : "기타") === c)] as const).filter(
+        ([, items]) => items.length > 0,
+    );
+    return (
+        <div style={S.visitRow}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                <div style={{ minWidth: 0 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13.5, color: "#1b2236" }}>{v.visitDate}</span>
+                    {v.institution && <span style={{ fontSize: 13, color: "#374151" }}> · {v.institution}</span>}
+                    {v.department && <span style={{ fontSize: 12, color: "#8a90a3" }}> ({v.department})</span>}
+                    {v.docType && <span style={S.code}>{v.docType}</span>}
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                    {v.patientAmount != null && <span style={{ fontSize: 12, color: "#6b7280" }}>{won(v.patientAmount)}</span>}
+                    <button type="button" style={S.linkDelBtn} onClick={onRemove}>
+                        {removeLabel}
+                    </button>
+                </div>
+            </div>
+            {v.summary && <div style={{ fontSize: 12.5, color: "#4b5563", marginTop: 4 }}>{v.summary}</div>}
+            {v.diagnosis && <div style={{ fontSize: 12, color: "#8a90a3", marginTop: 2 }}>상병: {v.diagnosis}</div>}
+            {byCategory.length > 0 && (
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+                    {byCategory.map(([c, items]) => (
+                        <div key={c} style={{ fontSize: 12.5, color: "#1b2236", lineHeight: 1.5 }}>
+                            <span style={{ color: "#8a90a3", fontWeight: 600 }}>
+                                {CATEGORY_ICON[c]} {c}
+                            </span>{" "}
+                            {items.map((it, i) => (
+                                <span key={i}>
+                                    {i > 0 && " · "}
+                                    {itemText(it)}
+                                    {it.drugClass && <span style={{ color: "#8a90a3" }}> ({it.drugClass})</span>}
+                                </span>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+            {v.sourceFile && <div style={{ fontSize: 11, color: "#a1a6b5", marginTop: 4 }}>📄 {v.sourceFile}</div>}
+        </div>
     );
 }
 
@@ -393,6 +687,10 @@ const S: Record<string, CSSProperties> = {
     ghostBtn: { padding: "9px 14px", borderRadius: 8, border: "1px solid #d8dbe6", background: "#fff", color: "#374151", fontWeight: 600, fontSize: 13, cursor: "pointer" },
     miniBtn: { padding: "4px 10px", borderRadius: 6, border: "1px solid #d8dbe6", background: "#fff", fontSize: 12, cursor: "pointer" },
     miniDelBtn: { padding: "4px 10px", borderRadius: 6, border: "1px solid #fecaca", background: "#fff", color: "#b91c1c", fontSize: 12, cursor: "pointer" },
+    chip: { padding: "3px 9px", borderRadius: 999, background: "#f3f4f6", color: "#374151", fontSize: 12, fontWeight: 600 },
+    previewBox: { marginTop: 10, padding: "12px 14px", borderRadius: 10, border: "1px solid #c7d2fe", background: "#f5f7ff" },
+    visitRow: { padding: "10px 12px", borderRadius: 8, border: "1px solid #eceef5", background: "#fafbfd", marginBottom: 8 },
+    linkDelBtn: { padding: 0, border: "none", background: "none", color: "#b91c1c", fontSize: 12, cursor: "pointer" },
     card: { background: "#fff", border: "1px solid #eceef5", borderRadius: 12, padding: "18px 20px", marginBottom: 14 },
     groupTitle: { margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "#1b2236" },
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 },

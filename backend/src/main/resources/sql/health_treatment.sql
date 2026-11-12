@@ -23,3 +23,24 @@ CREATE TABLE IF NOT EXISTS `riding_db`.`health_treatment` (
 ALTER TABLE `riding_db`.`health_treatment`
     ADD COLUMN IF NOT EXISTS `diagnosis_code` VARCHAR(20)  NULL COMMENT 'KCD 상병코드 (예: M76.3)' AFTER `name`,
     ADD COLUMN IF NOT EXISTS `source_file`    VARCHAR(255) NULL COMMENT '진단서에서 읽어 채운 경우 원본 파일명' AFTER `notes`;
+
+-- 2026-11-12: 진료·처방 내역 — 처방전·약제비 영수증·진료비 세부내역서·처방조제내역을 AI 로 읽어 치료 1건 아래에 날짜별로 쌓는다.
+-- 원본 파일은 저장하지 않는다. 분석은 그 날짜 전 14일 진료와 복용 기간에 걸친 약을 함께 본다.
+CREATE TABLE IF NOT EXISTS `riding_db`.`health_treatment_visit` (
+    `id`             BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id`        BIGINT        NOT NULL,
+    `treatment_id`   BIGINT        NOT NULL COMMENT 'health_treatment.id',
+    `visit_date`     DATE          NOT NULL COMMENT '진료일·조제일',
+    `institution`    VARCHAR(100)  NULL COMMENT '의료기관명 (병원·약국)',
+    `department`     VARCHAR(50)   NULL COMMENT '진료과',
+    `doc_type`       VARCHAR(50)   NULL COMMENT '처방전 / 약제비 영수증 / 진료비 세부내역서 / 처방조제내역 …',
+    `diagnosis`      VARCHAR(200)  NULL COMMENT '그날 적힌 상병',
+    `items_json`     JSON          NULL COMMENT '[{category,name,dose,timesPerDay,days,drugClass,amount,…}]',
+    `total_amount`   INT           NULL COMMENT '진료비 총액(원)',
+    `patient_amount` INT           NULL COMMENT '본인부담금(원)',
+    `summary`        TEXT          NULL,
+    `source_file`    VARCHAR(255)  NULL,
+    `created_at`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_htv_treatment_date` (`treatment_id`, `visit_date`),
+    INDEX `idx_htv_user_date` (`user_id`, `visit_date`)
+);

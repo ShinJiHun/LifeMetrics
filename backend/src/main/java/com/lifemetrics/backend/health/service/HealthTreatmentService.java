@@ -2,6 +2,7 @@ package com.lifemetrics.backend.health.service;
 
 import com.lifemetrics.backend.health.entity.HealthTreatment;
 import com.lifemetrics.backend.health.repository.HealthTreatmentRepository;
+import com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,8 @@ import java.util.Optional;
 public class HealthTreatmentService {
 
     private final HealthTreatmentRepository repo;
+    private final HealthTreatmentVisitRepository visitRepo;
+    private final TreatmentVisitService visitService;
 
     public List<HealthTreatment> list(long userId) {
         return repo.findAllForList(userId);
@@ -48,6 +51,7 @@ public class HealthTreatmentService {
     @Transactional
     public boolean delete(long id) {
         if (!repo.existsById(id)) return false;
+        visitRepo.deleteByTreatmentId(id);
         repo.deleteById(id);
         return true;
     }
@@ -80,7 +84,9 @@ public class HealthTreatmentService {
 
     /** 일일분석 JSON 입력용. 값이 없는 항목은 뺀다. */
     public List<Map<String, Object>> inputOf(long userId, LocalDate date) {
-        return activeOn(userId, date).stream().map(t -> {
+        List<HealthTreatment> active = activeOn(userId, date);
+        Map<Long, List<Map<String, Object>>> care = careOf(active, date);
+        return active.stream().map(t -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("name", t.getName());
             if (t.getDiagnosisCode() != null) m.put("diagnosisCode", t.getDiagnosisCode());
@@ -89,16 +95,29 @@ public class HealthTreatmentService {
             m.put("daysSinceStart", date.toEpochDay() - t.getStartDate().toEpochDay());
             if (t.getRestrictions() != null) m.put("restrictions", t.getRestrictions());
             if (t.getNotes() != null) m.put("notes", t.getNotes());
+            // 진료 기록이 없으면 키를 넣지 않는다 (입력 해시 유지)
+            List<Map<String, Object>> recent = t.getId() == null ? null : care.get(t.getId());
+            if (recent != null && !recent.isEmpty()) m.put("recentCare", recent);
             return m;
         }).toList();
     }
 
     /** 라이딩·웨이트 세션 프롬프트용 블록. 그날 치료 중인 게 없으면 빈 문자열. */
     public String promptBlock(long userId, LocalDate date) {
-        return promptBlock(activeOn(userId, date), date);
+        List<HealthTreatment> active = activeOn(userId, date);
+        return promptBlock(active, careOf(active, date), date);
+    }
+
+    private Map<Long, List<Map<String, Object>>> careOf(List<HealthTreatment> active, LocalDate date) {
+        return visitService.recentCareOf(active.stream().map(HealthTreatment::getId).filter(java.util.Objects::nonNull).toList(), date);
     }
 
     static String promptBlock(List<HealthTreatment> active, LocalDate date) {
+        return promptBlock(active, Map.of(), date);
+    }
+
+    @SuppressWarnings("unchecked")
+    static String promptBlock(List<HealthTreatment> active, Map<Long, List<Map<String, Object>>> care, LocalDate date) {
         if (active.isEmpty()) return "";
         StringBuilder sb = new StringBuilder("[진행 중인 치료·부상 (본인 입력)]\n");
         for (HealthTreatment t : active) {
@@ -109,11 +128,21 @@ public class HealthTreatmentService {
                     .append(date.toEpochDay() - t.getStartDate().toEpochDay()).append("일째\n");
             if (t.getRestrictions() != null) sb.append("  운동 제한·권고: ").append(t.getRestrictions()).append('\n');
             if (t.getNotes() != null) sb.append("  메모: ").append(t.getNotes()).append('\n');
+            List<Map<String, Object>> recent = t.getId() == null ? List.of() : care.getOrDefault(t.getId(), List.of());
+            if (!recent.isEmpty()) {
+                sb.append("  최근 진료·처방 (문서 기준):\n");
+                for (Map<String, Object> v : recent) {
+                    sb.append("    · ").append(v.get("date")).append(" (").append(v.get("daysAgo")).append("일 전)");
+                    if (v.get("institution") != null) sb.append(' ').append(v.get("institution"));
+                    sb.append(": ").append(String.join(", ", (List<String>) v.get("items"))).append('\n');
+                }
+            }
         }
         sb.append("""
                 → 강도·부위 선택·볼륨을 이 치료 상황에 맞춰 해석하세요. 치료 때문에 일부러 가볍게 하거나 피한 것은
                   부족함이 아니라 적절한 조절로 평가하고, 제한·권고를 어긴 것으로 보이는 부분이 있으면 짚어 주세요.
-                  개선점·다음 처방도 치료 중임을 전제로 제시하세요.
+                  개선점·다음 처방도 치료 중임을 전제로 제시하세요. 최근 진료·처방이 있으면 주사·체외충격파 등 시술 직후이거나
+                  진통제·근이완제 복용 중이라 통증·피로감이 가려졌을 수 있다는 점도 고려하세요.
 
                 """);
         return sb.toString();

@@ -2,10 +2,12 @@ package com.lifemetrics.backend.health.service;
 
 import com.lifemetrics.backend.health.entity.HealthTreatment;
 import com.lifemetrics.backend.health.repository.HealthTreatmentRepository;
+import com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,7 +20,8 @@ class HealthTreatmentServiceTest {
     private static final LocalDate START = LocalDate.of(2026, 10, 1);
 
     private final HealthTreatmentRepository repo = mock(HealthTreatmentRepository.class);
-    private final HealthTreatmentService service = new HealthTreatmentService(repo);
+    private final HealthTreatmentVisitRepository visitRepo = mock(HealthTreatmentVisitRepository.class);
+    private final HealthTreatmentService service = new HealthTreatmentService(repo, visitRepo, mock(TreatmentVisitService.class));
 
     private static HealthTreatment treatment(String name, LocalDate start, LocalDate end) {
         HealthTreatment t = new HealthTreatment();
@@ -83,5 +86,29 @@ class HealthTreatmentServiceTest {
         assertThat(service.update(9L, treatment("x", START, null))).isEmpty();
         assertThat(service.delete(9L)).isFalse();
         verify(repo, never()).deleteById(any());
+    }
+
+    @Test
+    void 프롬프트_블록에_최근_진료_처방을_붙인다() {
+        HealthTreatment t = treatment("장경인대 증후군", START, null);
+        t.setId(1L);
+        Map<Long, List<Map<String, Object>>> care = Map.of(1L, List.of(Map.of(
+                "date", "2026-11-10", "daysAgo", 1L, "institution", "OO정형외과",
+                "items", List.of("물리치료: 체외충격파", "약: 록소프로펜정 1정×3회 5일분 (소염진통제(NSAID)) — 이 날 복용 기간 중"))));
+
+        String block = HealthTreatmentService.promptBlock(List.of(t), care, LocalDate.of(2026, 11, 11));
+
+        assertThat(block)
+                .contains("최근 진료·처방")
+                .contains("2026-11-10 (1일 전) OO정형외과: 물리치료: 체외충격파, 약: 록소프로펜정")
+                .contains("가려졌을 수");
+    }
+
+    @Test
+    void 치료를_지우면_딸린_진료_기록도_지운다() {
+        when(repo.existsById(3L)).thenReturn(true);
+        assertThat(service.delete(3L)).isTrue();
+        verify(visitRepo).deleteByTreatmentId(3L);
+        verify(repo).deleteById(3L);
     }
 }

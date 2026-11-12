@@ -45,7 +45,9 @@ class DailyAnalysisServiceTest {
     @BeforeEach
     void setUp() {
         service = new DailyAnalysisService(analysisRepo, ai, health, exerciseLog, activity, body,
-                new HealthTreatmentService(treatments), om);
+                new HealthTreatmentService(treatments,
+                org.mockito.Mockito.mock(com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository.class),
+                org.mockito.Mockito.mock(com.lifemetrics.backend.health.service.TreatmentVisitService.class)), om);
         when(analysisRepo.findByUserIdAndAnalysisTypeAndTargetIdAndTargetPeriod(any(), any(), any(), any()))
                 .thenReturn(Optional.empty());
         when(ai.requestClaude(anyString())).thenReturn(RESULT);
