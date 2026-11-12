@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -28,6 +30,12 @@ public class TreatmentDocumentService {
     /** 이미지는 API 한도(5MB), PDF 는 base64 로 33% 커지는 걸 감안해 요청 한도(32MB) 안쪽으로 */
     static final long MAX_IMAGE_BYTES = 5L * 1024 * 1024;
     static final long MAX_PDF_BYTES = 20L * 1024 * 1024;
+    /** 한 번에 올리는 파일 수·합계 (API 요청 32MB 한도, base64 로 33% 커진다) */
+    static final int MAX_FILES = 20;
+    static final long MAX_TOTAL_BYTES = 22L * 1024 * 1024;
+
+    /** 업로드된 파일 1개 */
+    public record Upload(String filename, String contentType, byte[] bytes) {}
 
     private static final Map<String, String> TYPES_BY_EXT = Map.of(
             "pdf", "application/pdf",
@@ -65,23 +73,61 @@ public class TreatmentDocumentService {
     private final ObjectMapper objectMapper;
 
     public HealthTreatment extract(String originalFilename, String contentType, byte[] bytes) {
-        String mediaType = mediaTypeOf(originalFilename, contentType);
-        if (mediaType == null) {
-            throw new IllegalArgumentException("PDF 또는 이미지(JPG·PNG·WEBP) 파일만 올릴 수 있습니다.");
-        }
-        long limit = "application/pdf".equals(mediaType) ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
-        if (bytes.length == 0 || bytes.length > limit) {
-            throw new IllegalArgumentException("파일이 비었거나 너무 큽니다 (PDF 20MB, 이미지 5MB 까지).");
-        }
+        return extract(List.of(new Upload(originalFilename, contentType, bytes)));
+    }
 
-        String raw = claudeClient.completeWithFile(SYSTEM_PROMPT,
-                "이 문서에서 치료 기록 값을 스키마대로 추출해.", bytes, mediaType, 2000);
+    /** 여러 장(예: 진단서 앞뒤 사진)을 한 문서로 보고 한 번에 읽는다. */
+    public HealthTreatment extract(List<Upload> uploads) {
+        List<ClaudeClient.FileInput> files = toFileInputs(uploads);
+        String raw = claudeClient.completeWithFiles(SYSTEM_PROMPT,
+                "이 문서에서 치료 기록 값을 스키마대로 추출해." + (files.size() > 1 ? " 파일 여러 개는 같은 문서의 여러 장이다." : ""),
+                files, 2000);
         if (raw == null) {
             throw new IllegalStateException("AI 판독에 실패했습니다. 잠시 후 다시 시도하거나 직접 입력해 주세요.");
         }
         HealthTreatment t = parse(raw);
-        t.setSourceFile(originalFilename);
+        t.setSourceFile(sourceName(uploads));
         return t;
+    }
+
+    /** 형식·크기를 확인하고 API 에 실을 형태로 바꾼다. 여러 개면 "[파일 n/N]" 라벨을 붙인다. */
+    static List<ClaudeClient.FileInput> toFileInputs(List<Upload> uploads) {
+        if (uploads == null || uploads.isEmpty()) {
+            throw new IllegalArgumentException("파일을 선택해 주세요.");
+        }
+        if (uploads.size() > MAX_FILES) {
+            throw new IllegalArgumentException("한 번에 " + MAX_FILES + "개까지 올릴 수 있습니다.");
+        }
+        List<ClaudeClient.FileInput> out = new ArrayList<>();
+        long total = 0;
+        for (int i = 0; i < uploads.size(); i++) {
+            Upload u = uploads.get(i);
+            String mediaType = mediaTypeOf(u.filename(), u.contentType());
+            if (mediaType == null) {
+                throw new IllegalArgumentException(nameOf(u) + ": PDF 또는 이미지(JPG·PNG·WEBP) 파일만 올릴 수 있습니다.");
+            }
+            long limit = "application/pdf".equals(mediaType) ? MAX_PDF_BYTES : MAX_IMAGE_BYTES;
+            if (u.bytes() == null || u.bytes().length == 0 || u.bytes().length > limit) {
+                throw new IllegalArgumentException(nameOf(u) + ": 파일이 비었거나 너무 큽니다 (PDF 20MB, 이미지 5MB 까지).");
+            }
+            total += u.bytes().length;
+            String label = uploads.size() > 1 ? "[파일 " + (i + 1) + "/" + uploads.size() + "]" : null;
+            out.add(new ClaudeClient.FileInput(label, u.bytes(), mediaType));
+        }
+        if (total > MAX_TOTAL_BYTES) {
+            throw new IllegalArgumentException("파일 합계가 너무 큽니다 (22MB 까지). 나눠서 올려 주세요.");
+        }
+        return out;
+    }
+
+    /** 원본 파일명들 (DB 컬럼 255자 안으로) */
+    static String sourceName(List<Upload> uploads) {
+        String joined = String.join(", ", uploads.stream().map(TreatmentDocumentService::nameOf).toList());
+        return joined.length() <= 255 ? joined : joined.substring(0, 252) + "...";
+    }
+
+    private static String nameOf(Upload u) {
+        return u.filename() == null || u.filename().isBlank() ? "(이름 없음)" : u.filename();
     }
 
     /** 확장자를 우선한다(폰에서 올린 파일은 content-type 이 octet-stream 인 경우가 있다). */

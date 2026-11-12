@@ -92,23 +92,26 @@ public class TreatmentVisitService {
 
     /** 문서 → 날짜별 진료 미리보기 (저장 안 함). treatmentId 는 채워서 돌려준다. */
     public List<HealthTreatmentVisit> extract(long treatmentId, String originalFilename, String contentType, byte[] bytes) {
-        String mediaType = TreatmentDocumentService.mediaTypeOf(originalFilename, contentType);
-        if (mediaType == null) {
-            throw new IllegalArgumentException("PDF 또는 이미지(JPG·PNG·WEBP) 파일만 올릴 수 있습니다.");
-        }
-        long limit = "application/pdf".equals(mediaType) ? TreatmentDocumentService.MAX_PDF_BYTES : TreatmentDocumentService.MAX_IMAGE_BYTES;
-        if (bytes.length == 0 || bytes.length > limit) {
-            throw new IllegalArgumentException("파일이 비었거나 너무 큽니다 (PDF 20MB, 이미지 5MB 까지).");
-        }
-        String raw = claudeClient.completeWithFile(SYSTEM_PROMPT,
-                "이 문서의 진료·처방 내역을 스키마대로 추출해.", bytes, mediaType, 16000);
+        return extract(treatmentId, List.of(new TreatmentDocumentService.Upload(originalFilename, contentType, bytes)));
+    }
+
+    /** 여러 장(세부내역서 여러 페이지, 처방전+영수증 등)을 한 번에 읽어 날짜별로 합친다. */
+    public List<HealthTreatmentVisit> extract(long treatmentId, List<TreatmentDocumentService.Upload> uploads) {
+        List<ClaudeClient.FileInput> files = TreatmentDocumentService.toFileInputs(uploads);
+        String instruction = files.size() > 1
+                ? "파일 여러 개의 진료·처방 내역을 스키마대로 추출해. 한 문서가 여러 장으로 이어질 수 있고 서로 다른 문서가 섞여 있을 수도 있다."
+                  + " 같은 날짜·같은 기관의 같은 진료가 여러 장(예: 영수증과 세부내역서)에 겹쳐 나오면 visits 하나로 합치고 항목을 중복해 적지 않는다."
+                  + " docType 은 가장 자세한 문서 종류로 하나만 적는다."
+                : "이 문서의 진료·처방 내역을 스키마대로 추출해.";
+        String raw = claudeClient.completeWithFiles(SYSTEM_PROMPT, instruction, files, 16000);
         if (raw == null) {
             throw new IllegalStateException("AI 판독에 실패했습니다. 잠시 후 다시 시도해 주세요.");
         }
         List<HealthTreatmentVisit> visits = parse(raw);
+        String source = TreatmentDocumentService.sourceName(uploads);
         visits.forEach(v -> {
             v.setTreatmentId(treatmentId);
-            v.setSourceFile(originalFilename);
+            v.setSourceFile(source);
         });
         return visits;
     }

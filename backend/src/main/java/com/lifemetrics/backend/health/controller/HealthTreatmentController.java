@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -44,9 +45,10 @@ public class HealthTreatmentController {
 
     /** 진단서·소견서(PDF·사진) → AI 추출 결과. 저장하지 않으며 화면에서 검토 후 POST 로 저장한다. */
     @PostMapping("/extract")
-    public ResponseEntity<?> extract(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> extract(@RequestParam(value = "files", required = false) List<MultipartFile> files,
+                                     @RequestParam(value = "file", required = false) MultipartFile file) {
         try {
-            return ResponseEntity.ok(documentService.extract(file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+            return ResponseEntity.ok(documentService.extract(uploads(files, file)));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (IllegalStateException e) {
@@ -93,9 +95,11 @@ public class HealthTreatmentController {
 
     /** 처방전·약제비 영수증·진료비 세부내역서·처방조제내역(PDF·사진) → 날짜별 진료 미리보기. 저장하지 않는다. */
     @PostMapping("/{id}/visits/extract")
-    public ResponseEntity<?> extractVisits(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> extractVisits(@PathVariable Long id,
+                                           @RequestParam(value = "files", required = false) List<MultipartFile> files,
+                                           @RequestParam(value = "file", required = false) MultipartFile file) {
         try {
-            return ResponseEntity.ok(visitService.extract(id, file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+            return ResponseEntity.ok(visitService.extract(id, uploads(files, file)));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (IllegalStateException e) {
@@ -117,5 +121,18 @@ public class HealthTreatmentController {
     @DeleteMapping("/visits/{visitId}")
     public ResponseEntity<?> deleteVisit(@PathVariable Long visitId) {
         return visitService.delete(visitId) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
+    /** files(여러 장) 우선, 예전 클라이언트의 file(1장)도 받는다. */
+    private static List<TreatmentDocumentService.Upload> uploads(List<MultipartFile> files, MultipartFile file) throws IOException {
+        List<MultipartFile> all = new ArrayList<>();
+        if (files != null) all.addAll(files);
+        if (file != null) all.add(file);
+        List<TreatmentDocumentService.Upload> out = new ArrayList<>();
+        for (MultipartFile f : all) {
+            if (f.isEmpty()) continue;
+            out.add(new TreatmentDocumentService.Upload(f.getOriginalFilename(), f.getContentType(), f.getBytes()));
+        }
+        return out;
     }
 }

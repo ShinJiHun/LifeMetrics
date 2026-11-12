@@ -39,7 +39,7 @@ class TreatmentDocumentServiceTest {
 
     @Test
     void PDF_는_document_로_보내고_추출값과_원본_파일명을_채운다() {
-        when(claude.completeWithFile(anyString(), anyString(), eq(PDF), eq("application/pdf"), anyInt())).thenReturn("""
+        when(claude.completeWithFiles(anyString(), anyString(), argThat(f -> f.size() == 1 && f.get(0).data() == PDF && "application/pdf".equals(f.get(0).mediaType())), anyInt())).thenReturn("""
                 {"isMedicalDocument": true, "name": "장경인대 증후군", "diagnosisCode": "M76.3",
                  "bodyPart": "우측 슬관절 외측", "startDate": "2026-10-01", "endDate": null,
                  "restrictions": "향후 4주간 달리기 등 반복적 굴곡 운동 제한", "notes": "OO정형외과, 진단서"}
@@ -78,7 +78,7 @@ class TreatmentDocumentServiceTest {
 
     @Test
     void AI_호출이_실패하면_알려준다() {
-        when(claude.completeWithFile(anyString(), anyString(), any(), anyString(), anyInt())).thenReturn(null);
+        when(claude.completeWithFiles(anyString(), anyString(), anyList(), anyInt())).thenReturn(null);
         assertThatThrownBy(() -> service.extract("a.png", "image/png", PDF)).isInstanceOf(IllegalStateException.class);
     }
 

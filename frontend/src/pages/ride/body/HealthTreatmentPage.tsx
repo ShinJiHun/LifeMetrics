@@ -104,11 +104,12 @@ export default function HealthTreatmentPage() {
      * 진단서를 읽어 폼을 채운다. 비어 있는 칸만 채우고 이미 적은 값은 덮어쓰지 않는다(메모는 뒤에 덧붙임).
      * 편집 중이 아니면 새 기록으로 연다.
      */
-    const readDocument = async (file: File) => {
+    const readDocument = async (files: File[]) => {
+        if (files.length === 0) return;
         setReading(true);
         setError(null);
         try {
-            const doc = await extractTreatmentDocument(file);
+            const doc = await extractTreatmentDocument(files);
             setEditing((prev) => {
                 const base = prev ?? { ...emptyHealthTreatment(), startDate: "" };
                 const pick = <K extends keyof HealthTreatment>(k: K) => (base[k] ? base[k] : (doc[k] ?? base[k])) as HealthTreatment[K];
@@ -137,14 +138,14 @@ export default function HealthTreatmentPage() {
         visitFileRef.current?.click();
     };
 
-    /** 처방전·영수증·세부내역서를 읽어 날짜별 진료 미리보기를 띄운다(아직 저장 안 함). */
-    const readVisitDocument = async (file: File) => {
+    /** 처방전·영수증·세부내역서(여러 장 한 번에)를 읽어 날짜별 진료 미리보기를 띄운다(아직 저장 안 함). */
+    const readVisitDocument = async (files: File[]) => {
         const treatmentId = visitTarget;
-        if (!treatmentId) return;
+        if (!treatmentId || files.length === 0) return;
         setVisitReading(treatmentId);
         setError(null);
         try {
-            const found = await extractTreatmentVisits(treatmentId, file);
+            const found = await extractTreatmentVisits(treatmentId, files);
             setPreview((prev) =>
                 prev && prev.treatmentId === treatmentId
                     ? { treatmentId, visits: [...prev.visits, ...found].sort((a, b) => a.visitDate.localeCompare(b.visitDate)) }
@@ -206,15 +207,17 @@ export default function HealthTreatmentPage() {
                 ref={fileRef}
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
+                multiple
                 style={{ display: "none" }}
-                onChange={(e) => e.target.files?.[0] && readDocument(e.target.files[0])}
+                onChange={(e) => readDocument(Array.from(e.target.files ?? []))}
             />
             <input
                 ref={visitFileRef}
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
+                multiple
                 style={{ display: "none" }}
-                onChange={(e) => e.target.files?.[0] && readVisitDocument(e.target.files[0])}
+                onChange={(e) => readVisitDocument(Array.from(e.target.files ?? []))}
             />
             {reading && <div style={S.infoBox}>📄 진단서를 읽는 중입니다… (10~30초)</div>}
 
@@ -389,6 +392,9 @@ function TreatmentCard({
                     <button type="button" style={S.miniBtn} disabled={visitReading || previewSaving} onClick={onAddVisitDocument}>
                         {visitReading ? "읽는 중…" : "📄 처방전·영수증·세부내역서 추가"}
                     </button>
+                </div>
+                <div style={{ fontSize: 12, color: "#8a90a3", marginTop: 6 }}>
+                    여러 장(세부내역서 여러 페이지, 처방전+영수증)은 한 번에 같이 선택하세요. 최대 20개, 사진은 자동으로 줄여서 올립니다.
                 </div>
                 {visitReading && (
                     <div style={{ ...S.infoBox, marginTop: 10, marginBottom: 0 }}>

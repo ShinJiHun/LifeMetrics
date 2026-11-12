@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -50,25 +51,32 @@ public class ClaudeClient {
         return completeWithFile(systemPrompt, userText, image, mediaType, maxTokens);
     }
 
-    /**
-     * 파일 1개 + 지시문 호출. PDF 는 document 블록(스캔본도 페이지 이미지로 읽힌다), 그 외는 image 블록으로 보낸다.
-     *
-     * @param mediaType application/pdf, image/png, image/jpeg 등
-     */
+    /** 파일 1개 + 지시문 호출. */
     public String completeWithFile(String systemPrompt, String userText,
                                    byte[] file, String mediaType, int maxTokens) {
-        Map<String, Object> fileBlock = Map.of(
-                "type", "application/pdf".equals(mediaType) ? "document" : "image",
-                "source", Map.of(
-                        "type", "base64",
-                        "media_type", mediaType,
-                        "data", Base64.getEncoder().encodeToString(file)));
+        return completeWithFiles(systemPrompt, userText, List.of(new FileInput(null, file, mediaType)), maxTokens);
+    }
 
-        Map<String, Object> message = Map.of(
-                "role", "user",
-                "content", List.of(fileBlock, Map.of("type", "text", "text", userText)));
+    /** 요청에 싣는 파일 1개. label 이 있으면 파일 앞에 텍스트로 붙여 몇 번째 파일인지 알려준다. */
+    public record FileInput(String label, byte[] data, String mediaType) {}
 
-        return callApi(systemPrompt, List.of(message), maxTokens);
+    /**
+     * 파일 여러 개 + 지시문을 한 메시지로 호출한다(여러 장을 이어서 한 번에 읽게).
+     * PDF 는 document 블록(스캔본도 페이지 이미지로 읽힌다), 그 외는 image 블록으로 보낸다.
+     */
+    public String completeWithFiles(String systemPrompt, String userText, List<FileInput> files, int maxTokens) {
+        List<Map<String, Object>> content = new ArrayList<>();
+        for (FileInput f : files) {
+            if (f.label() != null) content.add(Map.of("type", "text", "text", f.label()));
+            content.add(Map.of(
+                    "type", "application/pdf".equals(f.mediaType()) ? "document" : "image",
+                    "source", Map.of(
+                            "type", "base64",
+                            "media_type", f.mediaType(),
+                            "data", Base64.getEncoder().encodeToString(f.data()))));
+        }
+        content.add(Map.of("type", "text", "text", userText));
+        return callApi(systemPrompt, List.of(Map.of("role", "user", "content", content)), maxTokens);
     }
 
     /** 멀티턴 메시지 호출. 실패 시 null 반환(호출부에서 fallback 처리). */

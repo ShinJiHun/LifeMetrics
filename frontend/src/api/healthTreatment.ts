@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { shrinkImage } from "@/lib/shrinkImage";
 
 /** 치료·부상 기록 1건. 서버 HealthTreatment 와 1:1. endDate 가 null 이면 치료 중. */
 export interface HealthTreatment {
@@ -20,15 +21,21 @@ export function emptyHealthTreatment(): HealthTreatment {
     };
 }
 
+/** 여러 장을 한 요청으로. 사진은 줄여서 보낸다(폰 원본은 서버 5MB 한도를 넘기 쉽다). PDF 는 그대로. */
+async function filesForm(files: File[]): Promise<FormData> {
+    const form = new FormData();
+    for (const f of await Promise.all(files.map(shrinkImage))) form.append("files", f);
+    return form;
+}
+
 export async function fetchHealthTreatments(userId = 1): Promise<HealthTreatment[]> {
     const res = await api.get<HealthTreatment[]>("/body/treatments", { params: { userId } });
     return res.data;
 }
 
 /** 진단서·소견서(PDF·사진) → AI 추출 결과(저장 안 됨). 폼 prefill 용. 날짜를 못 읽으면 startDate 가 null. */
-export async function extractTreatmentDocument(file: File): Promise<Omit<HealthTreatment, "startDate"> & { startDate: string | null }> {
-    const form = new FormData();
-    form.append("file", file);
+export async function extractTreatmentDocument(files: File[]): Promise<Omit<HealthTreatment, "startDate"> & { startDate: string | null }> {
+    const form = await filesForm(files);
     const res = await api.post("/body/treatments/extract", form, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 120_000,
@@ -85,10 +92,9 @@ export async function fetchTreatmentVisits(userId = 1): Promise<TreatmentVisit[]
     return res.data;
 }
 
-/** 문서 → 날짜별 진료 미리보기 (저장 안 됨). 세부내역서처럼 여러 날짜면 여러 건. */
-export async function extractTreatmentVisits(treatmentId: number, file: File): Promise<TreatmentVisit[]> {
-    const form = new FormData();
-    form.append("file", file);
+/** 문서(여러 장 가능) → 날짜별 진료 미리보기 (저장 안 됨). 세부내역서처럼 여러 날짜면 여러 건. */
+export async function extractTreatmentVisits(treatmentId: number, files: File[]): Promise<TreatmentVisit[]> {
+    const form = await filesForm(files);
     const res = await api.post<TreatmentVisit[]>(`/body/treatments/${treatmentId}/visits/extract`, form, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 240_000,

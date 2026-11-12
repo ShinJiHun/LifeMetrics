@@ -29,7 +29,7 @@ class TreatmentVisitServiceTest {
 
     @Test
     void 세부내역서를_날짜별_진료로_나누고_항목을_정리한다() {
-        when(claude.completeWithFile(anyString(), anyString(), eq(PDF), eq("application/pdf"), anyInt())).thenReturn("""
+        when(claude.completeWithFiles(anyString(), anyString(), argThat(f -> f.size() == 1 && f.get(0).data() == PDF && "application/pdf".equals(f.get(0).mediaType())), anyInt())).thenReturn("""
                 {"isMedicalDocument": true, "docType": "진료비 세부내역서", "visits": [
                   {"date": "2026-11-10", "institution": "OO정형외과", "department": "정형외과",
                    "diagnosis": "장경인대 증후군 M76.3",
@@ -61,8 +61,40 @@ class TreatmentVisitServiceTest {
     }
 
     @Test
+    void 여러_장을_한_번에_라벨을_붙여_보내고_파일명을_모두_남긴다() {
+        when(claude.completeWithFiles(anyString(), anyString(), anyList(), anyInt())).thenReturn("""
+                {"isMedicalDocument": true, "docType": "진료비 세부내역서", "visits": [
+                  {"date": "2026-11-10", "institution": "OO정형외과", "items": [{"category": "물리치료", "name": "체외충격파"}]}
+                ]}
+                """);
+
+        List<HealthTreatmentVisit> result = service.extract(1L, List.of(
+                new TreatmentDocumentService.Upload("p1.jpg", "image/jpeg", PDF),
+                new TreatmentDocumentService.Upload("p2.PDF", null, PDF)));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getSourceFile()).isEqualTo("p1.jpg, p2.PDF");
+        verify(claude).completeWithFiles(anyString(), contains("여러"), argThat(f -> f.size() == 2
+                && "[파일 1/2]".equals(f.get(0).label()) && "image/jpeg".equals(f.get(0).mediaType())
+                && "[파일 2/2]".equals(f.get(1).label()) && "application/pdf".equals(f.get(1).mediaType())), anyInt());
+    }
+
+    @Test
+    void 한_장이라도_형식이_틀리거나_개수가_많으면_AI_를_부르지_않는다() {
+        assertThatThrownBy(() -> service.extract(1L, List.of(
+                new TreatmentDocumentService.Upload("p1.jpg", "image/jpeg", PDF),
+                new TreatmentDocumentService.Upload("메모.hwp", null, PDF))))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("메모.hwp");
+        List<TreatmentDocumentService.Upload> many = new java.util.ArrayList<>();
+        for (int i = 0; i <= TreatmentDocumentService.MAX_FILES; i++) many.add(new TreatmentDocumentService.Upload(i + ".jpg", null, PDF));
+        assertThatThrownBy(() -> service.extract(1L, many)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.extract(1L, List.of())).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(claude);
+    }
+
+    @Test
     void 병원_문서가_아니면_거절한다() {
-        when(claude.completeWithFile(anyString(), anyString(), any(), anyString(), anyInt()))
+        when(claude.completeWithFiles(anyString(), anyString(), anyList(), anyInt()))
                 .thenReturn("{\"isMedicalDocument\": false}");
         assertThatThrownBy(() -> service.extract(1L, "a.png", null, PDF)).isInstanceOf(IllegalStateException.class);
     }

@@ -1,5 +1,6 @@
 import {useCallback, useState} from "react";
 import {useDropzone} from "react-dropzone";
+import {shrinkImage} from "@/lib/shrinkImage";
 
 // 따릉이 이용내역 캡처 → 활동 추가.
 // 1) 미리보기(dryRun)로 인식 결과를 보여주고 2) "저장"을 누르면 같은 이미지로 다시 저장 요청한다.
@@ -45,31 +46,6 @@ interface Job {
 
 const POLL_MS = 2000;
 const POLL_LIMIT_MS = 5 * 60 * 1000;
-// Claude 는 긴 변 1568px 를 넘는 이미지를 어차피 줄여서 본다 → 미리 줄여 보내도 인식 품질은 같다.
-const MAX_EDGE = 1568;
-
-/** 긴 변이 MAX_EDGE 를 넘으면 JPEG 로 줄인다. 실패하면 원본 그대로. */
-async function shrinkImage(file: File): Promise<File> {
-    try {
-        const bmp = await createImageBitmap(file);
-        const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
-        if (scale === 1 && file.size < 1.5 * 1024 * 1024) {
-            bmp.close();
-            return file;
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(bmp.width * scale);
-        canvas.height = Math.round(bmp.height * scale);
-        canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-        bmp.close();
-        const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9));
-        if (!blob) return file;
-        return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", {type: "image/jpeg"});
-    } catch {
-        return file;
-    }
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function runJob(targets: File[], dryRun: boolean, onProgress: (j: Job) => void): Promise<FileResult[]> {
