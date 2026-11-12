@@ -13,6 +13,7 @@ import com.lifemetrics.backend.health.entity.HealthTreatmentVisit;
 import com.lifemetrics.backend.health.repository.HealthTreatmentRepository;
 import com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository;
 import com.lifemetrics.backend.health.service.TreatmentVisitService;
+import com.lifemetrics.backend.power.PowerProfileService;
 import com.lifemetrics.backend.health.service.DailySummaryService;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.BikeFitRepository;
@@ -64,6 +65,7 @@ public class AthleteContextService {
     private final BikeRepository bikeRepo;
     private final BikeFitRepository fitRepo;
     private final RiderZoneSettingRepository zoneRepo;
+    private final PowerProfileService powerProfileService;
 
     public String build(long userId, LocalDate today) {
         StringBuilder sb = new StringBuilder();
@@ -75,6 +77,7 @@ public class AthleteContextService {
         section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", this::bikes);
         section(sb, "최근 " + SUMMARY_DAYS + "일 일별 요약 (섭취·소모·에너지 수지)", () -> dailySummaries(userId, today));
         section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
+        section(sb, "파워 프로필 (파워미터 기록 전체에서 계산)", () -> powerProfileService.summaryLines(userId));
         section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId));
         section(sb, "최근 " + FITNESS_DAYS + "일 웨이트 트레이닝", () -> fitness(userId, today));
         section(sb, "치료·부상 (본인 입력, 진행 중 먼저)", () -> treatments(userId, today));
