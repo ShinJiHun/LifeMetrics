@@ -178,6 +178,7 @@ export default function HandlerTripsPage() {
             setNotice(`저장됨 · ${t.tripDate} ${t.originName ?? ""} → ${t.destName ?? ""} (${km(t.routeDistanceM)})`);
             reset();
             await load();
+            if (t.tripDate) setMonth(t.tripDate.slice(0, 7)); // 저장한 건의 연월로 필터 이동
             setSelected(t.id);
         } catch (e) {
             setError(errorMessage(e));
