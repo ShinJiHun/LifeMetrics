@@ -2,7 +2,10 @@ package com.lifemetrics.backend.service;
 
 import com.lifemetrics.backend.dto.ExerciseHistoryResponse;
 import com.lifemetrics.backend.entity.ActivityCore;
+import com.lifemetrics.backend.entity.Bike;
+import com.lifemetrics.backend.entity.BikeFit;
 import com.lifemetrics.backend.entity.BodyGoal;
+import com.lifemetrics.backend.entity.RiderMeasurement;
 import com.lifemetrics.backend.entity.UserBodyRecord;
 import com.lifemetrics.backend.health.dto.DailySummary;
 import com.lifemetrics.backend.health.entity.HealthTreatment;
@@ -12,7 +15,11 @@ import com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository;
 import com.lifemetrics.backend.health.service.TreatmentVisitService;
 import com.lifemetrics.backend.health.service.DailySummaryService;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
+import com.lifemetrics.backend.repository.BikeFitRepository;
+import com.lifemetrics.backend.repository.BikeRepository;
 import com.lifemetrics.backend.repository.BodyGoalRepository;
+import com.lifemetrics.backend.repository.RiderMeasurementRepository;
+import com.lifemetrics.backend.repository.RiderZoneSettingRepository;
 import com.lifemetrics.backend.repository.UserBodyRecordRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +48,7 @@ public class AthleteContextService {
     static final int FITNESS_DAYS = 30;
     static final int BODY_RECORDS = 8;
     static final int RANDO_MAX = 40;
+    static final int MEASUREMENTS = 2;
     static final int CARE_DAYS = 180;
     static final int CARE_MAX = 40;
     static final Set<String> RANDO_TYPES = Set.of("BREVET", "PERMANENT", "FLECHE", "POPULAIRE");
@@ -52,12 +60,19 @@ public class AthleteContextService {
     private final BodyGoalRepository goalRepo;
     private final HealthTreatmentRepository treatmentRepo;
     private final HealthTreatmentVisitRepository visitRepo;
+    private final RiderMeasurementRepository measurementRepo;
+    private final BikeRepository bikeRepo;
+    private final BikeFitRepository fitRepo;
+    private final RiderZoneSettingRepository zoneRepo;
 
     public String build(long userId, LocalDate today) {
         StringBuilder sb = new StringBuilder();
         sb.append("오늘: ").append(today).append(" (한국 시각)\n\n");
         section(sb, "체성분 (최근 " + BODY_RECORDS + "회 측정)", () -> body(userId));
         section(sb, "진행 중인 체성분 목표", () -> goal(userId));
+        section(sb, "파워·심박 기준", () -> zones(userId));
+        section(sb, "신체 치수 (피팅용, 최근 " + MEASUREMENTS + "회 측정, 최신순, 길이 mm)", () -> measurements(userId));
+        section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", this::bikes);
         section(sb, "최근 " + SUMMARY_DAYS + "일 일별 요약 (섭취·소모·에너지 수지)", () -> dailySummaries(userId, today));
         section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
         section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId));
@@ -110,6 +125,123 @@ public class AthleteContextService {
                                 + ", 골격근량 " + num(g.getTargetMuscleMass(), "kg")
                                 + (g.getNotes() == null || g.getNotes().isBlank() ? "" : " (메모: " + g.getNotes() + ")")))
                 .orElse(List.of());
+    }
+
+    // ── 파워·심박 / 신체 치수 / 자전거·피팅 ───────────────────
+
+    private List<String> zones(long userId) {
+        return zoneRepo.findById(userId).map(z -> {
+            List<String> l = new ArrayList<>();
+            if (z.getFtp() != null) l.add("FTP " + z.getFtp() + "W");
+            if (z.getMaxHr() != null) l.add("최대심박 " + z.getMaxHr() + "bpm");
+            return l.isEmpty() ? List.<String>of() : List.of(String.join(", ", l));
+        }).orElse(List.of());
+    }
+
+    private List<String> measurements(long userId) {
+        return measurementRepo.findByUserIdOrderByMeasureDateDescIdDesc(userId).stream()
+                .limit(MEASUREMENTS).map(AthleteContextService::measurementLine).toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    static String measurementLine(RiderMeasurement m) {
+        List<String> p = new ArrayList<>();
+        add(p, "키", m.getHeightCm(), "cm");
+        add(p, "인심", m.getInseamMm(), "");
+        add(p, "상체", m.getTorsoMm(), "");
+        add(p, "팔", m.getArmMm(), "");
+        add(p, "어깨너비", m.getShoulderWidthMm(), "");
+        add(p, "좌골너비", m.getSitBoneWidthMm(), "");
+        lr(p, "발길이", m.getFootLengthLeftMm(), m.getFootLengthRightMm());
+        lr(p, "발볼너비", m.getFootWidthLeftMm(), m.getFootWidthRightMm());
+        if (m.getArchType() != null) p.add("아치 " + m.getArchType());
+        add(p, "신발 사이즈", m.getShoeSizeMm(), "");
+        add(p, "신발 EU", m.getShoeSizeEu(), "");
+        if (m.getShoeModel() != null) p.add("신발 " + m.getShoeModel());
+        if (m.getInsole() != null) p.add("인솔 " + m.getInsole());
+        if (m.getFlexibility() != null) p.add("유연성 " + m.getFlexibility());
+        StringBuilder l = new StringBuilder(String.valueOf(m.getMeasureDate()));
+        if (m.getMeasuredBy() != null) l.append(" (").append(m.getMeasuredBy()).append(')');
+        l.append(": ").append(p.isEmpty() ? "핵심 치수 없음" : String.join(", ", p));
+        Object items = m.getDetailJson() == null ? null : m.getDetailJson().get("items");
+        if (items instanceof List<?> list && !list.isEmpty()) {
+            Object unit = m.getDetailJson().get("unit");
+            List<String> d = new ArrayList<>();
+            for (Object o : list) {
+                if (!(o instanceof Map<?, ?> it) || it.get("item") == null) continue;
+                if (it.containsKey("value")) d.add(it.get("item") + " " + fmt(it.get("value")));
+                else d.add(it.get("item") + " L" + fmt(it.get("left")) + "/R" + fmt(it.get("right")));
+            }
+            l.append(" / 상세(").append(unit == null ? "mm" : unit).append("): ").append(String.join(", ", d));
+        }
+        if (m.getNotes() != null) l.append(" / 메모: ").append(m.getNotes());
+        return l.toString();
+    }
+
+    private List<String> bikes() {
+        List<String> lines = new ArrayList<>();
+        for (Bike b : bikeRepo.findByIsRetiredFalseOrderByIsDefaultDescIdDesc()) {
+            lines.add(bikeLine(b));
+            fitRepo.findByBikeIdOrderByFitDateDescIdDesc(b.getId()).stream().findFirst()
+                    .ifPresent(f -> lines.add("  └ " + fitLine(f)));
+        }
+        return lines;
+    }
+
+    static String bikeLine(Bike b) {
+        StringBuilder l = new StringBuilder(b.getName());
+        if (Boolean.TRUE.equals(b.getIsDefault())) l.append(" (주력)");
+        List<String> p = new ArrayList<>();
+        if (b.getBikeType() != null) p.add(b.getBikeType());
+        if (b.getFrameSize() != null) p.add("프레임 " + b.getFrameSize());
+        if (b.getFrameMaterial() != null) p.add(b.getFrameMaterial());
+        if (b.getWeightKg() != null) p.add(num(b.getWeightKg(), "kg"));
+        if (b.getGroupset() != null) p.add(b.getGroupset());
+        if (b.getChainringOuter() != null && b.getChainringInner() != null) {
+            p.add(b.getChainringOuter() + "/" + b.getChainringInner() + "T" + (b.getCassetteLabel() == null ? "" : " × " + b.getCassetteLabel()));
+        }
+        if (b.getTotalDistance() != null && b.getTotalDistance() > 0) {
+            p.add(String.format(Locale.ROOT, "누적 %,.0fkm", b.getTotalDistance() / 1000));
+        }
+        if (!p.isEmpty()) l.append(": ").append(String.join(", ", p));
+        return l.toString();
+    }
+
+    static String fitLine(BikeFit f) {
+        List<String> p = new ArrayList<>();
+        add(p, "안장높이", f.getSaddleHeightMm(), "");
+        add(p, "셋백", f.getSaddleSetbackMm(), "");
+        add(p, "안장각", f.getSaddleTiltDeg(), "°");
+        if (f.getSaddleModel() != null) p.add("안장 " + f.getSaddleModel());
+        add(p, "리치", f.getReachMm(), "");
+        add(p, "드롭", f.getDropMm(), "");
+        add(p, "스템", f.getStemLengthMm(), "");
+        add(p, "스템각", f.getStemAngleDeg(), "°");
+        add(p, "스페이서", f.getSpacerMm(), "");
+        add(p, "핸들바", f.getHandlebarWidthMm(), "");
+        add(p, "크랭크", f.getCrankLengthMm(), "");
+        if (f.getCleatLeft() != null) p.add("클릿 L " + f.getCleatLeft());
+        if (f.getCleatRight() != null) p.add("클릿 R " + f.getCleatRight());
+        if (f.getExtraJson() != null) f.getExtraJson().forEach((k, v) -> { if (v != null) p.add(k + " " + fmt(v)); });
+        StringBuilder l = new StringBuilder("피팅 ").append(f.getFitDate());
+        if (f.getFitter() != null) l.append(" (").append(f.getFitter()).append(')');
+        l.append(": ").append(p.isEmpty() ? "수치 없음" : String.join(", ", p));
+        if (f.getNotes() != null) l.append(" / 메모: ").append(f.getNotes());
+        return l.toString();
+    }
+
+    private static void add(List<String> p, String label, Double v, String unit) {
+        if (v != null) p.add(label + " " + num(v, unit));
+    }
+
+    private static void lr(List<String> p, String label, Double left, Double right) {
+        if (left != null || right != null) p.add(label + " L" + num(left, "") + "/R" + num(right, ""));
+    }
+
+    private static String fmt(Object o) {
+        if (o == null) return "-";
+        if (o instanceof Number n) return num(n.doubleValue(), "");
+        return String.valueOf(o);
     }
 
     // ── 일별 요약 ─────────────────────────────────────

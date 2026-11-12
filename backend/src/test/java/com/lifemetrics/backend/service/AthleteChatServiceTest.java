@@ -3,6 +3,9 @@ package com.lifemetrics.backend.service;
 import com.lifemetrics.backend.client.ClaudeChatClient;
 import com.lifemetrics.backend.dto.PersonaChatRequest;
 import com.lifemetrics.backend.entity.ActivityCore;
+import com.lifemetrics.backend.entity.Bike;
+import com.lifemetrics.backend.entity.BikeFit;
+import com.lifemetrics.backend.entity.RiderMeasurement;
 import com.lifemetrics.backend.health.dto.DailySummary;
 import com.lifemetrics.backend.health.entity.HealthTreatment;
 import com.lifemetrics.backend.health.entity.HealthTreatmentVisit;
@@ -136,5 +139,42 @@ class AthleteChatServiceTest {
         assertThat(AthleteContextService.visitLine(v, "장경인대 증후군", LocalDate.of(2026, 11, 12)))
                 .isEqualTo("2026-11-10 튼튼정형외과의원 [진료비 세부내역서] (장경인대 증후군 치료): 물리치료: 체외충격파; "
                         + "약: 록소프로펜정 1정×3회 5일분 (소염진통제(NSAID)) — 오늘 복용 기간 중 / 본인부담 12,300원");
+    }
+
+    @Test
+    void 신체_치수_한_줄은_핵심_컬럼과_상세_항목을_함께_쓴다() {
+        RiderMeasurement m = new RiderMeasurement();
+        m.setMeasureDate(LocalDate.of(2026, 11, 9));
+        m.setFootLengthLeftMm(252.0);
+        m.setFootLengthRightMm(256.0);
+        m.setDetailJson(Map.of("unit", "mm", "items", List.of(
+                Map.of("item", "Arch height", "left", 12, "right", 14),
+                Map.of("item", "Calf", "value", 380))));
+        assertThat(AthleteContextService.measurementLine(m)).isEqualTo(
+                "2026-11-09: 발길이 L252/R256 / 상세(mm): Arch height L12/R14, Calf 380");
+    }
+
+    @Test
+    void 자전거와_피팅_한_줄() {
+        Bike b = new Bike();
+        b.setName("GTR PRO TE");
+        b.setIsDefault(true);
+        b.setFrameSize("S");
+        b.setWeightKg(7.5);
+        b.setChainringOuter(50);
+        b.setChainringInner(34);
+        b.setCassetteLabel("11-34T");
+        b.setTotalDistance(2_017_199.0);
+        assertThat(AthleteContextService.bikeLine(b))
+                .isEqualTo("GTR PRO TE (주력): 프레임 S, 7.5kg, 50/34T × 11-34T, 누적 2,017km");
+
+        BikeFit f = new BikeFit();
+        f.setFitDate(LocalDate.of(2026, 7, 1));
+        f.setSaddleHeightMm(705.0);
+        f.setSaddleTiltDeg(-1.5);
+        f.setCrankLengthMm(165.0);
+        f.setExtraJson(Map.of("pedal_stack_mm", 11));
+        assertThat(AthleteContextService.fitLine(f))
+                .isEqualTo("피팅 2026-07-01: 안장높이 705, 안장각 -1.5°, 크랭크 165, pedal_stack_mm 11");
     }
 }
