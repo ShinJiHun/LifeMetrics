@@ -54,6 +54,35 @@ public class DevRequestController {
         return guard(() -> service.create(body.title(), body.body(), body.parentId()));
     }
 
+    // ── 대화(상시 Claude 프로세스) ─────────────────────────────────────────
+
+    @GetMapping("/conversations")
+    public List<DevRequestService.Conversation> conversations(HttpServletRequest request) {
+        requireAdmin(request);
+        return service.conversations();
+    }
+
+    /** [대화 시작] — 워커가 그 대화의 Claude 프로세스를 띄운다. */
+    @PostMapping("/conversations/{rootId}/start")
+    public DevRequestService.Conversation start(HttpServletRequest request, @PathVariable long rootId) {
+        requireAdmin(request);
+        return guard(() -> service.start(rootId));
+    }
+
+    /** [대화 종료] — 프로세스를 닫고, 안 올린 변경이 있으면 개발 서버 배포. */
+    @PostMapping("/conversations/{rootId}/close")
+    public DevRequestService.Conversation close(HttpServletRequest request, @PathVariable long rootId) {
+        requireAdmin(request);
+        return guard(() -> service.close(rootId));
+    }
+
+    /** [dev 배포] — 대화 브랜치를 빌드해 개발 서버에 올린다(대화는 계속). */
+    @PostMapping("/conversations/{rootId}/deploy")
+    public DevRequestService.DevRequest deploy(HttpServletRequest request, @PathVariable long rootId) {
+        requireAdmin(request);
+        return guard(() -> service.deploy(rootId));
+    }
+
     @PostMapping("/{id}/cancel")
     public DevRequestService.DevRequest cancel(HttpServletRequest request, @PathVariable long id) {
         requireAdmin(request);
@@ -74,7 +103,42 @@ public class DevRequestController {
 
     // ── 서버 워커 ────────────────────────────────────────────────────────
 
-    /** 다음 작업. 없으면 204. */
+    public record PollBody(Long version, Long waitMs) {
+    }
+
+    public record ConversationStateBody(String state, String reason) {
+    }
+
+    /** 할 일 + 띄워 둘 대화 목록. 새 일이 없으면 waitMs(최대 25초) 동안 기다렸다 응답한다(long-poll). */
+    @PostMapping("/worker/poll")
+    public DevRequestService.Poll poll(HttpServletRequest request, @RequestBody(required = false) PollBody body)
+            throws InterruptedException {
+        requireWorker(request);
+        long known = body == null || body.version() == null ? -1 : body.version();
+        long wait = body == null || body.waitMs() == null ? 0 : body.waitMs();
+        return service.poll(known, wait);
+    }
+
+    /** 워커 (재)시작 — 끊긴 작업 정리. */
+    @PostMapping("/worker/startup")
+    public Map<String, String> startup(HttpServletRequest request) {
+        requireWorker(request);
+        service.workerStarted();
+        return Map.of("status", "ok");
+    }
+
+    @PostMapping("/worker/conversations/{rootId}/state")
+    public Map<String, String> conversationState(HttpServletRequest request, @PathVariable long rootId,
+                                                 @RequestBody ConversationStateBody body) {
+        requireWorker(request);
+        guard(() -> {
+            service.workerConversationState(rootId, body.state(), body.reason());
+            return null;
+        });
+        return Map.of("status", "ok");
+    }
+
+    /** 다음 작업. 없으면 204. (예전 워커 호환) */
     @PostMapping("/worker/claim")
     public ResponseEntity<DevRequestService.DevRequest> claim(HttpServletRequest request) {
         requireWorker(request);
@@ -91,7 +155,9 @@ public class DevRequestController {
     @PostMapping("/worker/branch-status")
     public Map<String, String> branchStatus(HttpServletRequest request, @RequestBody Map<String, String> body) {
         requireWorker(request);
-        return Map.of("status", service.latestStatusOfBranch(body.getOrDefault("branch", "")).orElse(""));
+        String branch = body.getOrDefault("branch", "");
+        return Map.of("status", service.latestStatusOfBranch(branch).orElse(""),
+                "conversation", service.conversationStateOfBranch(branch).orElse(""));
     }
 
     private void requireAdmin(HttpServletRequest request) {

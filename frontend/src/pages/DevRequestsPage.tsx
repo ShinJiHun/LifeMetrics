@@ -1,7 +1,8 @@
-// 개발 요청함 (관리자 전용) — Claude 와 채팅하듯 요청하고 답을 받는다.
-// 대화 하나 = 브랜치 하나 + Claude 세션 하나. 메시지 하나 = dev_request 한 행(parentId 로 이어짐).
-// 서버 워커가 메시지마다 Claude Code 를 이어서 실행한다. 코드를 바꾸면 빌드 → 개발 서버(8081) 배포,
-// 질문이면 답만(ANSWERED). 개발 서버에서 확인한 뒤 "운영 반영"을 누르면 master 머지 → 운영 배포.
+// 개발 요청함 (관리자 전용) — Claude 와 실시간으로 대화하며 요청하고 답을 받는다.
+// 대화 하나 = 브랜치 하나 + Claude 세션 하나. 메시지 하나 = dev_request 한 행(rootId 로 묶임, parentId 로 이어짐).
+// 대화가 열려 있는 동안 서버 워커가 그 대화의 Claude 프로세스를 띄워 두고 메시지를 바로 넣는다.
+// 대화 중에는 코드만 고치고(커밋), [dev 배포]/[대화 종료] 때 한 번에 빌드 → 개발 서버(8081) 배포(DEPLOY 행).
+// 개발 서버에서 확인한 뒤 "운영 반영"을 누르면 master 머지 → 운영 배포.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -9,15 +10,21 @@ import Markdown from "@/components/common/Markdown";
 import {
     approveDevRequest,
     cancelDevRequest,
+    closeDevConversation,
     createDevRequest,
+    deployDevConversation,
+    fetchDevConversations,
     fetchDevRequest,
     fetchDevRequests,
     rejectDevRequest,
+    startDevConversation,
+    type DevConversation,
     type DevRequest,
     type DevRequestStatus,
 } from "@/api/devRequests";
 
 const DEV_URL = "http://34.172.162.148:8081";
+const IDLE_MIN = 30; // 워커 DEVREQ_IDLE_MIN 기본값
 const INK = "#111827";
 const MUTED = "#6b7280";
 const BORDER = "#e5e7eb";
@@ -56,10 +63,11 @@ function errorMessage(e: unknown): string {
 const when = (s: string | null) => (s ? s.replace("T", " ").slice(0, 16) : "–");
 const shortWhen = (s: string | null) => (s ? s.replace("T", " ").slice(5, 16) : "");
 
-/** parentId 사슬을 따라 대화로 묶는다. 최근 대화가 위로. */
+/** rootId(없으면 parentId 사슬)로 대화를 묶는다. 최근 대화가 위로. */
 function buildThreads(items: DevRequest[]): Thread[] {
     const byId = new Map(items.map((r) => [r.id, r]));
     const rootOf = (r: DevRequest): number => {
+        if (r.rootId != null) return r.rootId;
         let cur = r;
         for (let i = 0; i < 100 && cur.parentId != null && byId.has(cur.parentId); i++) cur = byId.get(cur.parentId)!;
         return cur.id;
@@ -73,7 +81,8 @@ function buildThreads(items: DevRequest[]): Thread[] {
     return [...groups.entries()]
         .map(([rootId, turns]) => {
             turns.sort((a, b) => a.id - b.id);
-            return { rootId, title: turns[0].title, turns, last: turns[turns.length - 1] };
+            const first = turns.find((t) => t.kind !== "DEPLOY") ?? turns[0];
+            return { rootId, title: first.title, turns, last: turns[turns.length - 1] };
         })
         .sort((a, b) => b.last.id - a.last.id);
 }
@@ -130,9 +139,13 @@ export default function DevRequestsPage() {
         [params, setParams],
     );
 
+    const [convs, setConvs] = useState<DevConversation[]>([]);
+
     const load = useCallback(async () => {
         try {
-            setItems(await fetchDevRequests());
+            const [list, cs] = await Promise.all([fetchDevRequests(), fetchDevConversations()]);
+            setItems(list);
+            setConvs(cs);
             setError(null);
         } catch (e) {
             setError(errorMessage(e));
@@ -144,17 +157,21 @@ export default function DevRequestsPage() {
     }, [load]);
 
     const threads = useMemo(() => buildThreads(items), [items]);
+    const convOf = useMemo(() => new Map(convs.map((c) => [c.rootId, c])), [convs]);
     const thread = threads.find((t) => t.rootId === selectedRoot) ?? null;
+    const conv = thread ? convOf.get(thread.rootId) ?? null : null;
+    const convOpen = conv != null && conv.state !== "CLOSED";
     const last = thread?.last ?? null;
     const lastActive = last != null && ACTIVE.includes(last.status);
-    const anyActive = items.some((r) => ACTIVE.includes(r.status));
+    const anyActive = items.some((r) => ACTIVE.includes(r.status)) || convs.some((c) => c.state === "OPEN");
 
-    // 진행 중이면 목록 5초, 보고 있는 대화의 마지막 메시지(로그) 3초마다
+    // 진행 중이면 목록 2초(대화 중이면 10초 — 자동 종료 반영), 보고 있는 대화의 마지막 메시지(로그) 1.5초마다
+    const anyOpen = convs.some((c) => c.state !== "CLOSED");
     useEffect(() => {
-        if (!anyActive) return;
-        const t = window.setInterval(load, 5000);
+        if (!anyActive && !anyOpen) return;
+        const t = window.setInterval(load, anyActive ? 2000 : 10000);
         return () => window.clearInterval(t);
-    }, [anyActive, load]);
+    }, [anyActive, anyOpen, load]);
 
     const lastId = last?.id;
     useEffect(() => {
@@ -172,7 +189,7 @@ export default function DevRequestsPage() {
             }
         };
         tick();
-        const t = window.setInterval(tick, 3000);
+        const t = window.setInterval(tick, 1500);
         return () => {
             stop = true;
             window.clearInterval(t);
@@ -185,7 +202,7 @@ export default function DevRequestsPage() {
         return thread.turns.map((r) => (live && live.id === r.id ? live : r));
     }, [thread, live]);
 
-    const act = async (fn: () => Promise<DevRequest>, confirmText?: string) => {
+    const act = async <T,>(fn: () => Promise<T>, confirmText?: string): Promise<T | null> => {
         if (confirmText && !window.confirm(confirmText)) return null;
         setBusy(true);
         try {
@@ -212,13 +229,33 @@ export default function DevRequestsPage() {
         }
     };
 
+    const lastIsDeploy = last?.kind === "DEPLOY";
     const placeholder = !thread
         ? "무엇을 바꾸거나 물어볼까요?\n예) 파워 프로필 화면에 최근 90일과 이전 90일 파워 커브를 겹쳐 보여 줘"
         : last?.status === "QUEUED" || last?.status === "RUNNING"
-          ? "Claude 가 작업 중이에요. 끝나면 이어서 보낼 수 있어요."
+          ? lastIsDeploy
+              ? "개발 서버에 배포하는 중이에요. 끝나면 이어서 말할 수 있어요."
+              : "Claude 가 답하는 중이에요. 끝나면 이어서 보낼 수 있어요."
           : last?.status === "APPROVED" || last?.status === "PROMOTING"
             ? "운영 반영 중이에요."
-            : "이어서 말하기 — 수정할 점이나 궁금한 점";
+            : convOpen
+              ? "이어서 말하기 — 수정할 점이나 궁금한 점"
+              : "대화가 종료돼 있어요. 보내면 다시 시작해서 이어서 답해요.";
+
+    const busyThread = last != null && ACTIVE.includes(last.status);
+    const claudeBusy = busyThread && !lastIsDeploy; // 서버 DevRequestService.close 와 같게
+
+    const canDeploy = !!thread && !!conv?.undeployed && !busyThread && !busy;
+    const onStart = () => thread && act(() => startDevConversation(thread.rootId));
+    const onDeploy = () => thread && act(() => deployDevConversation(thread.rootId));
+    const onClose = () =>
+        thread &&
+        act(
+            () => closeDevConversation(thread.rootId),
+            conv?.undeployed
+                ? "대화를 종료합니다. 개발 서버에 안 올린 변경이 있어 빌드·배포까지 진행해요. 계속할까요?"
+                : "대화를 종료할까요? (다시 보내면 이어서 대화할 수 있어요)",
+        );
 
     const showList = !narrow || selectedRoot == null;
     const showChat = !narrow || selectedRoot != null || threads.length === 0;
@@ -228,8 +265,9 @@ export default function DevRequestsPage() {
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                 <h2 style={{ margin: 0 }}>🛠 개발 요청함</h2>
                 <span style={{ color: MUTED, fontSize: 13 }}>
-                    Claude 와 대화하듯 요청하세요. 코드를 바꾸면 <a href={DEV_URL} target="_blank" rel="noreferrer">개발 서버</a>에 올리고,
-                    확인 후 <b>운영 반영</b>을 눌러야 운영에 배포됩니다. 한 번에 한 작업씩 처리해요.
+                    Claude 와 실시간으로 대화하세요. 대화 중에는 코드만 고치고, <b>dev 배포</b>나 <b>대화 종료</b>를 누르면{" "}
+                    <a href={DEV_URL} target="_blank" rel="noreferrer">개발 서버</a>에 올려요. 확인 후 <b>운영 반영</b>을 눌러야 운영에 배포됩니다.
+                    대화는 {IDLE_MIN}분 동안 입력이 없으면 자동 종료돼요.
                 </span>
             </div>
 
@@ -266,6 +304,7 @@ export default function DevRequestsPage() {
                                         {t.title}
                                     </div>
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                                        {convOf.get(t.rootId)?.state === "LIVE" && <span title="대화 중" style={{ color: "#16a34a", fontSize: 10 }}>●</span>}
                                         <Badge status={t.last.status} />
                                         <span style={{ color: MUTED, fontSize: 11 }}>
                                             {t.turns.length > 1 ? `메시지 ${t.turns.length} · ` : ""}
@@ -289,8 +328,28 @@ export default function DevRequestsPage() {
                             <span style={{ fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {thread ? thread.title : "새 대화"}
                             </span>
-                            {thread?.last.branch && <span style={{ color: MUTED, fontSize: 12 }}>{thread.last.branch}</span>}
+                            {thread && <ConvState conv={conv} />}
+                            {thread && !narrow && thread.last.branch && <span style={{ color: MUTED, fontSize: 12 }}>{thread.last.branch}</span>}
                         </div>
+                        {thread && (
+                            <div style={{ padding: "6px 14px", borderBottom: `1px solid ${BORDER}`, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", background: "#fcfcfd" }}>
+                                {convOpen ? (
+                                    <button onClick={onClose} disabled={busy || claudeBusy} style={smallBtn(busy || claudeBusy)} title={claudeBusy ? "Claude 답이 끝난 뒤 종료할 수 있어요" : undefined}>
+                                        ■ 대화 종료{conv?.undeployed ? " + dev 배포" : ""}
+                                    </button>
+                                ) : (
+                                    <button onClick={onStart} disabled={busy} style={smallBtn(busy)}>
+                                        ▶ 대화 시작
+                                    </button>
+                                )}
+                                <button onClick={onDeploy} disabled={!canDeploy} style={smallBtn(!canDeploy)} title={conv?.undeployed ? undefined : "개발 서버에 올릴 새 변경이 없어요"}>
+                                    🚀 dev 배포
+                                </button>
+                                <span style={{ color: MUTED, fontSize: 12 }}>
+                                    {conv?.undeployed ? "개발 서버에 안 올린 변경이 있어요" : conv?.state === "CLOSED" && conv.closeReason ? `종료: ${conv.closeReason}` : ""}
+                                </span>
+                            </div>
+                        )}
 
                         <Messages turns={turns} threadKey={selectedRoot} busy={busy} act={act} />
 
@@ -304,11 +363,27 @@ export default function DevRequestsPage() {
     );
 }
 
+function ConvState({ conv }: { conv: DevConversation | null }) {
+    const s = conv?.state ?? "CLOSED";
+    const m =
+        s === "LIVE"
+            ? { label: "대화 중", color: "#15803d", bg: "#dcfce7" }
+            : s === "OPEN"
+              ? { label: "연결 중…", color: "#a16207", bg: "#fef9c3" }
+              : { label: "종료됨", color: "#6b7280", bg: "#f3f4f6" };
+    return (
+        <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, color: m.color, background: m.bg, whiteSpace: "nowrap" }}>
+            {s === "LIVE" ? "● " : ""}
+            {m.label}
+        </span>
+    );
+}
+
 function Messages(props: {
     turns: DevRequest[];
     threadKey: number | null;
     busy: boolean;
-    act: (fn: () => Promise<DevRequest>, confirmText?: string) => Promise<DevRequest | null>;
+    act: <T>(fn: () => Promise<T>, confirmText?: string) => Promise<T | null>;
 }) {
     const { turns, busy, act } = props;
     const endRef = useRef<HTMLDivElement>(null);
@@ -332,16 +407,17 @@ function Messages(props: {
         <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 4px", background: "#f9fafb" }}>
             {turns.map((r, i) => (
                 <div key={r.id}>
-                    <UserBubble r={r} />
+                    {r.kind === "DEPLOY" ? <DeployDivider r={r} /> : <UserBubble r={r} />}
                     <ClaudeBubble
                         r={r}
                         isLast={i === turns.length - 1}
+                        threadBusy={ACTIVE.includes(turns[turns.length - 1].status)}
                         busy={busy}
                         onCancel={() => act(() => cancelDevRequest(r.id))}
                         onApprove={() =>
                             act(() => approveDevRequest(r.id), "운영(ride.tho881.me)에 반영합니다. master 에 머지되고 운영 서버가 재시작됩니다. 계속할까요?")
                         }
-                        onReject={() => act(() => rejectDevRequest(r.id), "이 작업을 반려할까요? (개발 서버는 다음 작업 때 덮어써집니다)")}
+                        onReject={() => act(() => rejectDevRequest(r.id), "이 작업을 반려하고 대화를 종료할까요? (개발 서버는 다음 배포 때 덮어써집니다)")}
                     />
                 </div>
             ))}
@@ -361,16 +437,38 @@ function UserBubble({ r }: { r: DevRequest }) {
     );
 }
 
-function ClaudeBubble(props: { r: DevRequest; isLast: boolean; busy: boolean; onCancel: () => void; onApprove: () => void; onReject: () => void }) {
+function DeployDivider({ r }: { r: DevRequest }) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 10px", color: MUTED, fontSize: 12 }}>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+            <span>
+                🚀 {r.body} · #{r.id} · {when(r.createdAt)}
+            </span>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+        </div>
+    );
+}
+
+function ClaudeBubble(props: {
+    r: DevRequest;
+    isLast: boolean;
+    threadBusy: boolean;
+    busy: boolean;
+    onCancel: () => void;
+    onApprove: () => void;
+    onReject: () => void;
+}) {
     const { r, isLast, busy } = props;
     const [log, setLog] = useState<string | null>(null);
     const [showLog, setShowLog] = useState(false);
     const [showDiff, setShowDiff] = useState(false);
 
+    const isDeploy = r.kind === "DEPLOY";
     const working = r.status === "RUNNING" || r.status === "PROMOTING";
     const progress = working || r.status === "APPROVED" ? progressLines(r.logTail) : [];
-    const canApprove = r.status === "DEV_READY" || (r.status === "ANSWERED" && !!r.commitSha);
-    const canReject = canApprove || r.status === "FAILED";
+    // 서버 DevRequestService.canApprove 와 같게: 개발 서버에 올라간(그 뒤 새 커밋 없는) 배포만
+    const canApprove = r.status === "DEV_READY" && !props.threadBusy;
+    const canReject = isLast && (r.status === "DEV_READY" || r.status === "FAILED");
     const fileCount = r.diffStat ? r.diffStat.trim().split("\n").length - 1 : 0;
 
     const toggleLog = async () => {
@@ -398,7 +496,7 @@ function ClaudeBubble(props: { r: DevRequest; isLast: boolean; busy: boolean; on
 
                 {working && !r.summary && (
                     <div style={{ color: "#1d4ed8", fontSize: 14, marginBottom: progress.length ? 6 : 0 }}>
-                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : "작업 중"}
+                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : isDeploy ? "빌드·개발 서버 배포 중" : "답하는 중"}
                     </div>
                 )}
 
@@ -410,7 +508,7 @@ function ClaudeBubble(props: { r: DevRequest; isLast: boolean; busy: boolean; on
 
                 {working && r.summary && (
                     <div style={{ color: "#1d4ed8", fontSize: 13, marginTop: 6 }}>
-                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : "빌드·개발 서버 배포 중"}
+                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : isDeploy ? "빌드·개발 서버 배포 중" : "마무리 중"}
                     </div>
                 )}
 
@@ -433,6 +531,9 @@ function ClaudeBubble(props: { r: DevRequest; isLast: boolean; busy: boolean; on
                             열어 보기 ↗
                         </a>
                     </div>
+                )}
+                {!isDeploy && r.status === "ANSWERED" && r.commitSha && (
+                    <div style={{ fontSize: 13, color: "#92400e", marginTop: 8 }}>💾 코드를 바꿔 커밋했어요. 확인하려면 위의 <b>dev 배포</b>를 눌러 주세요.</div>
                 )}
                 {r.status === "DONE" && <div style={{ fontSize: 13, color: "#065f46", marginTop: 8 }}>🎉 운영에 반영됐어요 ({when(r.promotedAt)})</div>}
 
@@ -458,9 +559,9 @@ function ClaudeBubble(props: { r: DevRequest; isLast: boolean; busy: boolean; on
                 </div>
                 {showLog && <div style={{ ...mono, ...pre, maxHeight: 320, overflow: "auto", background: "#f9fafb", padding: 8, borderRadius: 6, marginTop: 6 }}>{working ? r.logTail : log}</div>}
 
-                {isLast && (r.status === "QUEUED" || canApprove || canReject) && (
+                {((isLast && r.status === "QUEUED") || canApprove || canReject) && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-                        {r.status === "QUEUED" && (
+                        {isLast && r.status === "QUEUED" && (
                             <button onClick={props.onCancel} disabled={busy} style={ghostBtn}>
                                 취소
                             </button>
@@ -545,4 +646,13 @@ const ghostBtn: CSSProperties = {
     background: "#fff",
     cursor: "pointer",
 };
-const linkBtn: CSSProperties = { border: "none", background: "none", padding: 0, color: ACCENT, cursor: "pointer", fontSize: 13 };
+const smallBtn = (disabled: boolean): CSSProperties => ({
+    border: `1px solid ${BORDER}`,
+    borderRadius: 8,
+    padding: "4px 10px",
+    fontSize: 13,
+    color: disabled ? "#9ca3af" : INK,
+    background: "#fff",
+    cursor: disabled ? "default" : "pointer",
+});
+const linkBtn: CSSProperties ={ border: "none", background: "none", padding: 0, color: ACCENT, cursor: "pointer", fontSize: 13 };

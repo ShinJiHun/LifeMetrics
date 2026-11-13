@@ -28,11 +28,16 @@ class DevRequestServiceTest {
     }
 
     @Test
-    void 답만_한_메시지는_대화에_커밋이_있을_때만_운영_반영할_수_있다() {
-        assertThat(DevRequestService.canApprove("DEV_READY", null)).isTrue();
-        assertThat(DevRequestService.canApprove("ANSWERED", "abc123")).isTrue();
-        assertThat(DevRequestService.canApprove("ANSWERED", null)).isFalse();
-        assertThat(DevRequestService.canApprove("FAILED", "abc123")).isFalse();
+    void 개발_서버에_올라간_배포만_운영_반영할_수_있다() {
+        assertThat(DevRequestService.canApprove("DEV_READY")).isTrue();
+        assertThat(DevRequestService.canApprove("ANSWERED")).isFalse();
+        assertThat(DevRequestService.canApprove("SUPERSEDED")).isFalse();
+        assertThat(DevRequestService.canApprove("FAILED")).isFalse();
+    }
+
+    @Test
+    void 대화_브랜치는_첫_메시지_id로_정한다() {
+        assertThat(DevRequestService.branchOf(42)).isEqualTo("devreq/42");
     }
 
     @Test

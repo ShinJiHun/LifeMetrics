@@ -4,6 +4,9 @@
 --       DEV_READY → APPROVED → PROMOTING → DONE | FAILED
 --       DEV_READY|ANSWERED|FAILED → REJECTED,  QUEUED → CANCELLED,  이어서 보내면 앞 메시지(DEV_READY|ANSWERED|FAILED)는 SUPERSEDED
 -- 화면은 채팅: parent_id 로 이어진 행들이 한 대화. 같은 브랜치·Claude 세션(--resume)을 이어서 쓴다.
+-- 2026-11-13 상시 대화(dev_conversation.sql): 메시지(kind=MESSAGE)는 답만(ANSWERED, 코드 바꿨으면 commit_sha),
+--   빌드·dev 배포는 DEPLOY 행(QUEUED → RUNNING → DEV_READY | FAILED). 승인은 DEPLOY 의 DEV_READY 에서.
+--   메시지에서 새 커밋이 생기면 앞의 DEV_READY 는 SUPERSEDED.
 CREATE TABLE IF NOT EXISTS `riding_db`.`dev_request` (
     `id`           BIGINT AUTO_INCREMENT PRIMARY KEY,
     `parent_id`    BIGINT        NULL COMMENT '추가 요청이면 직전 요청',
