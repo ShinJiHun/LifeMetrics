@@ -68,6 +68,14 @@ export default function SideBar({ open = false }: { open?: boolean }) {
 
                 {persona === "human" && isAdmin && <HumanHandlerMenu accent={meta.accent} />}
                 {persona === "human" && isAdmin && <HumanLottoMenu accent={meta.accent} />}
+
+                {isAdmin && (
+                    <div style={{ marginTop: 24, borderTop: "1px solid #f0f1f4", paddingTop: 12 }}>
+                        <NavLink to="/dev-requests" style={subLinkStyle(meta.accent)}>
+                            🛠 개발 요청
+                        </NavLink>
+                    </div>
+                )}
             </div>
 
             {persona === "developer" && (
