@@ -21,6 +21,8 @@ import java.util.Map;
  *   <li>서버 워커: /worker/** — {@code Authorization: Bearer <DEV_WORKER_TOKEN>}.
  *       그래서 /worker/** 는 AdminWriteFilter 의 공개 쓰기 경로이고 토큰 검사는 여기서 한다.</li>
  * </ul>
+ * 개발 서버 전용: {@code DEV_REQUESTS_ENABLED=true}(deploy/remote.sh 가 dev 컨테이너에만 넣음)일 때만 동작하고,
+ * 운영에서는 /enabled 외 모든 경로가 404. 개발 서버에서 대화하며 만든 결과물만 [운영 반영]으로 운영에 나간다.
  */
 @RestController
 @RequestMapping("/api/dev-requests")
@@ -33,7 +35,16 @@ public class DevRequestController {
     @Value("${DEV_WORKER_TOKEN:}")
     private String workerToken;
 
-    public record CreateBody(String title, String body, Long parentId) {
+    @Value("${DEV_REQUESTS_ENABLED:false}")
+    private boolean enabled;
+
+    public record CreateBody(String title, String body, Long parentId, String repo) {
+    }
+
+    /** 화면이 메뉴를 보일지 정한다(로그인 없이도 응답, 내용 없음). */
+    @GetMapping("/enabled")
+    public Map<String, Boolean> enabled() {
+        return Map.of("enabled", enabled);
     }
 
     @GetMapping
@@ -51,7 +62,7 @@ public class DevRequestController {
     @PostMapping
     public DevRequestService.DevRequest create(HttpServletRequest request, @RequestBody CreateBody body) {
         requireAdmin(request);
-        return guard(() -> service.create(body.title(), body.body(), body.parentId()));
+        return guard(() -> service.create(body.title(), body.body(), body.parentId(), body.repo()));
     }
 
     // ── 대화(상시 Claude 프로세스) ─────────────────────────────────────────
@@ -160,13 +171,19 @@ public class DevRequestController {
                 "conversation", service.conversationStateOfBranch(branch).orElse(""));
     }
 
+    private void requireEnabled() {
+        if (!enabled) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "개발 요청함은 개발 서버에서만 쓸 수 있습니다.");
+    }
+
     private void requireAdmin(HttpServletRequest request) {
+        requireEnabled();
         if (!adminWriteFilter.isAdmin(request)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 접근할 수 있습니다.");
         }
     }
 
     private void requireWorker(HttpServletRequest request) {
+        requireEnabled();
         if (workerToken == null || workerToken.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "DEV_WORKER_TOKEN 미설정");
         }

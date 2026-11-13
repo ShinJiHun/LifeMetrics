@@ -18,7 +18,9 @@ import {
     fetchDevRequests,
     rejectDevRequest,
     startDevConversation,
+    DEV_REPOS,
     type DevConversation,
+    type DevRepo,
     type DevRequest,
     type DevRequestStatus,
 } from "@/api/devRequests";
@@ -140,6 +142,7 @@ export default function DevRequestsPage() {
     );
 
     const [convs, setConvs] = useState<DevConversation[]>([]);
+    const [newRepo, setNewRepo] = useState<DevRepo>("lifemetrics"); // 새 대화의 작업 대상
 
     const load = useCallback(async () => {
         try {
@@ -222,7 +225,7 @@ export default function DevRequestsPage() {
     const send = async () => {
         const text = draft.trim();
         if (!text || busy || !canSend) return;
-        const r = await act(() => createDevRequest(text, undefined, last?.id));
+        const r = await act(() => createDevRequest(text, undefined, last?.id, thread ? undefined : newRepo));
         if (r) {
             setDraft("");
             if (!thread) select(r.id);
@@ -265,7 +268,7 @@ export default function DevRequestsPage() {
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                 <h2 style={{ margin: 0 }}>🛠 개발 요청함</h2>
                 <span style={{ color: MUTED, fontSize: 13 }}>
-                    Claude 와 실시간으로 대화하세요. 대화 중에는 코드만 고치고, <b>dev 배포</b>나 <b>대화 종료</b>를 누르면{" "}
+                    개발 서버 전용이에요. 대화를 시작할 때 작업 대상(LifeMetrics 앱 / data_pipeline)을 고르고 Claude 와 실시간으로 대화하세요. 대화 중에는 코드만 고치고, <b>dev 배포</b>나 <b>대화 종료</b>를 누르면{" "}
                     <a href={DEV_URL} target="_blank" rel="noreferrer">개발 서버</a>에 올려요. 확인 후 <b>운영 반영</b>을 눌러야 운영에 배포됩니다.
                     대화는 {IDLE_MIN}분 동안 입력이 없으면 자동 종료돼요.
                 </span>
@@ -306,6 +309,7 @@ export default function DevRequestsPage() {
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                                         {convOf.get(t.rootId)?.state === "LIVE" && <span title="대화 중" style={{ color: "#16a34a", fontSize: 10 }}>●</span>}
                                         <Badge status={t.last.status} />
+                                        {t.turns[0].repo === "data_pipeline" && <RepoTag repo="data_pipeline" />}
                                         <span style={{ color: MUTED, fontSize: 11 }}>
                                             {t.turns.length > 1 ? `메시지 ${t.turns.length} · ` : ""}
                                             {shortWhen(t.last.createdAt)}
@@ -328,6 +332,7 @@ export default function DevRequestsPage() {
                             <span style={{ fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 {thread ? thread.title : "새 대화"}
                             </span>
+                            {thread && <RepoTag repo={thread.turns[0].repo ?? "lifemetrics"} />}
                             {thread && <ConvState conv={conv} />}
                             {thread && !narrow && thread.last.branch && <span style={{ color: MUTED, fontSize: 12 }}>{thread.last.branch}</span>}
                         </div>
@@ -354,12 +359,42 @@ export default function DevRequestsPage() {
                         <Messages turns={turns} threadKey={selectedRoot} busy={busy} act={act} />
 
                         <div style={{ borderTop: `1px solid ${BORDER}`, padding: 10 }}>
+                            {!thread && (
+                                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 13 }}>
+                                    <span style={{ color: MUTED }}>작업 대상</span>
+                                    {DEV_REPOS.map((o) => (
+                                        <button
+                                            key={o.value}
+                                            onClick={() => setNewRepo(o.value)}
+                                            title={o.hint}
+                                            style={{
+                                                ...smallBtn(false),
+                                                borderColor: newRepo === o.value ? ACCENT : BORDER,
+                                                color: newRepo === o.value ? ACCENT : INK,
+                                                fontWeight: newRepo === o.value ? 600 : 400,
+                                            }}
+                                        >
+                                            {o.label}
+                                        </button>
+                                    ))}
+                                    <span style={{ color: MUTED, fontSize: 12 }}>{DEV_REPOS.find((o) => o.value === newRepo)?.hint}</span>
+                                </div>
+                            )}
                             <Composer value={draft} onChange={setDraft} onSend={send} disabled={busy || !canSend} placeholder={placeholder} />
                         </div>
                     </div>
                 )}
             </div>
         </div>
+    );
+}
+
+function RepoTag({ repo }: { repo: DevRepo }) {
+    const py = repo === "data_pipeline";
+    return (
+        <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, whiteSpace: "nowrap", color: py ? "#854d0e" : "#3730a3", background: py ? "#fef3c7" : "#e0e7ff" }}>
+            {py ? "🐍 data_pipeline" : "LifeMetrics"}
+        </span>
     );
 }
 
@@ -415,7 +450,12 @@ function Messages(props: {
                         busy={busy}
                         onCancel={() => act(() => cancelDevRequest(r.id))}
                         onApprove={() =>
-                            act(() => approveDevRequest(r.id), "운영(ride.tho881.me)에 반영합니다. master 에 머지되고 운영 서버가 재시작됩니다. 계속할까요?")
+                            act(
+                                () => approveDevRequest(r.id),
+                                r.repo === "data_pipeline"
+                                    ? "data_pipeline 에 반영합니다. main 에 머지·push 하고 서버의 실행용 체크아웃을 갱신해요(다음 실행부터 적용). 계속할까요?"
+                                    : "운영(ride.tho881.me)에 반영합니다. master 에 머지되고 운영 서버가 재시작됩니다. 계속할까요?",
+                            )
                         }
                         onReject={() => act(() => rejectDevRequest(r.id), "이 작업을 반려하고 대화를 종료할까요? (개발 서버는 다음 배포 때 덮어써집니다)")}
                     />
@@ -496,7 +536,7 @@ function ClaudeBubble(props: {
 
                 {working && !r.summary && (
                     <div style={{ color: "#1d4ed8", fontSize: 14, marginBottom: progress.length ? 6 : 0 }}>
-                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : isDeploy ? "빌드·개발 서버 배포 중" : "답하는 중"}
+                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : isDeploy ? (r.repo === "data_pipeline" ? "문법 검사 중" : "빌드·개발 서버 배포 중") : "답하는 중"}
                     </div>
                 )}
 
@@ -524,7 +564,7 @@ function ClaudeBubble(props: {
 
                 {r.error && <div style={{ ...pre, color: "#b91c1c", fontSize: 13, marginTop: r.summary ? 8 : 0 }}>{r.error}</div>}
 
-                {r.status === "DEV_READY" && (
+                {r.status === "DEV_READY" && r.repo !== "data_pipeline" && (
                     <div style={{ fontSize: 13, color: "#047857", marginTop: 8 }}>
                         ✅ 개발 서버에 올렸어요.{" "}
                         <a href={DEV_URL} target="_blank" rel="noreferrer">

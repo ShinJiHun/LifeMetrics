@@ -47,6 +47,11 @@ public class DevRequestService {
     public static final String MESSAGE = "MESSAGE";
     public static final String DEPLOY = "DEPLOY";
 
+    /** 작업 대상 저장소. 대화의 첫 메시지에서 정하고 이어지는 행이 물려받는다. */
+    public static final String REPO_APP = "lifemetrics";
+    public static final String REPO_PIPELINE = "data_pipeline";
+    static final Set<String> REPOS = Set.of(REPO_APP, REPO_PIPELINE);
+
     /** 대화 상태: 시작 요청됨(워커가 프로세스 띄우는 중) → 프로세스 대기 중 → 종료 */
     public static final String OPEN = "OPEN";
     public static final String LIVE = "LIVE";
@@ -79,7 +84,8 @@ public class DevRequestService {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
     }
 
-    public record DevRequest(Long id, Long parentId, String kind, Long rootId, String title, String body, String status,
+    public record DevRequest(Long id, Long parentId, String kind, Long rootId, String repo,
+                             String title, String body, String status,
                              String branch, String commitSha, String sessionId,
                              String summary, String diffStat, String logTail, String error, BigDecimal costUsd,
                              String createdAt, String startedAt, String finishedAt,
@@ -92,7 +98,7 @@ public class DevRequestService {
     }
 
     /** 워커가 띄워 둘 대화(OPEN/LIVE). sessionId 가 있으면 --resume. */
-    public record WorkerConversation(long rootId, String state, String branch, String sessionId) {
+    public record WorkerConversation(long rootId, String state, String repo, String branch, String sessionId) {
     }
 
     /** 워커 poll 응답. job 이 있으면 방금 가져간 일. */
@@ -105,12 +111,12 @@ public class DevRequestService {
     }
 
     private static final String COLS = """
-            id, parent_id, kind, root_id, title, body, status, branch, commit_sha, session_id, summary, diff_stat,
+            id, parent_id, kind, root_id, repo, title, body, status, branch, commit_sha, session_id, summary, diff_stat,
             %s AS log_tail, error, cost_usd, created_at, started_at, finished_at, approved_at, promoted_at, updated_at""";
 
     private static final RowMapper<DevRequest> MAPPER = (rs, i) -> new DevRequest(
             rs.getLong("id"), (Long) rs.getObject("parent_id", Long.class),
-            rs.getString("kind"), (Long) rs.getObject("root_id", Long.class),
+            rs.getString("kind"), (Long) rs.getObject("root_id", Long.class), rs.getString("repo"),
             rs.getString("title"), rs.getString("body"), rs.getString("status"),
             rs.getString("branch"), rs.getString("commit_sha"), rs.getString("session_id"),
             rs.getString("summary"), rs.getString("diff_stat"), rs.getString("log_tail"), rs.getString("error"),
@@ -171,7 +177,7 @@ public class DevRequestService {
      * 새 메시지. parentId 가 있으면 같은 대화에 이어서(브랜치·Claude 세션을 이어받음). 대화가 닫혀 있으면 다시 연다.
      * 직전 메시지는 대화의 마지막이어야 하고 끝난 상태({@link #FOLLOWABLE})여야 한다.
      */
-    public synchronized DevRequest create(String title, String body, Long parentId) {
+    public synchronized DevRequest create(String title, String body, Long parentId, String repo) {
         String b = body == null ? "" : body.strip();
         if (b.isEmpty()) throw new IllegalArgumentException("요청 내용을 입력해 주세요.");
         if (b.length() > MAX_BODY) throw new IllegalArgumentException("요청 내용이 너무 깁니다.");
@@ -180,12 +186,13 @@ public class DevRequestService {
 
         DevRequest created;
         if (parentId == null) {
-            created = insert(MESSAGE, null, null, t, b, null);
+            created = insert(MESSAGE, null, null, t, b, null, normalizeRepo(repo));
         } else {
+            // 이어지는 메시지는 대화의 저장소를 그대로 쓴다(repo 인자는 무시)
             DevRequest parent = get(parentId).orElseThrow(() -> new IllegalArgumentException("원 요청이 없습니다."));
             long root = rootOf(parent);
             checkFollow(root, parent);
-            created = insert(MESSAGE, parentId, root, t, b, parent.sessionId());
+            created = insert(MESSAGE, parentId, root, t, b, parent.sessionId(), parent.repo());
         }
         openConversation(created.rootId());
         bump();
@@ -205,7 +212,7 @@ public class DevRequestService {
         DevRequest last = lastOf(rootId).orElseThrow(() -> new IllegalArgumentException("대화가 없습니다."));
         checkFollow(rootId, last);
         if (!undeployed(rootId)) throw new IllegalStateException("개발 서버에 올릴 새 변경이 없습니다.");
-        DevRequest d = insert(DEPLOY, last.id(), rootId, "개발 서버 배포", "개발 서버 배포", last.sessionId());
+        DevRequest d = insert(DEPLOY, last.id(), rootId, "개발 서버 배포", "개발 서버 배포", last.sessionId(), last.repo());
         touch(rootId);
         bump();
         return d;
@@ -222,10 +229,17 @@ public class DevRequestService {
         }
         closeConversation(rootId, "대화 종료");
         if (FOLLOWABLE.contains(last.status()) && !busyPipeline(rootId) && undeployed(rootId)) {
-            insert(DEPLOY, last.id(), rootId, "개발 서버 배포", "대화 종료 — 개발 서버 배포", last.sessionId());
+            insert(DEPLOY, last.id(), rootId, "개발 서버 배포", "대화 종료 — 개발 서버 배포", last.sessionId(), last.repo());
         }
         bump();
         return conversation(rootId).orElseThrow();
+    }
+
+    static String normalizeRepo(String repo) {
+        if (repo == null || repo.isBlank()) return REPO_APP;
+        String r = repo.strip();
+        if (!REPOS.contains(r)) throw new IllegalArgumentException("알 수 없는 저장소: " + r);
+        return r;
     }
 
     static String deriveTitle(String body) {
@@ -308,15 +322,17 @@ public class DevRequestService {
         return n != null && n > 0;
     }
 
-    private DevRequest insert(String kind, Long parentId, Long root, String title, String body, String sessionId) {
+    private DevRequest insert(String kind, Long parentId, Long root, String title, String body, String sessionId,
+                              String repo) {
         var params = new MapSqlParameterSource()
                 .addValue("parentId", parentId).addValue("kind", kind).addValue("root", root)
+                .addValue("repo", repo == null ? REPO_APP : repo)
                 .addValue("title", title).addValue("body", body)
                 .addValue("branch", root == null ? null : branchOf(root)).addValue("sessionId", sessionId);
         var key = new GeneratedKeyHolder();
         jdbc.update("""
-                INSERT INTO dev_request (parent_id, kind, root_id, title, body, status, branch, session_id)
-                VALUES (:parentId, :kind, :root, :title, :body, 'QUEUED', :branch, :sessionId)""",
+                INSERT INTO dev_request (parent_id, kind, root_id, repo, title, body, status, branch, session_id)
+                VALUES (:parentId, :kind, :root, :repo, :title, :body, 'QUEUED', :branch, :sessionId)""",
                 params, key, new String[]{"id"});
         long id = key.getKey().longValue();
         if (root == null) {
@@ -454,12 +470,13 @@ public class DevRequestService {
     public List<WorkerConversation> workerConversations() {
         return jdbc.query("""
                 SELECT c.root_id, c.state,
+                       COALESCE((SELECT r.repo FROM dev_request r WHERE r.id = c.root_id), 'lifemetrics') AS repo,
                        (SELECT r.session_id FROM dev_request r
                          WHERE (r.root_id = c.root_id OR r.id = c.root_id) AND r.session_id IS NOT NULL
                          ORDER BY r.id DESC LIMIT 1) AS session_id
                   FROM dev_conversation c WHERE c.state IN ('OPEN', 'LIVE') ORDER BY c.root_id""",
                 new MapSqlParameterSource(), (rs, i) -> new WorkerConversation(
-                        rs.getLong("root_id"), rs.getString("state"), branchOf(rs.getLong("root_id")),
+                        rs.getLong("root_id"), rs.getString("state"), rs.getString("repo"), branchOf(rs.getLong("root_id")),
                         rs.getString("session_id")));
     }
 

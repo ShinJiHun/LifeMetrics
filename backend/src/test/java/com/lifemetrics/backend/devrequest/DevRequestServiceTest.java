@@ -36,6 +36,14 @@ class DevRequestServiceTest {
     }
 
     @Test
+    void 저장소는_정해진_것만_받고_없으면_앱() {
+        assertThat(DevRequestService.normalizeRepo(null)).isEqualTo("lifemetrics");
+        assertThat(DevRequestService.normalizeRepo(" data_pipeline ")).isEqualTo("data_pipeline");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> DevRequestService.normalizeRepo("../etc"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void 대화_브랜치는_첫_메시지_id로_정한다() {
         assertThat(DevRequestService.branchOf(42)).isEqualTo("devreq/42");
     }

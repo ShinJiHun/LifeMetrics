@@ -15,8 +15,9 @@
   /mnt/200gb/apps-dev/.env.db           : dev DB 계정(dev SQL)
 
 설정(환경변수, systemd 는 /mnt/200gb/devreq/worker.env 에서 읽음):
-  DEVREQ_API         요청함 API (기본 운영 http://localhost:8080/api/dev-requests)
+  DEVREQ_API         요청함 API (기본 개발 서버 http://localhost:8081/api/dev-requests — 요청함은 개발 서버 전용)
   DEVREQ_BASE        작업 브랜치를 딸 기준 ref (기본 origin/master). origin/ 이 아니면 fetch 하지 않는다.
+  DEVREQ_DP_REPO     data_pipeline 저장소(기본 /mnt/200gb/project/data_pipeline), DEVREQ_DP_BASE 기준 ref(기본 origin/main)
   DEVREQ_NO_PROMOTE  1 이면 운영 반영 요청을 실패 처리(개발 서버만 쓰는 시험 운영용)
   DEVREQ_IDLE_MIN    대화 자동 종료(분, 기본 30)
 
@@ -43,8 +44,12 @@ from pathlib import Path
 
 REPO = Path(os.environ.get("DEVREQ_REPO", "/mnt/200gb/project/lifemetrics"))   # 메인 체크아웃(브랜치·ref 공유)
 WORK = Path(os.environ.get("DEVREQ_WORK", "/mnt/200gb/devreq"))                # worktree·로그
-API = os.environ.get("DEVREQ_API", "http://localhost:8080/api/dev-requests")    # 운영 백엔드
+# 개발 요청함은 개발 서버 전용(운영 백엔드는 DEV_REQUESTS_ENABLED 가 없어 404)
+API = os.environ.get("DEVREQ_API", "http://localhost:8081/api/dev-requests")
 BASE = os.environ.get("DEVREQ_BASE", "origin/master")                          # 작업 브랜치의 기준
+# data_pipeline: 별도 저장소. 서버의 이 체크아웃이 곧 운영(cron 등이 여기서 실행)이라 운영 반영 = main push + ff 갱신
+PIPELINE_REPO = Path(os.environ.get("DEVREQ_DP_REPO", "/mnt/200gb/project/data_pipeline"))
+PIPELINE_BASE = os.environ.get("DEVREQ_DP_BASE", "origin/main")
 NO_PROMOTE = os.environ.get("DEVREQ_NO_PROMOTE", "") == "1"
 IDLE_CLOSE_S = int(os.environ.get("DEVREQ_IDLE_MIN", "30")) * 60
 POLL_WAIT_MS = 20_000
@@ -64,17 +69,21 @@ SCHEMAS = ("riding_db", "journal_db", "lotto_db")
 KST = timezone(timedelta(hours=9))
 
 # Claude 가 쓸 수 있는 도구. 여기 없는 도구(WebFetch, git push, docker, 배포 스크립트 등)는 헤드리스 모드에서 거부된다.
-ALLOWED_TOOLS = [
+COMMON_TOOLS = [
     "Read", "Edit", "Write", "Glob", "Grep", "TodoWrite",
-    "Bash(./gradlew:*)", "Bash(cd backend && ./gradlew:*)",
-    "Bash(npm ci)", "Bash(npm install:*)", "Bash(npm run:*)", "Bash(npx tsc:*)", "Bash(npx eslint:*)",
-    "Bash(cd frontend && npm:*)", "Bash(cd frontend && npx:*)",
     "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
     "Bash(git add:*)", "Bash(git commit:*)", "Bash(git restore:*)", "Bash(git mv:*)", "Bash(git rm:*)",
     "Bash(ls:*)", "Bash(cat:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(wc:*)", "Bash(grep:*)", "Bash(rg:*)",
     "Bash(find:*)", "Bash(sed -n:*)", "Bash(mkdir:*)", "Bash(sort:*)", "Bash(uniq:*)", "Bash(jq:*)",
     "Bash(cd:*)", "Bash(/mnt/200gb/devreq/bin/devdb.sh:*)",
 ]
+APP_TOOLS = COMMON_TOOLS + [
+    "Bash(./gradlew:*)", "Bash(cd backend && ./gradlew:*)",
+    "Bash(npm ci)", "Bash(npm install:*)", "Bash(npm run:*)", "Bash(npx tsc:*)", "Bash(npx eslint:*)",
+    "Bash(cd frontend && npm:*)", "Bash(cd frontend && npx:*)",
+]
+# 파이프라인은 스크립트를 실제로 돌리면 운영 DB·외부 API 에 쓸 수 있어 문법 검사만 허용한다(pytest 도 import 시 .env 를 읽을 수 있어 제외)
+PIPELINE_TOOLS = COMMON_TOOLS + ["Bash(python3 -m py_compile:*)", "Bash(python3 -m compileall:*)"]
 DISALLOWED_TOOLS = ["Bash(git push:*)", "Bash(git checkout:*)", "Bash(git switch:*)", "Bash(git reset:*)",
                     "Bash(git rebase:*)", "Bash(git merge:*)", "Bash(git worktree:*)", "WebFetch", "WebSearch"]
 
@@ -105,6 +114,46 @@ SYSTEM_PROMPT = """\
 마지막 답변은 한국어로, 채팅 말풍선에 마크다운으로 그대로 표시됩니다. 대화하듯 간결하게 쓰세요.
 코드를 바꿨다면: 무엇을 바꿨는지 2~5줄 → [dev 배포] 후 개발 서버에서 확인할 방법(메뉴/화면 경로) → 가정·주의할 점(있으면).
 """
+
+PIPELINE_SYSTEM_PROMPT = """\
+당신은 data_pipeline(서버에서 cron 등으로 도는 파이썬 데이터 수집·가공 스크립트 모음) 저장소에서 앱 관리자(저장소 주인)와
+앱 안의 채팅 화면으로 실시간 대화하며 개발 요청을 처리하는 작업자입니다. 대화가 열려 있는 동안 이 프로세스가 계속 살아 있고,
+관리자의 다음 메시지가 바로 이어서 들어옵니다.
+- 메시지가 질문·상의·설명 요청이면 코드를 바꾸지 말고 답만 하세요.
+- 바꿔 달라는 요청이면 작업하세요. 작업 중 되물을 수는 없으니, 크게 애매하면 코드를 바꾸기 전에
+  선택지를 짧게 제시하고 답을 기다리세요(다음 메시지로 옵니다). 사소한 애매함은 합리적으로 정하고 답변에 적으세요.
+- 코드를 바꿔도 바로 반영되지 않습니다. 파이프라인은 개발 서버가 없어서 [dev 배포]는 워커가 문법 검사만 하고,
+  [운영 반영]을 누르면 main 에 머지·push 한 뒤 서버의 실행용 체크아웃(/mnt/200gb/project/data_pipeline)을 갱신합니다.
+  그 다음 실행(cron 등)부터 바뀐 코드가 돕니다.
+
+규칙:
+- 지금 디렉터리(전용 git worktree, 브랜치 {branch})에서만 작업합니다. 다른 경로의 파일을 고치지 마세요.
+- 코드를 바꿨으면 답하기 전에 반드시 git add + git commit 하세요(메시지는 한국어, `feat: ...`/`fix: ...`).
+  push·배포·머지는 하지 마세요.
+- 스크립트를 실제로 실행하지 마세요(운영 DB·외부 API 에 쓸 수 있습니다). 이 worktree 에는 .env 가 없습니다.
+  검증은 `python3 -m py_compile <파일>` 또는 `python3 -m compileall -q <폴더>` 로 하세요. pip install 도 하지 마세요.
+- DB 구조·데이터를 봐야 하면 `/mnt/200gb/devreq/bin/devdb.sh "SELECT ..."` (riding_db_dev, 운영의 개발용 복사본)를 쓰세요.
+- 비밀값(.env, 토큰, 비밀번호)을 코드·커밋·보고에 넣지 마세요. 다른 경로의 .env 를 읽지도 마세요.
+- 요청이 위험하거나(데이터 삭제, 보안 약화 등) 이 저장소 범위를 벗어나면 코드를 바꾸지 말고 이유를 보고하세요.
+
+마지막 답변은 한국어로, 채팅 말풍선에 마크다운으로 그대로 표시됩니다. 대화하듯 간결하게 쓰세요.
+코드를 바꿨다면: 무엇을 바꿨는지 2~5줄 → 운영 반영 후 어떻게 확인하면 되는지 → 가정·주의할 점(있으면).
+"""
+
+# 대화의 작업 대상 저장소(dev_request.repo). worktree 는 WORK/wt/<prefix><root>.
+REPOS = {
+    "lifemetrics": {"path": REPO, "base": BASE, "main": "master", "prefix": "devreq-",
+                    "prompt": SYSTEM_PROMPT, "tools": APP_TOOLS},
+    "data_pipeline": {"path": PIPELINE_REPO, "base": PIPELINE_BASE, "main": "main", "prefix": "dp-devreq-",
+                      "prompt": PIPELINE_SYSTEM_PROMPT, "tools": PIPELINE_TOOLS},
+}
+
+
+def repo_cfg(name: str | None) -> dict:
+    cfg = REPOS.get(name or "lifemetrics")
+    if cfg is None:
+        raise ValueError(f"알 수 없는 저장소: {name}")
+    return cfg
 
 
 # ── 공통 ──────────────────────────────────────────────────────────────────
@@ -241,13 +290,13 @@ def git(*args: str, cwd: Path = REPO, check: bool = True) -> str:
     return p.stdout.strip()
 
 
-def fetch_base(cwd: Path = REPO) -> None:
-    if BASE.startswith("origin/"):
-        git("fetch", "-q", "origin", BASE.split("/", 1)[1], cwd=cwd)
+def fetch_base(cfg: dict) -> None:
+    if cfg["base"].startswith("origin/"):
+        git("fetch", "-q", "origin", cfg["base"].split("/", 1)[1], cwd=cfg["path"])
 
 
-def worktree_dir(branch: str) -> Path:
-    return WORK / "wt" / branch.replace("/", "-")
+def worktree_dir(branch: str, cfg: dict) -> Path:
+    return WORK / "wt" / (cfg["prefix"] + branch.split("/", 1)[1])
 
 
 def kst_now() -> str:
@@ -259,35 +308,38 @@ def kst_now() -> str:
 GIT_LOCK = threading.RLock()  # 메인 저장소의 worktree 추가·정리·fetch 는 스레드끼리 겹치지 않게
 
 
-def prepare_worktree(job: Job, branch: str, new: bool = False) -> Path:
+def prepare_worktree(job: Job, branch: str, new: bool = False, repo: str | None = None) -> Path:
+    cfg = repo_cfg(repo)
     with GIT_LOCK:
-        wt = _prepare_worktree(job, branch, new)
-    if not (wt / "frontend/node_modules").exists():
+        wt = _prepare_worktree(job, branch, new, cfg)
+    if cfg is REPOS["lifemetrics"] and not (wt / "frontend/node_modules").exists():
         job.run(["npm", "ci", "--no-audit", "--no-fund"], wt / "frontend", "npm ci", timeout=900)
     return wt
 
 
-def _prepare_worktree(job: Job, branch: str, new: bool) -> Path:
-    wt = worktree_dir(branch)
+def _prepare_worktree(job: Job, branch: str, new: bool, cfg: dict) -> Path:
+    wt = worktree_dir(branch, cfg)
+    path, base = cfg["path"], cfg["base"]
     if new:
-        fetch_base()
+        fetch_base(cfg)
         if wt.exists():
             raise StepError(f"{wt} 가 이미 있습니다")
-        git("worktree", "add", "-q", "-b", branch, str(wt), BASE)
-        job.note(f"worktree 생성: {wt} ({branch} ← {BASE} {git('rev-parse', '--short', BASE)})")
+        git("worktree", "add", "-q", "-b", branch, str(wt), base, cwd=path)
+        job.note(f"worktree 생성: {wt} ({branch} ← {base} {git('rev-parse', '--short', base, cwd=path)})")
     elif not wt.exists():
-        git("worktree", "prune")
-        if git("rev-parse", "--verify", "-q", f"refs/heads/{branch}", check=False):
-            git("worktree", "add", "-q", str(wt), branch)
+        git("worktree", "prune", cwd=path)
+        if git("rev-parse", "--verify", "-q", f"refs/heads/{branch}", cwd=path, check=False):
+            git("worktree", "add", "-q", str(wt), branch, cwd=path)
             job.note(f"worktree 복구: {wt}")
-        else:  # 앞 요청이 브랜치를 만들기 전에 실패한 경우
-            fetch_base()
-            git("worktree", "add", "-q", "-b", branch, str(wt), BASE)
-            job.note(f"worktree 새로 생성: {wt}")
-    # 지도 토큰 등 gitignore 된 프론트 설정
-    src_env = REPO / "frontend/.env"
-    if src_env.exists() and not (wt / "frontend/.env").exists():
-        shutil.copy2(src_env, wt / "frontend/.env")
+        else:  # 새 대화이거나 앞 요청이 브랜치를 만들기 전에 실패한 경우
+            fetch_base(cfg)
+            git("worktree", "add", "-q", "-b", branch, str(wt), base, cwd=path)
+            job.note(f"worktree 새로 생성: {wt} ({branch} ← {base})")
+    if cfg is REPOS["lifemetrics"]:
+        # 지도 토큰 등 gitignore 된 프론트 설정
+        src_env = REPO / "frontend/.env"
+        if src_env.exists() and not (wt / "frontend/.env").exists():
+            shutil.copy2(src_env, wt / "frontend/.env")
     return wt
 
 
@@ -390,9 +442,10 @@ CLOSE = object()  # 대화 큐에 넣으면 프로세스를 닫는다
 class Conversation(threading.Thread):
     """대화 하나 = Claude 프로세스 하나(stdin 으로 메시지를 계속 넣는다). 메시지는 큐로 받아 하나씩 처리."""
 
-    def __init__(self, root: int, session_id: str | None):
+    def __init__(self, root: int, session_id: str | None, repo: str | None):
         super().__init__(name=f"conv-{root}", daemon=True)
         self.root = root
+        self.repo = repo or "lifemetrics"
         self.branch = f"devreq/{root}"
         self.session_id = session_id
         self.inbox: queue.Queue = queue.Queue()
@@ -454,15 +507,16 @@ class Conversation(threading.Thread):
             log(f"대화 #{self.root} 닫음: {reason or '사용자 종료'}")
 
     def start_proc(self, job: Job) -> None:
-        self.wt = prepare_worktree(job, self.branch)
+        cfg = repo_cfg(self.repo)
+        self.wt = prepare_worktree(job, self.branch, repo=self.repo)
         cmd = ["claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
                "--permission-mode", "acceptEdits",
-               "--allowedTools", *ALLOWED_TOOLS, "--disallowedTools", *DISALLOWED_TOOLS,
-               "--append-system-prompt", SYSTEM_PROMPT.format(branch=self.branch),
+               "--allowedTools", *cfg["tools"], "--disallowedTools", *DISALLOWED_TOOLS,
+               "--append-system-prompt", cfg["prompt"].format(branch=self.branch),
                "--max-budget-usd", CLAUDE_BUDGET_USD]
         if self.session_id:
             cmd += ["--resume", self.session_id]
-        job.note("▶ Claude 대화 프로세스 시작" + (f" (세션 이어서 {self.session_id[:8]})" if self.session_id else ""))
+        job.note(f"▶ Claude 대화 프로세스 시작 [{self.repo}]" + (f" (세션 이어서 {self.session_id[:8]})" if self.session_id else ""))
         self.proc = subprocess.Popen(cmd, cwd=self.wt, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, text=True, bufsize=1, env=child_env(),
                                      start_new_session=True)
@@ -527,7 +581,7 @@ class Conversation(threading.Thread):
                 job.note("💬 답변 완료")
                 job.finish(status="ANSWERED")
             else:
-                job.note(f"💾 커밋 {head[:7]} — [dev 배포]를 누르면 개발 서버에 올립니다")
+                job.note(f"💾 커밋 {head[:7]}")
                 job.finish(status="ANSWERED", commitSha=head, diffStat=diff_stat)
         except Exception as e:  # noqa: BLE001
             fail(job, e, notify=False)
@@ -582,12 +636,12 @@ def unregister(conv: Conversation) -> None:
             RECENTLY_CLOSED[conv.root] = time.time()
 
 
-def ensure_conversation(root: int, session_id: str | None) -> Conversation:
+def ensure_conversation(root: int, session_id: str | None, repo: str | None) -> Conversation:
     with CONV_LOCK:
         conv = CONVERSATIONS.get(root)
         if conv and conv.is_alive():
             return conv
-        conv = Conversation(root, session_id)
+        conv = Conversation(root, session_id, repo)
         CONVERSATIONS[root] = conv
         RECENTLY_CLOSED.pop(root, None)
     log(f"대화 #{root} 열기" + (f" (세션 {session_id[:8]})" if session_id else ""))
@@ -603,7 +657,7 @@ def reconcile(wanted: list[dict]) -> None:
         recent = {r for r, t in RECENTLY_CLOSED.items() if time.time() - t < 15}
     for root, c in want.items():
         if root not in running and root not in recent:
-            ensure_conversation(root, c.get("sessionId"))
+            ensure_conversation(root, c.get("sessionId"), c.get("repo"))
     for root, conv in running.items():
         if root not in want:
             log(f"대화 #{root} 종료 요청")
@@ -616,20 +670,31 @@ def handle_deploy(req: dict) -> None:
     job = Job(req, "RUNNING")
     root = req.get("rootId") or req["id"]
     branch = f"devreq/{root}"
+    repo = req.get("repo") or "lifemetrics"
+    base = repo_cfg(repo)["base"]
     try:
         report(job.id, status="RUNNING", branch=branch)
-        wt = prepare_worktree(job, branch)
+        wt = prepare_worktree(job, branch, repo=repo)
         with GIT_LOCK:
             if git("status", "--porcelain", cwd=wt):
                 git("add", "-A", cwd=wt)
                 git("commit", "-q", "-m", f"chore(devreq #{root}): 작업 내용 커밋(자동)", cwd=wt)
                 job.note("커밋되지 않은 변경을 자동 커밋")
-            if git("rev-list", "--count", f"{BASE}..HEAD", cwd=wt) == "0":
-                raise StepError("개발 서버에 올릴 커밋이 없습니다.")
+            if git("rev-list", "--count", f"{base}..HEAD", cwd=wt) == "0":
+                raise StepError("올릴 커밋이 없습니다.")
             sha = git("rev-parse", "HEAD", cwd=wt)
-            diff_stat = git("diff", "--stat", f"{BASE}...HEAD", cwd=wt)
-            commits = git("log", "--format=- %s (%h)", f"{BASE}..HEAD", cwd=wt)
+            diff_stat = git("diff", "--stat", f"{base}...HEAD", cwd=wt)
+            commits = git("log", "--format=- %s (%h)", f"{base}..HEAD", cwd=wt)
         report(job.id, commitSha=sha, diffStat=diff_stat)
+
+        if repo == "data_pipeline":
+            # 파이프라인은 개발 서버가 없다 — 문법 검사만
+            job.run(["python3", "-m", "compileall", "-q", "-x", r"(^|/)\.venv/", "."], wt, "파이썬 문법 검사(compileall)",
+                    timeout=300)
+            job.note("✅ 검사 통과")
+            job.finish(status="DEV_READY", summary="문법 검사를 통과했어요. data_pipeline 은 개발 서버가 없어서 실행은 해 보지 않았어요."
+                                                   f" **운영 반영**을 누르면 main 에 머지하고 서버 체크아웃을 갱신해요.\n\n이 대화의 커밋:\n\n{commits}")
+            return
 
         build(job, wt)
         apply_sql(job, wt, changed_sql(wt), "dev")
@@ -652,6 +717,9 @@ def handle_promote(req: dict) -> None:
             raise StepError("지금 워커는 개발 서버 시험 모드(DEVREQ_NO_PROMOTE=1)라 운영 반영을 하지 않습니다.")
         if not branch:
             raise StepError("브랜치 정보가 없습니다")
+        if (req.get("repo") or "lifemetrics") == "data_pipeline":
+            promote_pipeline(job, req, branch)
+            return
         wt = prepare_worktree(job, branch, new=False)
         with GIT_LOCK:
             if git("status", "--porcelain", cwd=wt):
@@ -688,6 +756,43 @@ def handle_promote(req: dict) -> None:
         fail(job, e)
 
 
+def promote_pipeline(job: Job, req: dict, branch: str) -> None:
+    """data_pipeline 운영 반영: origin/main 머지 → push main → 서버 실행용 체크아웃을 fast-forward."""
+    cfg = repo_cfg("data_pipeline")
+    live, main = cfg["path"], cfg["main"]
+    wt = prepare_worktree(job, branch, repo="data_pipeline")
+    with GIT_LOCK:
+        if git("status", "--porcelain", cwd=wt):
+            raise StepError("worktree 에 커밋되지 않은 변경이 있습니다")
+        approved_sha = req.get("commitSha")
+        if approved_sha and git("rev-parse", "HEAD", cwd=wt) != approved_sha:
+            raise StepError("승인한 커밋과 브랜치 HEAD 가 다릅니다(그 사이 변경됨). [dev 배포]부터 다시 해 주세요.")
+        git("fetch", "-q", "origin", main, cwd=wt)
+        p = subprocess.run(["git", "merge", "--no-edit", "-m", f"Merge devreq #{req['id']}: {req['title']}",
+                            f"origin/{main}"], cwd=wt, capture_output=True, text=True)
+        if p.returncode != 0:
+            subprocess.run(["git", "merge", "--abort"], cwd=wt)
+            raise StepError(f"origin/{main} 와 충돌합니다. 대화에서 충돌 해결을 지시해 주세요.\n" + p.stdout[-1500:])
+    job.run(["python3", "-m", "compileall", "-q", "-x", r"(^|/)\.venv/", "."], wt, "파이썬 문법 검사(compileall)",
+            timeout=300)
+    with GIT_LOCK:
+        git("push", "-q", "origin", f"HEAD:{main}", cwd=wt)
+        job.note(f"origin/{main} push 완료")
+        # 서버 실행용 체크아웃 갱신(fast-forward 만 — 서버에서 직접 고친 게 있으면 건드리지 않고 알린다)
+        cur = git("rev-parse", "--abbrev-ref", "HEAD", cwd=live)
+        if cur != main:
+            raise StepError(f"push 는 됐지만 {live} 가 {main} 이 아닌 {cur} 브랜치라 갱신하지 않았습니다. 직접 확인해 주세요.")
+        git("fetch", "-q", "origin", main, cwd=live)
+        p = subprocess.run(["git", "merge", "--ff-only", f"origin/{main}"], cwd=live, capture_output=True, text=True)
+        if p.returncode != 0:
+            raise StepError(f"push 는 됐지만 {live} 를 fast-forward 하지 못했습니다(서버에서 직접 고친 내용이 있을 수 있음). "
+                            f"직접 확인해 주세요.\n{(p.stdout + p.stderr)[-800:]}")
+        sha = git("rev-parse", "HEAD", cwd=live)
+    job.note(f"✅ 서버 체크아웃 갱신: {live} → {sha[:7]}")
+    job.finish(status="DONE", commitSha=sha)
+    slack(f"🎉 개발 요청 #{req['id']} data_pipeline 운영 반영 완료: {req['title']}")
+
+
 def fail(job: Job, e: Exception, notify: bool = True) -> None:
     msg = str(e) if isinstance(e, StepError) else f"{type(e).__name__}: {e}\n{traceback.format_exc()[-1500:]}"
     job.note(f"❌ {msg.splitlines()[0] if msg else '실패'}")
@@ -716,10 +821,11 @@ def cleanup() -> None:
     if not root_dir.exists() or pipeline_busy():
         return
     for wt in root_dir.iterdir():
-        m = re.fullmatch(r"devreq-(\d+)", wt.name)
+        m = re.fullmatch(r"(dp-)?devreq-(\d+)", wt.name)
         if not m:
             continue
-        root = int(m.group(1))
+        repo_path = PIPELINE_REPO if m.group(1) else REPO
+        root = int(m.group(2))
         with CONV_LOCK:
             if root in CONVERSATIONS:
                 continue
@@ -734,9 +840,9 @@ def cleanup() -> None:
         status = st.get("status", "")
         if status in ("DONE", "REJECTED", "CANCELLED"):
             with GIT_LOCK:
-                subprocess.run(["git", "worktree", "remove", "--force", str(wt)], cwd=REPO, capture_output=True)
+                subprocess.run(["git", "worktree", "remove", "--force", str(wt)], cwd=repo_path, capture_output=True)
                 if status == "DONE":
-                    subprocess.run(["git", "branch", "-D", branch], cwd=REPO, capture_output=True)
+                    subprocess.run(["git", "branch", "-D", branch], cwd=repo_path, capture_output=True)
             log(f"worktree 정리: {wt.name} ({status})")
 
 
@@ -777,7 +883,7 @@ def dispatch(req: dict) -> None:
         start_pipeline(req)
     else:
         root = req.get("rootId") or req["id"]
-        ensure_conversation(root, req.get("sessionId")).submit(req)
+        ensure_conversation(root, req.get("sessionId"), req.get("repo")).submit(req)
 
 
 def shutdown(*_args) -> None:

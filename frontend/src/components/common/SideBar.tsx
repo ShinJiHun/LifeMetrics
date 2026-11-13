@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { PERSONA_META, resolvePersonaFromPath } from "@/lib/persona";
 import PersonaContentMenu from "@/components/common/PersonaContentMenu";
 import { useAdmin } from "@/lib/admin";
+import { useDevRequestsEnabled } from "@/api/devRequests";
 
 const subLinkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "8px 14px 8px 28px",
@@ -17,6 +18,7 @@ export default function SideBar({ open = false }: { open?: boolean }) {
     const persona = resolvePersonaFromPath(pathname);
     const meta = PERSONA_META[persona];
     const { isAdmin } = useAdmin();
+    const devRequestsEnabled = useDevRequestsEnabled(isAdmin);
 
     return (
         <aside
@@ -69,7 +71,7 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                 {persona === "human" && isAdmin && <HumanHandlerMenu accent={meta.accent} />}
                 {persona === "human" && isAdmin && <HumanLottoMenu accent={meta.accent} />}
 
-                {isAdmin && (
+                {isAdmin && devRequestsEnabled && (
                     <div style={{ marginTop: 24, borderTop: "1px solid #f0f1f4", paddingTop: 12 }}>
                         <NavLink to="/dev-requests" style={subLinkStyle(meta.accent)}>
                             🛠 개발 요청
