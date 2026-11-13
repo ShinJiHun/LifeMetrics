@@ -65,21 +65,40 @@ public class AthleteContextService {
     private final BikeFitRepository fitRepo;
     private final RiderZoneSettingRepository zoneRepo;
 
+    /**
+     * 본인용 전체 기록. today 이후의 기록은 넣지 않는다(학습 데이터를 과거 날짜 기준으로 만들 때도 그 시점의 기록만 보이게).
+     * 단, 자전거·파워존·체성분 목표처럼 날짜 이력이 없는 현재 설정값은 그대로 쓴다.
+     */
     public String build(long userId, LocalDate today) {
         StringBuilder sb = new StringBuilder();
         sb.append("오늘: ").append(today).append(" (한국 시각)\n\n");
-        section(sb, "체성분 (최근 " + BODY_RECORDS + "회 측정)", () -> body(userId));
-        section(sb, "진행 중인 체성분 목표", () -> goal(userId));
+        section(sb, "체성분 (최근 " + BODY_RECORDS + "회 측정)", () -> body(userId, today));
+        section(sb, "진행 중인 체성분 목표", () -> goal(userId, today));
         section(sb, "파워·심박 기준", () -> zones(userId));
-        section(sb, "신체 치수 (피팅용, 최근 " + MEASUREMENTS + "회 측정, 최신순, 길이 mm)", () -> measurements(userId));
-        section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", this::bikes);
+        section(sb, "신체 치수 (피팅용, 최근 " + MEASUREMENTS + "회 측정, 최신순, 길이 mm)", () -> measurements(userId, today));
+        section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", () -> bikes(true, today));
         section(sb, "최근 " + SUMMARY_DAYS + "일 일별 요약 (섭취·소모·에너지 수지)", () -> dailySummaries(userId, today));
         section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
-        section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId));
+        section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId, today));
         section(sb, "최근 " + FITNESS_DAYS + "일 웨이트 트레이닝", () -> fitness(userId, today));
         section(sb, "치료·부상 (본인 입력, 진행 중 먼저)", () -> treatments(userId, today));
         section(sb, "진료·처방 내역 (처방전·영수증·세부내역서에서 읽음, 최근 " + CARE_DAYS + "일, 최신순)",
                 () -> careVisits(userId, today));
+        return sb.toString();
+    }
+
+    /**
+     * 방문자에게 소개할 때 쓰는 공개용 기록(대회·완주 기록, 운동 스타일, 장비). 진료·처방·치료, 체중·체지방 등 체성분,
+     * 식단·에너지 수지, 신체 치수·피팅은 아예 넣지 않는다 — 모델에게 "말하지 마"라고 가르치는 대신 모르게 한다.
+     */
+    public String buildPublic(long userId, LocalDate today) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("오늘: ").append(today).append(" (한국 시각)\n\n");
+        section(sb, "파워·심박 기준", () -> zones(userId));
+        section(sb, "타는 자전거", () -> bikes(false, today));
+        section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId, today));
+        section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
+        section(sb, "최근 " + FITNESS_DAYS + "일 웨이트 트레이닝 (운동 종류·세트)", () -> fitness(userId, today));
         return sb.toString();
     }
 
@@ -101,8 +120,9 @@ public class AthleteContextService {
 
     // ── 체성분 ───────────────────────────────────────
 
-    private List<String> body(long userId) {
-        List<UserBodyRecord> all = bodyRepo.findByUserIdOrderByRecordDate(userId);
+    private List<String> body(long userId, LocalDate today) {
+        List<UserBodyRecord> all = bodyRepo.findByUserIdOrderByRecordDate(userId).stream()
+                .filter(r -> r.getRecordDate() == null || !r.getRecordDate().isAfter(today)).toList();
         List<String> lines = new ArrayList<>();
         for (UserBodyRecord r : all.subList(Math.max(0, all.size() - BODY_RECORDS), all.size())) {
             lines.add(r.getRecordDate() + " " + r.getMeasurementType()
@@ -114,8 +134,9 @@ public class AthleteContextService {
         return lines;
     }
 
-    private List<String> goal(long userId) {
+    private List<String> goal(long userId, LocalDate today) {
         return goalRepo.findTopByUserIdAndStatusOrderByIdDesc(userId, BodyGoal.ACTIVE)
+                .filter(g -> g.getStartDate() == null || !g.getStartDate().isAfter(today))
                 .map(g -> List.of(
                         "시작 " + g.getStartDate() + ": 체중 " + num(g.getStartWeight(), "kg")
                                 + ", 체지방량 " + num(g.getStartFatMass(), "kg")
@@ -138,8 +159,9 @@ public class AthleteContextService {
         }).orElse(List.of());
     }
 
-    private List<String> measurements(long userId) {
+    private List<String> measurements(long userId, LocalDate today) {
         return measurementRepo.findByUserIdOrderByMeasureDateDescIdDesc(userId).stream()
+                .filter(m -> m.getMeasureDate() == null || !m.getMeasureDate().isAfter(today))
                 .limit(MEASUREMENTS).map(AthleteContextService::measurementLine).toList();
     }
 
@@ -178,11 +200,15 @@ public class AthleteContextService {
         return l.toString();
     }
 
-    private List<String> bikes() {
+    /** withFit=false(공개용)면 피팅 수치는 뺀다. 피팅은 today 이전 것 중 최신. */
+    private List<String> bikes(boolean withFit, LocalDate today) {
         List<String> lines = new ArrayList<>();
         for (Bike b : bikeRepo.findByIsRetiredFalseOrderByIsDefaultDescIdDesc()) {
             lines.add(bikeLine(b));
-            fitRepo.findByBikeIdOrderByFitDateDescIdDesc(b.getId()).stream().findFirst()
+            if (!withFit) continue;
+            fitRepo.findByBikeIdOrderByFitDateDescIdDesc(b.getId()).stream()
+                    .filter(f -> f.getFitDate() == null || !f.getFitDate().isAfter(today))
+                    .findFirst()
                     .ifPresent(f -> lines.add("  └ " + fitLine(f)));
         }
         return lines;
@@ -299,8 +325,10 @@ public class AthleteContextService {
                 .stream().map(AthleteContextService::rideLine).toList();
     }
 
-    private List<String> randonneuring(long userId) {
+    private List<String> randonneuring(long userId, LocalDate today) {
+        LocalDateTime until = today.plusDays(1).atStartOfDay();
         return activityRepo.findByUserIdOrderByStartTimeDesc(userId).stream()
+                .filter(a -> a.getStartTime() == null || a.getStartTime().isBefore(until))
                 .filter(a -> a.getRideType() != null && RANDO_TYPES.contains(a.getRideType().toUpperCase(Locale.ROOT)))
                 .limit(RANDO_MAX)
                 .map(AthleteContextService::rideLine)
@@ -346,7 +374,9 @@ public class AthleteContextService {
     // ── 치료·진료 ─────────────────────────────────────
 
     private List<String> treatments(long userId, LocalDate today) {
-        return treatmentRepo.findAllForList(userId).stream().map(t -> treatmentLine(t, today)).toList();
+        return treatmentRepo.findAllForList(userId).stream()
+                .filter(t -> t.getStartDate() == null || !t.getStartDate().isAfter(today))
+                .map(t -> treatmentLine(t, today)).toList();
     }
 
     static String treatmentLine(HealthTreatment t, LocalDate today) {
@@ -354,7 +384,8 @@ public class AthleteContextService {
         if (t.getDiagnosisCode() != null) l.append(" [").append(t.getDiagnosisCode()).append(']');
         if (t.getBodyPart() != null) l.append(" (").append(t.getBodyPart()).append(')');
         l.append(": ").append(t.getStartDate()).append(" 시작");
-        if (t.getEndDate() == null) {
+        // 기준일에 아직 안 끝났으면(나중에 끝났더라도) 그 날 기준으로는 치료 중
+        if (t.getEndDate() == null || t.getEndDate().isAfter(today)) {
             l.append(", 치료 중 ").append(today.toEpochDay() - t.getStartDate().toEpochDay()).append("일째");
         } else {
             l.append(" ~ ").append(t.getEndDate()).append(" 종료");

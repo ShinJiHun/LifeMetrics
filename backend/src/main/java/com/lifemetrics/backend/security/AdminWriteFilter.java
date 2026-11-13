@@ -52,7 +52,9 @@ public class AdminWriteFilter extends OncePerRequestFilter {
             // 폰 앱(Health Connect) 동기화: 관리자 쿠키 대신 HealthSyncController 가 Bearer 토큰을 검사한다
             "/api/health-sync",
             // 개발 요청함 서버 워커: DevRequestController 가 Bearer DEV_WORKER_TOKEN 을 검사한다
-            "/api/dev-requests/worker/**"
+            "/api/dev-requests/worker/**",
+            // 애슐리트 파인튜닝 데이터셋 생성(data_pipeline 스크립트): AthleteDatasetController 가 Bearer ATHLETE_DATASET_TOKEN 을 검사한다
+            "/api/athlete/dataset/sample"
     );
 
     private final AdminAuthService adminAuthService;

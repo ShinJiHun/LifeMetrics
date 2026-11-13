@@ -45,6 +45,11 @@ public class ClaudeChatClient {
         return apiKey != null && !apiKey.isBlank();
     }
 
+    /** 호출에 쓰는 모델 이름(학습 데이터에 출처로 남긴다). */
+    public String model() {
+        return model;
+    }
+
     /** 답변 텍스트. 키가 없거나 호출이 실패하면 empty. */
     public Optional<String> chat(String system, List<Message> messages, int maxTokens) {
         if (!isConfigured()) return Optional.empty();
