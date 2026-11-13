@@ -1,9 +1,9 @@
 -- 2026-11-13: 개발 요청함 (DevRequestController / deploy/dev-request-worker.py)
 -- 앱에서 요청 → 서버 워커가 Claude Code 로 작업 → dev 배포 → 관리자가 승인하면 master 머지·운영 배포.
--- 상태: QUEUED → RUNNING → DEV_READY | FAILED
+-- 상태: QUEUED → RUNNING → DEV_READY | ANSWERED(코드 변경 없이 답만) | FAILED
 --       DEV_READY → APPROVED → PROMOTING → DONE | FAILED
---       DEV_READY → REJECTED,  QUEUED → CANCELLED,  추가 요청이 들어오면 원 요청은 SUPERSEDED
--- 추가 요청(parent_id)은 원 요청과 같은 브랜치·Claude 세션을 이어서 쓴다.
+--       DEV_READY|ANSWERED|FAILED → REJECTED,  QUEUED → CANCELLED,  이어서 보내면 앞 메시지(DEV_READY|ANSWERED|FAILED)는 SUPERSEDED
+-- 화면은 채팅: parent_id 로 이어진 행들이 한 대화. 같은 브랜치·Claude 세션(--resume)을 이어서 쓴다.
 CREATE TABLE IF NOT EXISTS `riding_db`.`dev_request` (
     `id`           BIGINT AUTO_INCREMENT PRIMARY KEY,
     `parent_id`    BIGINT        NULL COMMENT '추가 요청이면 직전 요청',

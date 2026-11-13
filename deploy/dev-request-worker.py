@@ -3,6 +3,7 @@
 
 앱(/dev-requests)에 쌓인 요청을 운영 API 에서 하나 가져와 처리한다.
   RUN     (QUEUED→RUNNING)   : worktree(devreq/<id>) 에서 Claude Code 실행 → 커밋 → 빌드 → dev SQL 적용 → dev 배포
+                               (새 커밋이 없으면 = 질문에 답만 한 경우 → ANSWERED, 빌드·배포 생략)
   PROMOTE (APPROVED→PROMOTING): origin/master 머지 → 빌드 → 운영 SQL 적용 → push master → 운영 배포
 끝난(DONE/REJECTED) 브랜치의 worktree 는 정리한다.
 
@@ -61,8 +62,11 @@ DISALLOWED_TOOLS = ["Bash(git push:*)", "Bash(git checkout:*)", "Bash(git switch
                     "Bash(git rebase:*)", "Bash(git merge:*)", "Bash(git worktree:*)", "WebFetch", "WebSearch"]
 
 SYSTEM_PROMPT = """\
-당신은 LifeMetrics(Spring Boot backend/ + React/Vite frontend/) 저장소에서 앱 관리자(저장소 주인)의 개발 요청을
-처리하는 헤드리스 작업자입니다. 사람에게 되물을 수 없으니, 애매하면 가장 합리적인 해석으로 진행하고 보고에 가정을 적으세요.
+당신은 LifeMetrics(Spring Boot backend/ + React/Vite frontend/) 저장소에서 앱 관리자(저장소 주인)와 앱 안의
+채팅 화면으로 대화하며 개발 요청을 처리하는 작업자입니다. 같은 대화의 다음 메시지는 이 세션을 이어서 받습니다.
+- 메시지가 질문·상의·설명 요청이면 코드를 바꾸지 말고 답만 하세요(커밋이 없으면 빌드·배포 없이 답이 바로 표시됩니다).
+- 바꿔 달라는 요청이면 작업하세요. 작업 중 되물을 수는 없으니, 크게 애매하면 코드를 바꾸기 전에
+  선택지를 짧게 제시하고 답을 기다리세요(다음 메시지로 옵니다). 사소한 애매함은 합리적으로 정하고 답변에 적으세요.
 
 규칙:
 - 지금 디렉터리(전용 git worktree, 브랜치 {branch})에서만 작업합니다. 다른 경로의 파일을 고치지 마세요.
@@ -78,8 +82,8 @@ SYSTEM_PROMPT = """\
 - 비밀값(.env, 토큰, 비밀번호)을 코드·커밋·보고에 넣지 마세요.
 - 요청이 위험하거나(데이터 삭제, 보안 약화 등) 이 저장소 범위를 벗어나면 코드를 바꾸지 말고 이유를 보고하세요.
 
-마지막 답변(작업 보고)은 한국어로, 앱 화면에 그대로 표시됩니다. 형식:
-무엇을 바꿨는지 2~5줄 → 개발 서버에서 확인할 방법(메뉴/화면 경로) → 가정·주의할 점(있으면).
+마지막 답변은 한국어로, 채팅 말풍선에 마크다운으로 그대로 표시됩니다. 대화하듯 간결하게 쓰세요.
+코드를 바꿨다면: 무엇을 바꿨는지 2~5줄 → 개발 서버에서 확인할 방법(메뉴/화면 경로) → 가정·주의할 점(있으면).
 """
 
 
@@ -361,8 +365,9 @@ def handle_run(req: dict) -> None:
         report(job.id, status="RUNNING", branch=branch)
         wt = prepare_worktree(job, branch, new)
 
-        prompt = (f"[개발 요청 #{req['id']}]\n{req['body']}" if new else
-                  f"[추가 요청 #{req['id']} — 앞 작업 이어서]\n{req['body']}")
+        prompt = (f"[메시지 #{req['id']}]\n{req['body']}" if new else
+                  f"[메시지 #{req['id']} — 앞 대화 이어서]\n{req['body']}")
+        head_before = git("rev-parse", "HEAD", cwd=wt)
         res = run_claude(job, wt, prompt, branch, req.get("sessionId"))
         summary = (res.get("result") or "").strip()
         cost = res.get("total_cost_usd")
@@ -377,8 +382,14 @@ def handle_run(req: dict) -> None:
             job.note("커밋되지 않은 변경을 자동 커밋")
 
         ahead = git("rev-list", "--count", "origin/master..HEAD", cwd=wt)
-        if ahead == "0":
-            raise StepError("코드 변경이 없습니다. 작업 보고를 확인하고, 필요하면 추가 요청으로 다시 지시해 주세요.")
+        if git("rev-parse", "HEAD", cwd=wt) == head_before:
+            # 이번 메시지에서 코드가 안 바뀜 = 답만 함. 대화 브랜치에 앞서 만든 커밋이 있으면 그걸로 운영 반영 가능.
+            if not summary:
+                raise StepError("Claude 가 답 없이 끝났습니다.")
+            sha = git("rev-parse", "HEAD", cwd=wt) if ahead != "0" else None
+            job.note("💬 코드 변경 없음 — 답변만")
+            report(job.id, status="ANSWERED", commitSha=sha, logTail="\n".join(job.lines[-400:]))
+            return
 
         diff_stat = git("diff", "--stat", "origin/master...HEAD", cwd=wt)
         sha = git("rev-parse", "HEAD", cwd=wt)

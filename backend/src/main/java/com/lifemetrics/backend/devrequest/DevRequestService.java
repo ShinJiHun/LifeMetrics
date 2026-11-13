@@ -34,10 +34,16 @@ public class DevRequestService {
     public static final String REJECTED = "REJECTED";
     public static final String CANCELLED = "CANCELLED";
     public static final String SUPERSEDED = "SUPERSEDED";
+    /** 코드 변경 없이 답만 한 경우(질문·상의). 빌드·배포 없음. */
+    public static final String ANSWERED = "ANSWERED";
 
     /** 워커가 보고할 수 있는 상태. RUNNING/PROMOTING 은 진행 로그만 갱신(heartbeat). */
-    static final Set<String> WORKER_STATUSES = Set.of(RUNNING, PROMOTING, DEV_READY, FAILED, DONE);
-    private static final Set<String> TERMINAL = Set.of(DEV_READY, FAILED, DONE);
+    static final Set<String> WORKER_STATUSES = Set.of(RUNNING, PROMOTING, DEV_READY, ANSWERED, FAILED, DONE);
+    private static final Set<String> TERMINAL = Set.of(DEV_READY, ANSWERED, FAILED, DONE);
+    /** 이 상태인 대화의 마지막 메시지에 이어서 말할 수 있다. */
+    static final Set<String> FOLLOWABLE = Set.of(DEV_READY, ANSWERED, FAILED, DONE, REJECTED, CANCELLED);
+    /** 이어 말하면 앞 메시지의 승인/반려 버튼이 의미 없어지므로 SUPERSEDED 로 바꾼다. 나머지는 상태를 그대로 둔다. */
+    private static final Set<String> SUPERSEDE_ON_FOLLOW = Set.of(DEV_READY, ANSWERED, FAILED);
 
     /** 이 시간 동안 워커 소식이 없으면 멈춘 것으로 보고 FAILED 처리한다. */
     static final int STALE_MINUTES = 30;
@@ -94,8 +100,8 @@ public class DevRequestService {
     }
 
     /**
-     * 새 요청. parentId 가 있으면 추가 요청: 직전 요청의 브랜치·Claude 세션을 이어받고 직전 요청은 SUPERSEDED.
-     * 직전 요청은 dev 반영 완료(DEV_READY) 또는 실패(FAILED) 상태여야 한다.
+     * 새 메시지. parentId 가 있으면 같은 대화에 이어서: 직전 메시지의 브랜치·Claude 세션을 이어받는다.
+     * 직전 메시지는 대화의 마지막이어야 하고 끝난 상태({@link #FOLLOWABLE})여야 한다.
      */
     public synchronized DevRequest create(String title, String body, Long parentId) {
         String b = body == null ? "" : body.strip();
@@ -108,13 +114,20 @@ public class DevRequestService {
         String sessionId = null;
         if (parentId != null) {
             DevRequest parent = get(parentId).orElseThrow(() -> new IllegalArgumentException("원 요청이 없습니다."));
-            if (!DEV_READY.equals(parent.status()) && !FAILED.equals(parent.status())) {
-                throw new IllegalStateException("dev 반영이 끝났거나 실패한 요청에만 추가 요청을 할 수 있습니다.");
+            if (!FOLLOWABLE.contains(parent.status())) {
+                throw new IllegalStateException("앞 메시지 작업이 끝난 뒤에 이어서 보낼 수 있습니다.");
+            }
+            Integer children = jdbc.queryForObject("SELECT COUNT(*) FROM dev_request WHERE parent_id = :p",
+                    new MapSqlParameterSource("p", parentId), Integer.class);
+            if (children != null && children > 0) {
+                throw new IllegalStateException("이미 이어진 메시지가 있습니다. 대화의 마지막 메시지에 이어서 보내 주세요.");
             }
             branch = parent.branch();
             sessionId = parent.sessionId();
-            jdbc.update("UPDATE dev_request SET status = :s WHERE id = :id",
-                    new MapSqlParameterSource("s", SUPERSEDED).addValue("id", parentId));
+            if (SUPERSEDE_ON_FOLLOW.contains(parent.status())) {
+                jdbc.update("UPDATE dev_request SET status = :s WHERE id = :id",
+                        new MapSqlParameterSource("s", SUPERSEDED).addValue("id", parentId));
+            }
         }
 
         var params = new MapSqlParameterSource()
@@ -139,12 +152,21 @@ public class DevRequestService {
 
     /** dev 에서 확인 끝 → 운영 반영 승인. 워커가 다음 차례에 master 머지·운영 배포. */
     public DevRequest approve(long id) {
-        return transition(id, Set.of(DEV_READY), APPROVED, "approved_at");
+        DevRequest cur = get(id).orElseThrow(() -> new IllegalArgumentException("요청이 없습니다."));
+        if (!canApprove(cur.status(), cur.commitSha())) {
+            throw new IllegalStateException("운영에 반영할 코드 변경이 없습니다.");
+        }
+        return transition(id, Set.of(DEV_READY, ANSWERED), APPROVED, "approved_at");
+    }
+
+    /** dev 반영됨, 또는 답만 했지만 대화 브랜치에 앞서 만든 커밋이 있는 경우. */
+    static boolean canApprove(String status, String commitSha) {
+        return DEV_READY.equals(status) || (ANSWERED.equals(status) && commitSha != null && !commitSha.isBlank());
     }
 
     /** 반려. 브랜치는 남겨 둔다(워커가 정리). */
     public DevRequest reject(long id) {
-        return transition(id, Set.of(DEV_READY, FAILED), REJECTED, "finished_at");
+        return transition(id, Set.of(DEV_READY, ANSWERED, FAILED), REJECTED, "finished_at");
     }
 
     private synchronized DevRequest transition(long id, Set<String> from, String to, String stampCol) {
@@ -199,7 +221,7 @@ public class DevRequestService {
         String status = r.status() == null ? cur.status() : r.status();
         if (!WORKER_STATUSES.contains(status)) throw new IllegalArgumentException("허용되지 않는 상태: " + status);
         boolean ok = status.equals(cur.status()) || FAILED.equals(status)
-                     || (RUNNING.equals(cur.status()) && DEV_READY.equals(status))
+                     || (RUNNING.equals(cur.status()) && (DEV_READY.equals(status) || ANSWERED.equals(status)))
                      || (PROMOTING.equals(cur.status()) && DONE.equals(status));
         if (!ok) throw new IllegalStateException(cur.status() + " → " + status + " 로 바꿀 수 없습니다.");
 

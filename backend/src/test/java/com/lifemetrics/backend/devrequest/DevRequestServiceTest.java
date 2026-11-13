@@ -26,4 +26,18 @@ class DevRequestServiceTest {
         assertThat(DevRequestService.tail("짧음")).isEqualTo("짧음");
         assertThat(DevRequestService.tail(null)).isNull();
     }
+
+    @Test
+    void 답만_한_메시지는_대화에_커밋이_있을_때만_운영_반영할_수_있다() {
+        assertThat(DevRequestService.canApprove("DEV_READY", null)).isTrue();
+        assertThat(DevRequestService.canApprove("ANSWERED", "abc123")).isTrue();
+        assertThat(DevRequestService.canApprove("ANSWERED", null)).isFalse();
+        assertThat(DevRequestService.canApprove("FAILED", "abc123")).isFalse();
+    }
+
+    @Test
+    void 끝난_메시지에만_이어서_보낼_수_있다() {
+        assertThat(DevRequestService.FOLLOWABLE).contains("DEV_READY", "ANSWERED", "FAILED", "DONE");
+        assertThat(DevRequestService.FOLLOWABLE).doesNotContain("QUEUED", "RUNNING", "APPROVED", "PROMOTING", "SUPERSEDED");
+    }
 }

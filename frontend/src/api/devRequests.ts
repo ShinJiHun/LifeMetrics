@@ -33,7 +33,8 @@ export type DevRequestStatus =
     | "DONE"
     | "REJECTED"
     | "CANCELLED"
-    | "SUPERSEDED";
+    | "SUPERSEDED"
+    | "ANSWERED";
 
 export const fetchDevRequests = () => api.get<DevRequest[]>("/dev-requests").then((r) => r.data);
 
