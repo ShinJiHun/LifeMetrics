@@ -1,6 +1,6 @@
 // src/pages/ExerciseHistoryPage.tsx
 import { useState, useEffect, useMemo } from "react";
-import MuscleImageMap from "@/components/human/MuscleImageMap.tsx";
+import MuscleImageMap, { preloadMuscleImages } from "@/components/human/MuscleImageMap.tsx";
 import "@/styles/global.css";
 import "@/styles/exercise-history.css";
 import "@/styles/muscle-image-map.css";
@@ -165,6 +165,9 @@ export default function ExerciseHistoryPage() {
     const [analysisMap, setAnalysisMap] = useState<Record<number, ExerciseAnalysis>>({});
 
     useEffect(() => { setSelectedLog(null); }, [expandedSession]);
+
+    // 부위 이미지(15장, 합쳐 200KB 남짓)를 미리 받아 둬서 운동을 클릭하면 바로 뜨게
+    useEffect(() => { preloadMuscleImages(); }, []);
 
     useEffect(() => {
         setLoading(true);
