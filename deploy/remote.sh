@@ -3,13 +3,16 @@
 # 인자: $1 = dev | prod,  $2 = 서버 IP
 #
 # 하는 일: 해당 환경 디렉터리의 Dockerfile/JAR/static 으로 이미지를 빌드하고 컨테이너를 교체한다.
-# dev 와 prod 는 DB/NAS 를 공유한다(차이: 포트, 스케줄러/슬랙 off, 메모리 제한).
+# dev 는 별도 DB(*_dev 스키마, 계정 lm_dev — prod 스키마 권한 없음)를 쓴다. NAS 는 공유.
+#   dev DB 를 prod 최신 데이터로 다시 채우려면: bash deploy/refresh-dev-db.sh
+# 그 외 차이: 포트, 스케줄러/슬랙 off, 메모리 제한.
 # 헬스체크에 실패하면 직전 이미지(:prev)로 자동 롤백한다.
 set -euo pipefail
 
 TARGET="${1:?usage: dev|prod}"
 SERVER_IP="${2:?server ip}"
 ENV_FILE=/mnt/200gb/project/data_pipeline/.env
+DEV_DB_ENV=/mnt/200gb/apps-dev/.env.db   # dev 전용 DB_USER/DB_PASSWORD/SPRING_DATASOURCE_*_URL (600)
 
 case "$TARGET" in
     dev)  DIR=/mnt/200gb/apps-dev; NAME=lifemetrics-dev; IMAGE=lifemetrics-dev; PORT=8081 ;;
@@ -23,9 +26,15 @@ run_container() {   # $1 = 이미지 태그
     local env_tmp
     env_tmp=$(mktemp)
     chmod 600 "$env_tmp"
-    grep -v '^DB_URL=' "$ENV_FILE" > "$env_tmp"
-    # dev 와 prod 는 같은 DB·NAS 를 쓴다(개발 서버에서 만든 데이터/파일이 운영에도 그대로 보임).
-    # dev 는 "중복 실행되면 안 되는 부수효과"만 끈다: 자동 동기화 스케줄러, 슬랙 알림.
+    if [ "$TARGET" = dev ]; then
+        # dev 에는 prod DB 계정을 아예 넣지 않고 dev 전용 계정·URL 로 바꿔 넣는다.
+        [ -f "$DEV_DB_ENV" ] || { echo "❌ $DEV_DB_ENV 없음 (dev DB 접속 정보)"; rm -f "$env_tmp"; return 1; }
+        { grep -v '^DB_' "$ENV_FILE"; grep -v '^#' "$DEV_DB_ENV"; } > "$env_tmp"
+    else
+        grep -v '^DB_URL=' "$ENV_FILE" > "$env_tmp"
+    fi
+    # dev 는 DB 가 분리돼 있지만 NAS 는 공유한다(dev 에서 올린 파일이 prod 폴더에도 생김).
+    # dev 는 "중복 실행되면 안 되는 부수효과"도 끈다: 자동 동기화 스케줄러, 슬랙 알림.
     local args=(
         -d --name "$NAME" -p "$PORT:8080"
         --add-host=host.docker.internal:host-gateway
