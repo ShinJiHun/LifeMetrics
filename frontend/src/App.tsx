@@ -10,6 +10,7 @@ import PowerProfilePage from "@/pages/ride/analysis/PowerProfilePage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import HealthTreatmentPage from "@/pages/ride/body/HealthTreatmentPage";
 import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
+import HandlerTripsPage from "@/pages/human/HandlerTripsPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
 import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
@@ -105,6 +106,7 @@ export default function App() {
 
                 {/* 인간 페르소나 - 핸들러 월별 정산 PDF (관리자 전용) */}
                 <Route path="/human/handler-settlement" element={<RequireAdmin><HandlerSettlementPage /></RequireAdmin>} />
+                <Route path="/human/handler-trips" element={<RequireAdmin><HandlerTripsPage /></RequireAdmin>} />
 
                 {/* 인간 페르소나 - 로또 (관리자 전용) */}
                 {/* 인간 페르소나 - 연금복권 (관리자 전용) */}
