@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""개발 요청함 서버 워커 — cron 으로 1분마다 실행(flock 으로 한 번에 하나).
+"""개발 요청함 서버 워커 — systemd 상시 서비스(--loop, 5초마다 확인). 잠금 파일로 한 번에 하나만 돈다.
 
 앱(/dev-requests)에 쌓인 요청을 운영 API 에서 하나 가져와 처리한다.
   RUN     (QUEUED→RUNNING)   : worktree(devreq/<id>) 에서 Claude Code 실행 → 커밋 → 빌드 → dev SQL 적용 → dev 배포
@@ -11,10 +11,18 @@
   /mnt/200gb/project/data_pipeline/.env : DEV_WORKER_TOKEN, SLACK_WEBHOOK_URL, DB_USER/DB_PASSWORD(운영 SQL)
   /mnt/200gb/apps-dev/.env.db           : dev DB 계정(dev SQL)
 
-수동 실행: python3 deploy/dev-request-worker.py [--once]
+설정(환경변수, systemd 는 /mnt/200gb/devreq/worker.env 에서 읽음):
+  DEVREQ_API         요청함 API (기본 운영 http://localhost:8080/api/dev-requests)
+  DEVREQ_BASE        작업 브랜치를 딸 기준 ref (기본 origin/master). origin/ 이 아니면 fetch 하지 않는다.
+  DEVREQ_NO_PROMOTE  1 이면 운영 반영 요청을 실패 처리(개발 서버만 쓰는 시험 운영용)
+  DEVREQ_POLL_S      --loop 확인 간격(초, 기본 5)
+
+실행: python3 deploy/dev-request-worker.py          # 한 건 처리하고 끝
+      python3 deploy/dev-request-worker.py --loop   # 상시(systemd: deploy/lifemetrics-devreq.service)
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
@@ -31,6 +39,9 @@ from pathlib import Path
 REPO = Path(os.environ.get("DEVREQ_REPO", "/mnt/200gb/project/lifemetrics"))   # 메인 체크아웃(브랜치·ref 공유)
 WORK = Path(os.environ.get("DEVREQ_WORK", "/mnt/200gb/devreq"))                # worktree·로그
 API = os.environ.get("DEVREQ_API", "http://localhost:8080/api/dev-requests")    # 운영 백엔드
+BASE = os.environ.get("DEVREQ_BASE", "origin/master")                          # 작업 브랜치의 기준
+NO_PROMOTE = os.environ.get("DEVREQ_NO_PROMOTE", "") == "1"
+POLL_S = int(os.environ.get("DEVREQ_POLL_S", "5"))
 PROD_ENV = Path("/mnt/200gb/project/data_pipeline/.env")
 DEV_DB_ENV = Path("/mnt/200gb/apps-dev/.env.db")
 DEV_DIR = Path("/mnt/200gb/apps-dev")
@@ -200,6 +211,11 @@ def git(*args: str, cwd: Path = REPO, check: bool = True) -> str:
     return p.stdout.strip()
 
 
+def fetch_base(cwd: Path = REPO) -> None:
+    if BASE.startswith("origin/"):
+        git("fetch", "-q", "origin", BASE.split("/", 1)[1], cwd=cwd)
+
+
 def worktree_dir(branch: str) -> Path:
     return WORK / "wt" / branch.replace("/", "-")
 
@@ -213,19 +229,19 @@ def kst_now() -> str:
 def prepare_worktree(job: Job, branch: str, new: bool) -> Path:
     wt = worktree_dir(branch)
     if new:
-        git("fetch", "-q", "origin", "master")
+        fetch_base()
         if wt.exists():
             raise StepError(f"{wt} 가 이미 있습니다")
-        git("worktree", "add", "-q", "-b", branch, str(wt), "origin/master")
-        job.note(f"worktree 생성: {wt} ({branch} ← origin/master {git('rev-parse', '--short', 'origin/master')})")
+        git("worktree", "add", "-q", "-b", branch, str(wt), BASE)
+        job.note(f"worktree 생성: {wt} ({branch} ← {BASE} {git('rev-parse', '--short', BASE)})")
     elif not wt.exists():
         git("worktree", "prune")
         if git("rev-parse", "--verify", "-q", f"refs/heads/{branch}", check=False):
             git("worktree", "add", "-q", str(wt), branch)
             job.note(f"worktree 복구: {wt}")
         else:  # 앞 요청이 브랜치를 만들기 전에 실패한 경우
-            git("fetch", "-q", "origin", "master")
-            git("worktree", "add", "-q", "-b", branch, str(wt), "origin/master")
+            fetch_base()
+            git("worktree", "add", "-q", "-b", branch, str(wt), BASE)
             job.note(f"worktree 새로 생성: {wt}")
     # 지도 토큰 등 gitignore 된 프론트 설정
     src_env = REPO / "frontend/.env"
@@ -274,7 +290,7 @@ def deploy(job: Job, wt: Path, env_name: str) -> None:
 
 
 def changed_sql(wt: Path) -> list[str]:
-    out = git("diff", "--name-only", "--diff-filter=AM", "origin/master...HEAD", "--", SQL_DIR, cwd=wt)
+    out = git("diff", "--name-only", "--diff-filter=AM", f"{BASE}...HEAD", "--", SQL_DIR, cwd=wt)
     return [f for f in out.splitlines() if f.endswith(".sql")]
 
 
@@ -381,7 +397,7 @@ def handle_run(req: dict) -> None:
             git("commit", "-q", "-m", f"chore(devreq #{req['id']}): 작업 내용 커밋(자동)", cwd=wt)
             job.note("커밋되지 않은 변경을 자동 커밋")
 
-        ahead = git("rev-list", "--count", "origin/master..HEAD", cwd=wt)
+        ahead = git("rev-list", "--count", f"{BASE}..HEAD", cwd=wt)
         if git("rev-parse", "HEAD", cwd=wt) == head_before:
             # 이번 메시지에서 코드가 안 바뀜 = 답만 함. 대화 브랜치에 앞서 만든 커밋이 있으면 그걸로 운영 반영 가능.
             if not summary:
@@ -391,7 +407,7 @@ def handle_run(req: dict) -> None:
             report(job.id, status="ANSWERED", commitSha=sha, logTail="\n".join(job.lines[-400:]))
             return
 
-        diff_stat = git("diff", "--stat", "origin/master...HEAD", cwd=wt)
+        diff_stat = git("diff", "--stat", f"{BASE}...HEAD", cwd=wt)
         sha = git("rev-parse", "HEAD", cwd=wt)
         report(job.id, commitSha=sha, diffStat=diff_stat)
 
@@ -412,6 +428,8 @@ def handle_promote(req: dict) -> None:
     branch = req.get("branch")
     slack(f"🚀 개발 요청 #{req['id']} 운영 반영 시작: {req['title']}")
     try:
+        if NO_PROMOTE:
+            raise StepError("지금 워커는 개발 서버 시험 모드(DEVREQ_NO_PROMOTE=1)라 운영 반영을 하지 않습니다.")
         if not branch:
             raise StepError("브랜치 정보가 없습니다")
         wt = prepare_worktree(job, branch, new=False)
@@ -494,25 +512,58 @@ def install_helpers() -> None:
     path.chmod(0o755)
 
 
-def main() -> int:
-    if not TOKEN:
-        log("DEV_WORKER_TOKEN 이 없습니다")
-        return 1
+def process_one() -> bool | None:
+    """한 건 처리. 처리했으면 True, 할 일이 없으면 False, 서버에 못 붙으면 None."""
     try:
         req = api("POST", "/worker/claim")
-    except urllib.error.URLError as e:
-        log(f"claim 실패(운영 서버 응답 없음?): {e}")
-        return 1
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        log(f"claim 실패(백엔드 응답 없음?): {e}")
+        return None
     if not req:
-        cleanup()
-        return 0
+        return False
     log(f"작업 #{req['id']} [{req['status']}] {req['title']}")
     install_helpers()
     if req["status"] == "PROMOTING":
         handle_promote(req)
     else:
         handle_run(req)
-    return 0
+    return True
+
+
+def main() -> int:
+    if not TOKEN:
+        log("DEV_WORKER_TOKEN 이 없습니다")
+        return 1
+    WORK.mkdir(parents=True, exist_ok=True)
+    lock = (WORK / "worker.lock").open("w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        log("다른 워커가 실행 중입니다")
+        return 0
+    if "--loop" not in sys.argv:
+        done = process_one()
+        if done is False:
+            cleanup()
+        return 1 if done is None else 0
+
+    log(f"상시 실행 시작: api={API} base={BASE} promote={'off' if NO_PROMOTE else 'on'} poll={POLL_S}s")
+    last_cleanup = 0.0
+    while True:
+        try:
+            done = process_one()
+        except Exception:  # noqa: BLE001 — 한 건에서 예상 못 한 오류가 나도 서비스는 계속
+            log(traceback.format_exc())
+            done = None
+        if done:
+            continue  # 쌓인 다음 건 바로
+        if done is False and time.time() - last_cleanup > 600:
+            try:
+                cleanup()
+            except Exception:  # noqa: BLE001
+                log(traceback.format_exc())
+            last_cleanup = time.time()
+        time.sleep(POLL_S if done is False else 30)
 
 
 if __name__ == "__main__":

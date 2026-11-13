@@ -1,0 +1,23 @@
+# 개발 요청함 워커 (deploy/dev-request-worker.py --loop)
+# 설치: sudo cp deploy/lifemetrics-devreq.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#       && sudo systemctl enable --now lifemetrics-devreq
+# 로그: journalctl -u lifemetrics-devreq -f   (요청별 로그는 /mnt/200gb/devreq/logs/req-<id>.log)
+# 설정: /mnt/200gb/devreq/worker.env (DEVREQ_API, DEVREQ_BASE, DEVREQ_NO_PROMOTE …, 없어도 됨)
+[Unit]
+Description=LifeMetrics dev-request worker (Claude Code)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=jihoon
+WorkingDirectory=/mnt/200gb/devreq
+EnvironmentFile=-/mnt/200gb/devreq/worker.env
+ExecStart=/usr/bin/python3 -u /mnt/200gb/devreq/bin/dev-request-worker.py --loop
+Restart=always
+RestartSec=10
+# 작업 중 재시작하면 진행 중인 요청은 30분 뒤 FAILED 로 정리된다(DevRequestService.STALE_MINUTES)
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

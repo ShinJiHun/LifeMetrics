@@ -392,7 +392,7 @@ function ClaudeBubble(props: { r: DevRequest; isLast: boolean; busy: boolean; on
             <div style={{ maxWidth: "85%", minWidth: 0, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: "4px 14px 14px 14px", padding: "8px 12px" }}>
                 {r.status === "QUEUED" && (
                     <div style={{ color: MUTED, fontSize: 14 }}>
-                        <Dots /> 차례를 기다리는 중… (워커가 1분 안에 가져가요)
+                        <Dots /> 차례를 기다리는 중…
                     </div>
                 )}
 
