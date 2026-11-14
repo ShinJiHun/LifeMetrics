@@ -27,7 +27,9 @@ public class AthleteAgentLoop {
 
     static final int MAX_ROUNDS = 6;
     static final Duration DEADLINE = Duration.ofSeconds(60);
-    static final int MAX_TOKENS = 2000;
+    /** 계획 질문은 도구 결과를 근거로 길게 답하므로 context 모드(2000)보다 넉넉히 둔다. */
+    static final int MAX_TOKENS = 4096;
+    static final String TRUNCATED_NOTE = "\n\n(답변이 길어 여기서 잘렸습니다. \"이어서\"라고 보내면 계속합니다.)";
 
     /** 화면에 근거로 보여줄 도구 호출 한 건. */
     public record ToolCall(String name, JsonNode input, boolean error) {}
@@ -60,7 +62,7 @@ public class AthleteAgentLoop {
         for (int round = 0; round < MAX_ROUNDS && clock.instant().isBefore(deadline); round++) {
             var turn = claude.chatWithTools(system, messages, tools, MAX_TOKENS, true);
             if (turn.isEmpty()) return new Result(null, calls);
-            if (!"tool_use".equals(turn.get().stopReason())) return new Result(text(turn.get().content()), calls);
+            if (!"tool_use".equals(turn.get().stopReason())) return new Result(reply(turn.get()), calls);
 
             messages.add(message("assistant", turn.get().content()));
             messages.add(message("user", runTools(turn.get().content(), userId, today, calls)));
@@ -72,7 +74,7 @@ public class AthleteAgentLoop {
         last.add(Map.of("type", "text", "text",
                 "도구 호출 한도에 도달했다. 더 조회하지 말고 지금까지 받은 데이터로 답하라. 부족한 부분은 부족하다고 밝혀라."));
         var fin = claude.chatWithTools(system, messages, tools, MAX_TOKENS, false);
-        return new Result(fin.map(t -> text(t.content())).orElse(null), calls);
+        return new Result(fin.map(AthleteAgentLoop::reply).orElse(null), calls);
     }
 
     /** 응답의 tool_use 블록을 모두 실행해 tool_result 블록 목록을 만든다. 예외는 is_error 로 돌려 모델이 고치게 한다. */
@@ -117,6 +119,12 @@ public class AthleteAgentLoop {
         m.put("role", role);
         m.put("content", content);
         return m;
+    }
+
+    /** 답변 텍스트. max_tokens 로 잘렸으면 잘렸다고 덧붙인다. */
+    static String reply(ClaudeChatClient.ToolTurn turn) {
+        String t = text(turn.content());
+        return "max_tokens".equals(turn.stopReason()) && !t.isBlank() ? t + TRUNCATED_NOTE : t;
     }
 
     static String text(JsonNode content) {

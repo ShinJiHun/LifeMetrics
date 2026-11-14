@@ -124,6 +124,16 @@ class AthleteAgentLoopTest {
     }
 
     @Test
+    void max_tokens_로_잘리면_잘렸다고_덧붙인다() throws Exception {
+        when(claude.chatWithTools(anyString(), anyList(), anyList(), anyInt(), eq(true)))
+                .thenReturn(Optional.of(new ClaudeChatClient.ToolTurn("max_tokens",
+                        OM.readTree("[{\"type\":\"text\",\"text\":\"계획을 보면\"}]"))));
+
+        assertThat(loop.run("sys", HISTORY, 1L, TODAY).reply())
+                .startsWith("계획을 보면").endsWith(AthleteAgentLoop.TRUNCATED_NOTE);
+    }
+
+    @Test
     void 모델_호출이_실패하면_reply_는_null() {
         when(claude.chatWithTools(anyString(), anyList(), anyList(), anyInt(), eq(true))).thenReturn(Optional.empty());
         assertThat(loop.run("sys", HISTORY, 1L, TODAY).reply()).isNull();
