@@ -3,7 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import api from "@/lib/axios";
 
-type Message = { role: "user" | "assistant"; content: string };
+type ToolCall = { name: string; input?: Record<string, unknown>; error?: boolean };
+type Message = { role: "user" | "assistant"; content: string; toolCalls?: ToolCall[] };
+
+// 근거 표시: "get_activities 2026-08-01~2026-08-31" 처럼 도구 이름 + 주요 입력
+const toolLabel = (c: ToolCall) => {
+    const i = c.input ?? {};
+    const range = i.from ? `${String(i.from)}~${i.to ? String(i.to) : "오늘"}` : "";
+    const extra = ["ride_type", "type"].map((k) => i[k]).filter(Boolean).join(" ");
+    return [c.name, range, extra].filter(Boolean).join(" ") + (c.error ? " (오류)" : "");
+};
 
 const GREETING: Message = {
     role: "assistant",
@@ -37,10 +46,13 @@ export default function AthleteChatPage() {
         setSending(true);
         try {
             // 첫 인사는 화면용이라 보내지 않는다
-            const { data } = await api.post<{ reply?: string }>("/athlete/chat", {
-                messages: next.slice(1),
+            const { data } = await api.post<{ reply?: string; toolCalls?: ToolCall[] }>("/athlete/chat", {
+                messages: next.slice(1).map(({ role, content }) => ({ role, content })),
             });
-            setMessages((prev) => [...prev, { role: "assistant", content: data.reply || "(빈 응답)" }]);
+            setMessages((prev) => [
+                ...prev,
+                { role: "assistant", content: data.reply || "(빈 응답)", toolCalls: data.toolCalls },
+            ]);
         } catch (e) {
             const status = (e as { response?: { status?: number } }).response?.status;
             const msg =
@@ -75,7 +87,12 @@ export default function AthleteChatPage() {
             <div style={S.log}>
                 {messages.map((m, i) => (
                     <div key={i} style={m.role === "user" ? S.userRow : S.botRow}>
-                        <div style={m.role === "user" ? S.userBubble : S.botBubble}>{m.content}</div>
+                        <div style={m.role === "user" ? S.userBubble : S.botBubble}>
+                            {m.content}
+                            {m.toolCalls && m.toolCalls.length > 0 && (
+                                <div style={S.sources}>근거: {m.toolCalls.map(toolLabel).join(" · ")}</div>
+                            )}
+                        </div>
                     </div>
                 ))}
                 {sending && (
@@ -160,6 +177,7 @@ const S: Record<string, CSSProperties> = {
     botRow: { display: "flex", justifyContent: "flex-start" },
     userBubble: { ...bubble, background: "#2563eb", color: "#fff", borderBottomRightRadius: 4 },
     botBubble: { ...bubble, background: "#f1f3f9", color: "#1e2235", borderBottomLeftRadius: 4 },
+    sources: { marginTop: 8, paddingTop: 6, borderTop: "1px solid #dfe3ee", fontSize: 12, color: "#6b7186" },
     suggestions: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 },
     chip: {
         border: "1px solid #c7d2fe",

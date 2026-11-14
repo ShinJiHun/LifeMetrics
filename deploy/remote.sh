@@ -57,6 +57,7 @@ run_container() {   # $1 = 이미지 태그
             -e SLACK_WEBHOOK_URL=                    # 슬랙 알림 끔
             -e "APP_BASE_URL=http://$SERVER_IP:$PORT"
             -e JAVA_OPTS=-Xmx512m
+            -e ATHLETE_CHAT_MODE=tools               # 애슐리트 챗 tool-use 모드 (운영은 기본 context 로 비교 후 전환)
             --memory 900m
         )
     fi

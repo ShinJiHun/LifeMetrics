@@ -1,7 +1,7 @@
 package com.lifemetrics.backend.api;
 
+import com.lifemetrics.backend.dto.AthleteChatResponse;
 import com.lifemetrics.backend.dto.PersonaChatRequest;
-import com.lifemetrics.backend.dto.PersonaChatResponse;
 import com.lifemetrics.backend.service.AthleteChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +21,10 @@ public class AthleteChatController {
     private final AthleteChatService chatService;
 
     @PostMapping("/chat")
-    public PersonaChatResponse chat(@RequestBody PersonaChatRequest request) {
-        return new PersonaChatResponse(chatService.chat(request.getMessages()));
+    public AthleteChatResponse chat(@RequestBody PersonaChatRequest request) {
+        AthleteChatService.ChatResult r = chatService.chat(request.getMessages());
+        return new AthleteChatResponse(r.reply(), r.toolCalls().stream()
+                .map(c -> new AthleteChatResponse.ToolCall(c.name(), c.input(), c.error()))
+                .toList());
     }
 }

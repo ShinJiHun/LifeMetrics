@@ -1,5 +1,6 @@
 package com.lifemetrics.backend.service;
 
+import com.lifemetrics.backend.ai.AthleteAgentLoop;
 import com.lifemetrics.backend.client.ClaudeChatClient;
 import com.lifemetrics.backend.client.RunPodClient;
 import com.lifemetrics.backend.dto.PersonaChatRequest;
@@ -16,6 +17,9 @@ import java.util.Locale;
 /**
  * 애슐리트 페르소나 챗. 질문마다 최근 기록(AthleteContextService)을 시스템 프롬프트에 넣어 대화한다.
  * 모델은 athlete.chat.provider 로 고른다: claude(기본) | runpod. 같은 기록·질문으로 두 모델을 비교할 수 있다.
+ * 방식은 athlete.chat.mode 로 고른다:
+ *   context(기본) — 최근 기록 묶음을 통째로 시스템 프롬프트에 넣는다.
+ *   tools         — 짧은 요약만 넣고, 모델이 필요한 기간·데이터를 도구(ai.tools)로 조회한다. Claude 에서만 동작.
  */
 @Slf4j
 @Service
@@ -30,22 +34,44 @@ public class AthleteChatService {
     private final ClaudeChatClient claude;
     private final RunPodClient runPod;
     private final String provider;
+    private final AthleteAgentLoop agentLoop;
+    private final String mode;
 
     public AthleteChatService(AthleteContextService contextService,
                               ClaudeChatClient claude,
                               RunPodClient runPod,
-                              @Value("${athlete.chat.provider:claude}") String provider) {
+                              AthleteAgentLoop agentLoop,
+                              @Value("${athlete.chat.provider:claude}") String provider,
+                              @Value("${athlete.chat.mode:context}") String mode) {
         this.contextService = contextService;
         this.claude = claude;
         this.runPod = runPod;
+        this.agentLoop = agentLoop;
         this.provider = provider.trim().toLowerCase(Locale.ROOT);
+        this.mode = mode.trim().toLowerCase(Locale.ROOT);
     }
 
-    public String chat(List<PersonaChatRequest.Message> messages) {
-        List<ClaudeChatClient.Message> history = normalize(messages);
-        if (history.isEmpty()) return "질문을 입력해 주세요.";
+    /** 답변 + (tools 모드일 때) 근거로 쓴 도구 호출 목록. */
+    public record ChatResult(String reply, List<AthleteAgentLoop.ToolCall> toolCalls) {
+        static ChatResult of(String reply) { return new ChatResult(reply, List.of()); }
+    }
 
-        String system = systemPrompt(contextService.build(USER_ID, LocalDate.now(KST)));
+    public ChatResult chat(List<PersonaChatRequest.Message> messages) {
+        List<ClaudeChatClient.Message> history = normalize(messages);
+        if (history.isEmpty()) return ChatResult.of("질문을 입력해 주세요.");
+
+        LocalDate today = LocalDate.now(KST);
+        if ("tools".equals(mode) && !"runpod".equals(provider)) {
+            if (!claude.isConfigured()) return ChatResult.of("Claude API 키(anthropic.api-key)가 설정되지 않았습니다.");
+            AthleteAgentLoop.Result r = agentLoop.run(
+                    toolsSystemPrompt(contextService.buildBrief(USER_ID, today)), history, USER_ID, today);
+            return new ChatResult(orFallback(r.reply()), r.toolCalls());
+        }
+        return ChatResult.of(chatWithContext(history, today));
+    }
+
+    private String chatWithContext(List<ClaudeChatClient.Message> history, LocalDate today) {
+        String system = systemPrompt(contextService.build(USER_ID, today));
 
         if ("runpod".equals(provider)) {
             if (!runPod.isConfigured()) return "RunPod 가 설정되지 않았습니다. (athlete.chat.provider=runpod)";
@@ -81,7 +107,25 @@ public class AthleteChatService {
     }
 
     static String systemPrompt(String context) {
-        return """
+        return PERSONA + """
+
+                # 신지훈의 기록
+                """ + context;
+    }
+
+    /** tools 모드: 같은 페르소나·규칙 + 조회 지침. 기록은 짧은 요약만 넣고 나머지는 도구로. */
+    static String toolsSystemPrompt(String brief) {
+        return PERSONA + """
+                - 기록은 아래 요약만 미리 주어진다. 그 밖의 수치는 반드시 도구로 조회한 뒤 답하고, 추측해서 채우지 마세요.
+                - 질문에 필요한 기간만 조회하세요. 비교 질문이면 두 기간을 각각 조회하세요.
+                - 신발·자세·통증·피팅 질문이면 get_profile_and_gear 를 먼저 부르세요.
+                - 도구가 "(기록 없음)"을 돌려주면 그 기간 기록이 없다고 말하세요.
+
+                # 신지훈의 기록 (요약)
+                """ + brief;
+    }
+
+    private static final String PERSONA = """
                 당신은 신지훈의 "애슐리트 페르소나" 코치입니다. 신지훈은 랜도너스(브레베 200~1000km 장거리 자전거)를 타고
                 웨이트 트레이닝을 병행하며 체지방 감량을 하고 있습니다. 아래 기록을 근거로 신지훈 본인과 대화하며
                 다이어트 전략, 훈련 계획, 회복, 대회 준비를 함께 고민해 주세요.
@@ -98,10 +142,7 @@ public class AthleteChatService {
                   작게 제안하고, 큰 변경은 피터와 상의하라고 안내하세요.
                 - 의학적 진단은 하지 말고, 극단적인 감량(하루 1000kcal 이상 적자 지속 등)은 권하지 마세요.
                 - 정중한 대화체로, 보통 3~8문장. 계획을 물으면 짧은 목록을 써도 됩니다. 표와 코드블록은 쓰지 마세요.
-
-                # 신지훈의 기록
-                """ + context;
-    }
+                """;
 
     private static String combined(String system, List<ClaudeChatClient.Message> history) {
         StringBuilder sb = new StringBuilder(system).append("\n\n");

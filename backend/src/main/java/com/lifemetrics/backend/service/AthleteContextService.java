@@ -5,6 +5,7 @@ import com.lifemetrics.backend.entity.ActivityCore;
 import com.lifemetrics.backend.entity.Bike;
 import com.lifemetrics.backend.entity.BikeFit;
 import com.lifemetrics.backend.entity.BodyGoal;
+import com.lifemetrics.backend.entity.MeasurementType;
 import com.lifemetrics.backend.entity.RiderMeasurement;
 import com.lifemetrics.backend.entity.UserBodyRecord;
 import com.lifemetrics.backend.health.dto.DailySummary;
@@ -83,6 +84,57 @@ public class AthleteContextService {
         return sb.toString();
     }
 
+    // ── tool-use 모드에서 쓰는 공개 조회 (ai.tools) ─────────────
+
+    /** tool-use 모드의 시스템 프롬프트용 짧은 요약: 늘 필요한 값만 넣고 나머지는 도구로 조회하게 한다. */
+    public String buildBrief(long userId, LocalDate today) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("오늘: ").append(today).append(" (한국 시각)\n\n");
+        section(sb, "최근 체성분 (1회)", () -> {
+            List<String> b = body(userId);
+            return b.isEmpty() ? b : List.of(b.get(b.size() - 1));
+        });
+        section(sb, "진행 중인 체성분 목표", () -> goal(userId));
+        section(sb, "파워·심박 기준", () -> zones(userId));
+        section(sb, "진행 중인 치료·부상", () -> treatmentRepo.findActiveOn(userId, today).stream()
+                .map(t -> treatmentLine(t, today)).toList());
+        return sb.toString();
+    }
+
+    /** 목표·존·신체 치수·자전거·피팅 (get_profile_and_gear). */
+    public String profileAndGear(long userId) {
+        StringBuilder sb = new StringBuilder();
+        section(sb, "진행 중인 체성분 목표", () -> goal(userId));
+        section(sb, "파워·심박 기준", () -> zones(userId));
+        section(sb, "신체 치수 (피팅용, 최근 " + MEASUREMENTS + "회 측정, 최신순, 길이 mm)", () -> measurements(userId));
+        section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", this::bikes);
+        return sb.toString();
+    }
+
+    /** 기간 안의 체성분 기록, 오래된 순 (get_body_records). type 이 null 이면 전체. */
+    public List<String> bodyLines(long userId, LocalDate from, LocalDate to, MeasurementType type) {
+        List<UserBodyRecord> all = type == null
+                ? bodyRepo.findByUserIdOrderByRecordDate(userId)
+                : bodyRepo.findByUserIdAndMeasurementTypeOrderByRecordDate(userId, type);
+        return all.stream()
+                .filter(r -> !r.getRecordDate().isBefore(from) && !r.getRecordDate().isAfter(to))
+                .map(AthleteContextService::bodyLine)
+                .toList();
+    }
+
+    /** 기간 안의 일별 요약, 오래된 순 (get_daily_summaries). */
+    public List<String> dailySummaryLines(long userId, LocalDate from, LocalDate to, LocalDate today) {
+        List<String> lines = new ArrayList<>();
+        for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
+            try {
+                lines.add(summaryLine(dailySummaryService.summarize(userId, d, today)));
+            } catch (Exception e) {
+                lines.add(d + ": (집계 실패)");
+            }
+        }
+        return lines;
+    }
+
     private interface Part { List<String> lines(); }
 
     /** 한 부분이 실패해도 나머지 기록으로 대화할 수 있게 한다. */
@@ -105,13 +157,17 @@ public class AthleteContextService {
         List<UserBodyRecord> all = bodyRepo.findByUserIdOrderByRecordDate(userId);
         List<String> lines = new ArrayList<>();
         for (UserBodyRecord r : all.subList(Math.max(0, all.size() - BODY_RECORDS), all.size())) {
-            lines.add(r.getRecordDate() + " " + r.getMeasurementType()
-                    + ": 체중 " + num(r.getWeight(), "kg")
-                    + ", 체지방률 " + num(r.getBodyFatPercentage(), "%")
-                    + ", 체지방량 " + num(r.getBodyFatMass(), "kg")
-                    + ", 골격근량 " + num(r.getSkeletalMuscleMass(), "kg"));
+            lines.add(bodyLine(r));
         }
         return lines;
+    }
+
+    static String bodyLine(UserBodyRecord r) {
+        return r.getRecordDate() + " " + r.getMeasurementType()
+                + ": 체중 " + num(r.getWeight(), "kg")
+                + ", 체지방률 " + num(r.getBodyFatPercentage(), "%")
+                + ", 체지방량 " + num(r.getBodyFatMass(), "kg")
+                + ", 골격근량 " + num(r.getSkeletalMuscleMass(), "kg");
     }
 
     private List<String> goal(long userId) {
@@ -307,7 +363,7 @@ public class AthleteContextService {
                 .toList();
     }
 
-    static String rideLine(ActivityCore a) {
+    public static String rideLine(ActivityCore a) {
         LocalDateTime t = a.getStartTime();
         StringBuilder l = new StringBuilder(t == null ? "날짜 없음" : t.toLocalDate().toString());
         if (a.getRideType() != null) l.append(" [").append(a.getRideType()).append(']');
