@@ -18,6 +18,7 @@ import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
 import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
 import GlossaryPage from "@/pages/ride/guide/GlossaryPage";
 import RidingMapPage from "@/pages/ride/riding/RidingMapPage";
+import RandonneuringRecordPage from "@/pages/ride/riding/RandonneuringRecordPage";
 import BrevePlanPage from "@/pages/ride/plan/BrevePlanPage";
 import PermanentCoursesPage from "@/pages/ride/plan/PermanentCoursesPage";
 import LiveRidePage from "@/pages/ride/plan/LiveRidingPage";
@@ -70,6 +71,7 @@ export default function App() {
                 <Route path="/records/health/history" element={<ExerciseHistoryPage />} />
                 <Route path="/records/riding" element={<RidingRecordPage />} />
                 <Route path="/records/riding-map" element={<RidingMapPage />} />
+                <Route path="/records/randonneuring" element={<RandonneuringRecordPage />} />
                 <Route path="/plan/brevet" element={<BrevePlanPage />} />
                 <Route path="/plan/permanent" element={<PermanentCoursesPage />} />
                 <Route path="/plan/live" element={<LiveRidePage />} />
