@@ -51,6 +51,17 @@ public class RandonneuringResult {
     @Column(nullable = false)
     private String status;
 
+    /** 완주 시간(초). DNF 는 null */
+    @Column(name = "riding_time_sec")
+    private Integer ridingTimeSec;
+
+    /** 원본 id (kora_source_id 또는 ebr:<entry_id>) — 다시 가져올 때 중복 판단 */
+    @Column(name = "source_id")
+    private String sourceId;
+
+    @Column(name = "homologation_no")
+    private String homologationNo;
+
     @Column(name = "activity_core_id")
     private Long activityCoreId;
 

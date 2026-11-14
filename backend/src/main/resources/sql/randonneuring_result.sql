@@ -21,3 +21,11 @@ CREATE TABLE IF NOT EXISTS `riding_db`.`randonneuring_result` (
     UNIQUE KEY `uq_rando_result` (`user_id`, `event_date`, `event_name`),
     INDEX `idx_rando_result_user_date` (`user_id`, `event_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='랜도너스 공식 참가 기록';
+
+-- 2026-11-14: KORA 기록 API 원본 항목 추가 (완주 시간, 원본 id, 인증번호)
+ALTER TABLE `riding_db`.`randonneuring_result`
+    ADD COLUMN IF NOT EXISTS `riding_time_sec` INT         NULL COMMENT '완주 시간(초). DNF 는 null' AFTER `status`,
+    ADD COLUMN IF NOT EXISTS `source_id`       VARCHAR(64) NULL COMMENT '원본 id (kora_source_id 또는 ebr:<entry_id>)' AFTER `activity_core_id`,
+    ADD COLUMN IF NOT EXISTS `homologation_no` VARCHAR(30) NULL COMMENT '인증번호' AFTER `source_id`;
+ALTER TABLE `riding_db`.`randonneuring_result`
+    ADD UNIQUE INDEX IF NOT EXISTS `uq_rando_result_source` (`source_id`);

@@ -54,6 +54,13 @@ class GetRandonneuringRecordToolTest {
     }
 
     @Test
+    void 완주_기록은_완주_시간과_평균_속도를_붙인다() {
+        RandonneuringResult r = r("2026-05-02", "BREVET", "서울 600K-동", 600, "FINISHED");
+        r.setRidingTimeSec(141720);
+        assertThat(RandonneuringCareer.line(r)).isEqualTo("2026-05-02 [BREVET] 서울 600K-동 600km FINISHED 완주 39시간 22분 (평균 15.2km/h)");
+    }
+
+    @Test
     void 연도_상태로_거르고_머리에_전체_경력을_붙인다() throws Exception {
         RandonneuringResultRepository repo = mock(RandonneuringResultRepository.class);
         when(repo.findByUserIdOrderByEventDateDescIdDesc(1L)).thenReturn(ALL);

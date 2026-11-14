@@ -60,12 +60,18 @@ public final class RandonneuringCareer {
         return l.toString();
     }
 
-    /** "2026-10-03 [BREVET] 서울-부산-서울 1000K 1000km DNF (활동 24596908919) / 메모: …" */
+    /** "2026-05-02 [BREVET] 서울 600K-동 600km FINISHED 완주 39시간 22분 (평균 15.2km/h) (활동 …) / 메모: …" */
     public static String line(RandonneuringResult r) {
         StringBuilder l = new StringBuilder(r.getEventDate().toString())
                 .append(" [").append(r.getEventType()).append("] ").append(r.getEventName());
         l.append(r.getDistanceKm() == null ? " 거리 미상" : " " + r.getDistanceKm() + "km");
         l.append(' ').append(r.getStatus());
+        if (r.getRidingTimeSec() != null) {
+            l.append(" 완주 ").append(AthleteContextService.hm(r.getRidingTimeSec()));
+            if (r.getDistanceKm() != null && r.getRidingTimeSec() > 0) {
+                l.append(String.format(Locale.ROOT, " (평균 %.1fkm/h)", r.getDistanceKm() / (r.getRidingTimeSec() / 3600.0)));
+            }
+        }
         if (r.getActivityCoreId() != null) l.append(" (활동 ").append(r.getActivityCoreId()).append(')');
         if (r.getNotes() != null && !r.getNotes().isBlank()) l.append(" / 메모: ").append(r.getNotes());
         return l.toString();
