@@ -19,6 +19,7 @@ import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.BikeFitRepository;
 import com.lifemetrics.backend.repository.BikeRepository;
 import com.lifemetrics.backend.repository.BodyGoalRepository;
+import com.lifemetrics.backend.repository.RandonneuringResultRepository;
 import com.lifemetrics.backend.repository.RiderMeasurementRepository;
 import com.lifemetrics.backend.repository.RiderZoneSettingRepository;
 import com.lifemetrics.backend.repository.UserBodyRecordRepository;
@@ -65,6 +66,7 @@ public class AthleteContextService {
     private final BikeRepository bikeRepo;
     private final BikeFitRepository fitRepo;
     private final RiderZoneSettingRepository zoneRepo;
+    private final RandonneuringResultRepository randoResultRepo;
 
     public String build(long userId, LocalDate today) {
         StringBuilder sb = new StringBuilder();
@@ -76,7 +78,10 @@ public class AthleteContextService {
         section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", this::bikes);
         section(sb, "최근 " + SUMMARY_DAYS + "일 일별 요약 (섭취·소모·에너지 수지)", () -> dailySummaries(userId, today));
         section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
-        section(sb, "랜도너스 기록 전체 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId));
+        section(sb, "랜도너스 공식 경력 (완주·DNF 포함 요약)", () -> career(userId));
+        section(sb, "랜도너스 공식 참가 기록 (최신순)", () -> randoResultRepo.findByUserIdOrderByEventDateDescIdDesc(userId)
+                .stream().limit(RANDO_MAX).map(RandonneuringCareer::line).toList());
+        section(sb, "랜도너스 GPS 라이딩 기록 (브레베·퍼머넌트·플레쉬·포퓰레르, 최신순)", () -> randonneuring(userId));
         section(sb, "최근 " + FITNESS_DAYS + "일 웨이트 트레이닝", () -> fitness(userId, today));
         section(sb, "치료·부상 (본인 입력, 진행 중 먼저)", () -> treatments(userId, today));
         section(sb, "진료·처방 내역 (처방전·영수증·세부내역서에서 읽음, 최근 " + CARE_DAYS + "일, 최신순)",
@@ -96,6 +101,7 @@ public class AthleteContextService {
         });
         section(sb, "진행 중인 체성분 목표", () -> goal(userId));
         section(sb, "파워·심박 기준", () -> zones(userId));
+        section(sb, "랜도너스 공식 경력", () -> career(userId));
         section(sb, "진행 중인 치료·부상", () -> treatmentRepo.findActiveOn(userId, today).stream()
                 .map(t -> treatmentLine(t, today)).toList());
         return sb.toString();
@@ -155,6 +161,11 @@ public class AthleteContextService {
                 .limit(limit)
                 .map(v -> visitLine(v, names.get(v.getTreatmentId()), today))
                 .toList();
+    }
+
+    private List<String> career(long userId) {
+        String c = RandonneuringCareer.summary(randoResultRepo.findByUserIdOrderByEventDateDescIdDesc(userId));
+        return c == null ? List.of() : List.of(c);
     }
 
     private interface Part { List<String> lines(); }
