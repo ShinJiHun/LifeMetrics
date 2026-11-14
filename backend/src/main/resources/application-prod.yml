@@ -108,6 +108,11 @@ exercise:
 anthropic:
   api-key: ${ANTHROPIC_API_KEY:}
 
+# 애슐리트 챗: tools = AI 가 필요한 기록을 도구로 조회(ai.tools), context = 최근 기록을 통째로 프롬프트에 넣음
+athlete:
+  chat:
+    mode: ${ATHLETE_CHAT_MODE:tools}
+
 typecast:
   # Typecast TTS. 키 미설정이면 /api/tts 가 503 → 프론트는 조용히 재생 스킵.
   api-key: ${TYPECAST_API_KEY:}
