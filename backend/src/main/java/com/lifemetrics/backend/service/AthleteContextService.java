@@ -135,6 +135,28 @@ public class AthleteContextService {
         return lines;
     }
 
+    /** 기간 안의 웨이트 세션, 날짜순 (get_fitness_sessions). */
+    public List<String> fitnessLines(long userId, LocalDate from, LocalDate to) {
+        return fitness(userId, from, to);
+    }
+
+    /** 치료·부상 목록. activeOnly 면 today 에 진행 중인 것만 (get_treatments). */
+    public List<String> treatmentLines(long userId, boolean activeOnly, LocalDate today) {
+        List<HealthTreatment> list = activeOnly ? treatmentRepo.findActiveOn(userId, today) : treatmentRepo.findAllForList(userId);
+        return list.stream().map(t -> treatmentLine(t, today)).toList();
+    }
+
+    /** 기간 안의 진료·처방 내역, 최신순, 최대 limit 건 (get_treatments include_visits). */
+    public List<String> visitLines(long userId, LocalDate from, LocalDate to, LocalDate today, int limit) {
+        Map<Long, String> names = new java.util.HashMap<>();
+        treatmentRepo.findAllForList(userId).forEach(t -> names.put(t.getId(), t.getName()));
+        return visitRepo.findByUserIdOrderByVisitDateDescIdDesc(userId).stream()
+                .filter(v -> !v.getVisitDate().isBefore(from) && !v.getVisitDate().isAfter(to))
+                .limit(limit)
+                .map(v -> visitLine(v, names.get(v.getTreatmentId()), today))
+                .toList();
+    }
+
     private interface Part { List<String> lines(); }
 
     /** 한 부분이 실패해도 나머지 기록으로 대화할 수 있게 한다. */
@@ -381,7 +403,10 @@ public class AthleteContextService {
     // ── 웨이트 ───────────────────────────────────────
 
     private List<String> fitness(long userId, LocalDate today) {
-        LocalDate from = today.minusDays(FITNESS_DAYS);
+        return fitness(userId, today.minusDays(FITNESS_DAYS), today);
+    }
+
+    private List<String> fitness(long userId, LocalDate from, LocalDate today) {
         List<String> lines = new ArrayList<>();
         for (YearMonth ym = YearMonth.from(from); !ym.isAfter(YearMonth.from(today)); ym = ym.plusMonths(1)) {
             for (ExerciseHistoryResponse s : exerciseLogService.getHistory(userId, ym.toString())) {
@@ -421,14 +446,7 @@ public class AthleteContextService {
     }
 
     private List<String> careVisits(long userId, LocalDate today) {
-        Map<Long, String> names = new java.util.HashMap<>();
-        treatmentRepo.findAllForList(userId).forEach(t -> names.put(t.getId(), t.getName()));
-        LocalDate from = today.minusDays(CARE_DAYS);
-        return visitRepo.findByUserIdOrderByVisitDateDescIdDesc(userId).stream()
-                .filter(v -> !v.getVisitDate().isBefore(from) && !v.getVisitDate().isAfter(today))
-                .limit(CARE_MAX)
-                .map(v -> visitLine(v, names.get(v.getTreatmentId()), today))
-                .toList();
+        return visitLines(userId, today.minusDays(CARE_DAYS), today, today, CARE_MAX);
     }
 
     /** "2026-11-05 정형외과의원 정형외과 [진료비 세부내역서] (장경인대 증후군 치료): 주사: …; 약: … — 오늘 복용 기간 중 / 본인부담 12,300원" */
@@ -456,13 +474,13 @@ public class AthleteContextService {
 
     // ── 형식 ─────────────────────────────────────────
 
-    static String num(Double v, String unit) {
+    public static String num(Double v, String unit) {
         if (v == null) return "-";
         String s = v == Math.rint(v) ? String.valueOf(v.longValue()) : String.format(Locale.ROOT, "%.1f", v);
         return s + unit;
     }
 
-    static String hm(int seconds) {
+    public static String hm(int seconds) {
         return (seconds / 3600) + "시간 " + (seconds % 3600 / 60) + "분";
     }
 

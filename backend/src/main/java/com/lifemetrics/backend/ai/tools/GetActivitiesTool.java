@@ -29,9 +29,9 @@ public class GetActivitiesTool implements AthleteTool {
 
     @Override
     public String description() {
-        return "기간 안의 라이딩 기록을 최신순으로 조회한다. 한 줄에 한 건: 날짜 [유형] 이름: 거리, 이동시간, 상승, "
-                + "평균심박, 평균파워, kcal. ride_type 으로 BREVET·PERMANENT·FLECHE·POPULAIRE 등 유형만 걸러낼 수 있다. "
-                + "기간 합계·추세가 필요하면 기록을 직접 더하지 말고 범위를 나눠 여러 번 조회하라.";
+        return "기간 안의 라이딩 기록을 최신순으로 조회한다. 한 줄에 한 건: [id] 날짜 [유형] 이름: 거리, 이동시간, 상승, "
+                + "평균심박, 평균파워, kcal. 한 건의 상세(최대값·날씨·구간)는 [id] 로 get_activity_detail 을 불러라. ride_type 으로 BREVET·PERMANENT·FLECHE·POPULAIRE 등 유형만 걸러낼 수 있다. "
+                + "기간 합계·추세·비교는 직접 더하지 말고 get_ride_stats 를 써라.";
     }
 
     @Override
@@ -59,7 +59,9 @@ public class GetActivitiesTool implements AthleteTool {
                 .filter(a -> type == null || (a.getRideType() != null
                         && a.getRideType().toUpperCase(Locale.ROOT).equals(type.toUpperCase(Locale.ROOT))))
                 .toList();
-        List<String> lines = filtered.stream().limit(limit).map(AthleteContextService::rideLine).toList();
+        // 앞의 [id] 로 get_activity_detail 을 부른다
+        List<String> lines = filtered.stream().limit(limit)
+                .map(r -> "[" + r.getId() + "] " + AthleteContextService.rideLine(r)).toList();
 
         String header = "라이딩 " + from + " ~ " + to + (type == null ? "" : " [" + type + "]")
                 + ": 전체 " + filtered.size() + "건" + (filtered.size() > limit ? ", 최신 " + limit + "건 표시" : "");
