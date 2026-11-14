@@ -2,7 +2,10 @@ package com.lifemetrics.backend.ai.tools;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lifemetrics.backend.entity.RandonneuringResult;
+import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.RandonneuringResultRepository;
+import com.lifemetrics.backend.entity.ActivityCore;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.lifemetrics.backend.service.RandonneuringCareer;
 import org.junit.jupiter.api.Test;
 
@@ -61,17 +64,42 @@ class GetRandonneuringRecordToolTest {
     }
 
     @Test
+    void GPS_기록이_연결되면_실제_주행값을_붙이고_남의_기록은_무시한다() throws Exception {
+        RandonneuringResult done = r("2026-05-02", "BREVET", "서울 600K-동", 600, "FINISHED");
+        done.setActivityCoreId(7L);
+        RandonneuringResult other = r("2026-04-25", "BREVET", "서울 400K-서", 400, "FINISHED");
+        other.setActivityCoreId(8L);
+        RandonneuringResultRepository repo = mock(RandonneuringResultRepository.class);
+        when(repo.findByUserIdOrderByEventDateDescIdDesc(1L)).thenReturn(List.of(done, other));
+        ActivityCore mine = new ActivityCore(), foreign = new ActivityCore();
+        ReflectionTestUtils.setField(mine, "id", 7L);
+        ReflectionTestUtils.setField(mine, "userId", 1L);
+        ReflectionTestUtils.setField(mine, "totalDistance", 605200.0);
+        ReflectionTestUtils.setField(mine, "movingTime", 97560);
+        ReflectionTestUtils.setField(mine, "avgSpeed", 22.3);
+        ReflectionTestUtils.setField(foreign, "id", 8L);
+        ReflectionTestUtils.setField(foreign, "userId", 2L);
+        ActivityCoreRepository rides = mock(ActivityCoreRepository.class);
+        when(rides.findAllById(List.of(7L, 8L))).thenReturn(List.of(mine, foreign));
+
+        String out = new GetRandonneuringRecordTool(repo, rides).execute(OM.readTree("{}"), 1L, TODAY);
+
+        assertThat(out).contains("서울 600K-동 600km FINISHED (활동 7) / GPS: 605.2km, 이동 27시간 6분, 이동 평속 22.3km/h")
+                .endsWith("서울 400K-서 400km FINISHED (활동 8)");
+    }
+
+    @Test
     void 연도_상태로_거르고_머리에_전체_경력을_붙인다() throws Exception {
         RandonneuringResultRepository repo = mock(RandonneuringResultRepository.class);
         when(repo.findByUserIdOrderByEventDateDescIdDesc(1L)).thenReturn(ALL);
 
-        String out = new GetRandonneuringRecordTool(repo).execute(OM.readTree("{\"year\":2025,\"status\":\"dnf\"}"), 1L, TODAY);
+        String out = new GetRandonneuringRecordTool(repo, mock(ActivityCoreRepository.class)).execute(OM.readTree("{\"year\":2025,\"status\":\"dnf\"}"), 1L, TODAY);
 
         assertThat(out).startsWith("전체 경력: 공식 참가 8회").contains("조회 2025년 DNF: 2건 (최신순)")
                 .contains("- 2025-09-27 [BREVET] 광주-부산-광주 600K 600km DNF")
                 .contains("- 2025-04-19 [FLECHE] 플레쉬-2 거리 미상 DNF")
                 .doesNotContain("천안 200K");
-        assertThatThrownBy(() -> new GetRandonneuringRecordTool(repo).execute(OM.readTree("{\"status\":\"DONE\"}"), 1L, TODAY))
+        assertThatThrownBy(() -> new GetRandonneuringRecordTool(repo, mock(ActivityCoreRepository.class)).execute(OM.readTree("{\"status\":\"DONE\"}"), 1L, TODAY))
                 .hasMessageContaining("FINISHED 또는 DNF");
     }
 }
