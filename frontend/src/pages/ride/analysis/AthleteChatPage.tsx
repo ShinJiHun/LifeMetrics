@@ -1,4 +1,4 @@
-// 애슐리트 페르소나 챗 (관리자 전용). 질문마다 서버가 최근 운동·라이딩·랜도너스·체성분·식단 기록을 붙여 AI 에 보낸다.
+// 애슐리트 페르소나 챗 (관리자 전용). 서버가 기록을 붙이거나(context 모드) AI 가 필요한 기록을 도구로 조회한다(tools 모드).
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import api from "@/lib/axios";
@@ -17,7 +17,7 @@ const toolLabel = (c: ToolCall) => {
 const GREETING: Message = {
     role: "assistant",
     content:
-        "안녕하세요, 애슐리트 페르소나 코치입니다. 최근 2주 식단·에너지 수지, 90일 라이딩, 랜도너스 기록, 웨이트, 체성분과 목표를 보고 답할게요.",
+        "안녕하세요, 애슐리트 페르소나 코치입니다. 라이딩·랜도너스, 식단·에너지 수지, 웨이트, 체성분과 목표, 치료·피팅 기록을 근거로 답할게요.",
 };
 
 const SUGGESTIONS = [
