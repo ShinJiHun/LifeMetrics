@@ -28,6 +28,7 @@ import RideLivePage from "@/pages/ride/riding/RideLivePage";
 import PersonaPortfolioPage from "@/pages/persona/PersonaPortfolioPage";
 import CareerCompanyDetailPage from "@/pages/persona/CareerCompanyDetailPage";
 import ProfileManagePage from "@/pages/persona/ProfileManagePage";
+import DevExperiencePage from "@/pages/persona/DevExperiencePage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
 import LottoStatsPage from "@/pages/lottery/lotto/LottoStatsPage";
@@ -85,6 +86,7 @@ export default function App() {
                 <Route path="/persona" element={<Navigate to="/" replace />} />
                 <Route path="/persona/developer" element={<PersonaPortfolioPage />} />
                 <Route path="/persona/developer/manage" element={<RequireAdmin><ProfileManagePage /></RequireAdmin>} />
+                <Route path="/persona/developer/experiences" element={<RequireAdmin><DevExperiencePage /></RequireAdmin>} />
                 <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
                 <Route path="/persona/developer/career-detail/:companyId" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/career-detail/:companyId/:page" element={<CareerCompanyDetailPage />} />

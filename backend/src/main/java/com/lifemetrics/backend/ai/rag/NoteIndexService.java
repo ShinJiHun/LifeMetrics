@@ -182,7 +182,7 @@ public class NoteIndexService {
                     .limit(k)
                     .toList();
         }
-        Keywords q = Keywords.of(query);
+        KeywordScorer q = KeywordScorer.of(query);
         return pool.stream()
                 .map(c -> hit(c, q.score(c.getText())))
                 .filter(h -> h.score() > 0)
@@ -198,39 +198,6 @@ public class NoteIndexService {
 
     private static Hit hit(NoteChunk c, double score) {
         return new Hit(c.getSource(), c.getSourceId(), c.getChunkDate(), c.getTitle(), c.getText(), score);
-    }
-
-    /**
-     * 키워드 점수 = 0.7 × (질문 단어 중 본문에 있는 비율) + 0.3 × (질문의 2글자 조각 중 본문에 있는 비율).
-     * 2글자 조각은 "무릎이/무릎을"처럼 조사가 붙은 한국어를 어느 정도 맞춘다. 0~1.
-     */
-    record Keywords(Set<String> terms, Set<String> grams) {
-        static Keywords of(String query) {
-            Set<String> terms = new java.util.LinkedHashSet<>();
-            for (String t : normalize(query).split(" ")) if (t.length() >= 2) terms.add(t);
-            return new Keywords(terms, bigrams(normalize(query)));
-        }
-
-        double score(String text) {
-            if (terms.isEmpty() && grams.isEmpty()) return 0;
-            String t = normalize(text);
-            long termHits = terms.stream().filter(t::contains).count();
-            Set<String> textGrams = bigrams(t);
-            long gramHits = grams.stream().filter(textGrams::contains).count();
-            double termPart = terms.isEmpty() ? 0 : (double) termHits / terms.size();
-            double gramPart = grams.isEmpty() ? 0 : (double) gramHits / grams.size();
-            return 0.7 * termPart + 0.3 * gramPart;
-        }
-
-        static String normalize(String s) {
-            return s == null ? "" : s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
-        }
-
-        static Set<String> bigrams(String s) {
-            Set<String> out = new java.util.HashSet<>();
-            for (String w : s.split(" ")) for (int i = 0; i + 2 <= w.length(); i++) out.add(w.substring(i, i + 2));
-            return out;
-        }
     }
 
     // ── 도우미 ───────────────────────────────────────

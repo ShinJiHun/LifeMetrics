@@ -34,9 +34,11 @@ public class PersonaChatService {
     private final RunPodClient runPodClient;              // 클라우드 서버리스 Ollama (RunPod)
     private final PersonaDocService personaDocService;
     private final CareerDataService careerDataService;
+    private final com.lifemetrics.backend.persona.service.DevExperienceService devExperienceService;
 
     private static final int MAX_HISTORY = 20;
     private static final int TOP_K = 4;
+    private static final int EXPERIENCE_K = 3;
     private static final int PER_POST_CHARS = 1500;
     // thinking 모델(2.5/3.x Flash)은 내부 사고에도 출력 토큰을 소비하므로 여유있게.
     private static final int MAX_TOKENS = 2048;
@@ -146,6 +148,18 @@ public class PersonaChatService {
 
         if (personaDocService.isAnyLoaded()) {
             sb.append(personaDocService.getCombinedText());
+        }
+
+        // 질문과 관련된 개발 경험 카드(공개만). 실패해도 나머지 자료로 답한다.
+        try {
+            var cards = devExperienceService.relevantPublic(query, EXPERIENCE_K);
+            if (!cards.isEmpty()) {
+                sb.append("## 질문과 관련된 개발 경험 (신지훈이 직접 기록 — 상황·원인·결정·결과)\n")
+                        .append("면접형 질문(어려웠던 문제, 왜 그렇게 결정했는지, 무엇을 배웠는지)에는 이 기록을 우선 근거로 삼고, 프로젝트명과 시기를 함께 말하라.\n\n");
+                for (var c : cards) sb.append(c.asText()).append("\n\n");
+            }
+        } catch (Exception e) {
+            log.warn("경험 카드 조회 실패: {}", e.getMessage());
         }
 
         List<BlogPost> relevant = topRelevantPosts(query);

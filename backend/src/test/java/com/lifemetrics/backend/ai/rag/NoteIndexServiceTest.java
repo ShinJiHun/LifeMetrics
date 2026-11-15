@@ -168,7 +168,7 @@ class NoteIndexServiceTest {
 
     @Test
     void 키워드_점수는_단어와_2글자_겹침을_섞는다() {
-        var q = NoteIndexService.Keywords.of("장경인대 운동 제한");
+        var q = KeywordScorer.of("장경인대 운동 제한");
         assertThat(q.score("운동 제한·권고: 장경인대 회복 전까지 고강도 금지")).isEqualTo(1.0);
         assertThat(q.score("어깨 운동")).isBetween(0.2, 0.5);
         assertThat(q.score("전혀 다른 내용")).isZero();

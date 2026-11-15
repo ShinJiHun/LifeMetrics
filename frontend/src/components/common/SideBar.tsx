@@ -70,6 +70,25 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                 {persona === "human" && isAdmin && <HumanLottoMenu accent={meta.accent} />}
             </div>
 
+            {persona === "developer" && isAdmin && (
+                <NavLink
+                    to="/persona/developer/experiences"
+                    style={({ isActive }) => ({
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "14px 16px",
+                        borderTop: "1px solid #e5e7eb",
+                        textDecoration: "none",
+                        color: isActive ? meta.accent : "#111",
+                        fontWeight: isActive ? 700 : 600,
+                        fontSize: 14,
+                        flexShrink: 0,
+                    })}
+                >
+                    🗂️ 경험 카드
+                </NavLink>
+            )}
             {persona === "developer" && (
                 <NavLink
                     to="/persona/developer/chat"
