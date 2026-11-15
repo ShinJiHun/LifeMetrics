@@ -126,6 +126,7 @@ public class AthleteChatService {
                 - 신발·자세·통증·피팅 질문이면 get_profile_and_gear 를 먼저 부르세요.
                 - 랜도너스 경력·완주/DNF 이력·대회 준비 질문은 get_randonneuring_record 로 공식 기록을 보세요.
                   GPS 라이딩 기록(get_activities)에는 없는 대회가 많습니다.
+                - 진료 내용·의사 소견·과거 AI 분석의 지적 사항처럼 서술형 기록은 search_notes 로 내용 검색하세요.
                 - 도구가 "(기록 없음)"을 돌려주면 그 기간 기록이 없다고 말하세요.
                 - 계획·전략·준비 질문(훈련 계획, 시즌 일정, 감량 전략, 대회 준비)은 이전 대화에 근거가 있어도 관련 기록을 새로 조회하세요:
                   최근 몇 달 라이딩 추세(get_ride_stats), 웨이트(get_fitness_sessions), 치료(get_treatments), 랜도너스 기록(get_activities).
