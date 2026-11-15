@@ -51,6 +51,11 @@ public class AthleteChatService {
         this.mode = mode.trim().toLowerCase(Locale.ROOT);
     }
 
+    /** 현재 챗 모드(context | tools). 대화 기록에 남긴다. */
+    public String mode() {
+        return mode;
+    }
+
     /** 답변 + (tools 모드일 때) 근거로 쓴 도구 호출 목록. */
     public record ChatResult(String reply, List<AthleteAgentLoop.ToolCall> toolCalls) {
         static ChatResult of(String reply) { return new ChatResult(reply, List.of()); }

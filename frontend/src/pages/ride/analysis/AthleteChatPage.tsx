@@ -5,6 +5,9 @@ import api from "@/lib/axios";
 
 type ToolCall = { name: string; input?: Record<string, unknown>; error?: boolean };
 type Message = { role: "user" | "assistant"; content: string; toolCalls?: ToolCall[] };
+type Session = { id: number; title: string; mode: string | null; updatedAt: string };
+
+const when = (iso: string) => iso.replace("T", " ").slice(0, 16);
 
 // 근거 표시: "get_activities 2026-08-01~2026-08-31" 처럼 도구 이름 + 주요 입력
 const toolLabel = (c: ToolCall) => {
@@ -31,7 +34,56 @@ export default function AthleteChatPage() {
     const [messages, setMessages] = useState<Message[]>([GREETING]);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
+    // 저장된 대화: 첫 답변을 받으면 서버가 id 를 준다. 이후 질문은 같은 대화에 이어서 저장된다.
+    const [sessionId, setSessionId] = useState<number | null>(null);
+    const [sessions, setSessions] = useState<Session[] | null>(null);
+    const [showList, setShowList] = useState(false);
+    const [listError, setListError] = useState<string | null>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
+
+    const loadSessions = async () => {
+        setListError(null);
+        try {
+            const { data } = await api.get<Session[]>("/athlete/chat/sessions");
+            setSessions(data);
+        } catch (e) {
+            const status = (e as { response?: { status?: number } }).response?.status;
+            setListError(status === 403 ? "관리자 로그인이 필요합니다." : "대화 목록을 불러오지 못했습니다.");
+        }
+    };
+
+    const toggleList = () => {
+        const next = !showList;
+        setShowList(next);
+        if (next) void loadSessions();
+    };
+
+    const newChat = () => {
+        setMessages([GREETING]);
+        setSessionId(null);
+    };
+
+    const openSession = async (id: number) => {
+        try {
+            const { data } = await api.get<Message[]>(`/athlete/chat/sessions/${id}`);
+            setMessages([GREETING, ...data]);
+            setSessionId(id);
+            setShowList(false);
+        } catch {
+            setListError("대화를 열지 못했습니다.");
+        }
+    };
+
+    const deleteSession = async (id: number) => {
+        if (!window.confirm("이 대화를 삭제할까요?")) return;
+        try {
+            await api.delete(`/athlete/chat/sessions/${id}`);
+            if (id === sessionId) newChat();
+            await loadSessions();
+        } catch {
+            setListError("삭제하지 못했습니다.");
+        }
+    };
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,9 +98,11 @@ export default function AthleteChatPage() {
         setSending(true);
         try {
             // 첫 인사는 화면용이라 보내지 않는다
-            const { data } = await api.post<{ reply?: string; toolCalls?: ToolCall[] }>("/athlete/chat", {
-                messages: next.slice(1).map(({ role, content }) => ({ role, content })),
-            });
+            const { data } = await api.post<{ reply?: string; toolCalls?: ToolCall[]; sessionId?: number | null }>(
+                "/athlete/chat",
+                { sessionId, messages: next.slice(1).map(({ role, content }) => ({ role, content })) },
+            );
+            if (data.sessionId) setSessionId(data.sessionId);
             setMessages((prev) => [
                 ...prev,
                 { role: "assistant", content: data.reply || "(빈 응답)", toolCalls: data.toolCalls },
@@ -74,15 +128,34 @@ export default function AthleteChatPage() {
         <div style={S.page}>
             <header style={S.header}>
                 <h2 style={S.title}>🤖 애슐리트 페르소나</h2>
-                <button
-                    type="button"
-                    style={S.resetBtn}
-                    onClick={() => setMessages([GREETING])}
-                    disabled={sending || messages.length <= 1}
-                >
-                    새 대화
-                </button>
+                <div style={S.headerBtns}>
+                    <button type="button" style={S.resetBtn} onClick={toggleList} disabled={sending}>
+                        {showList ? "목록 닫기" : "대화 목록"}
+                    </button>
+                    <button type="button" style={S.resetBtn} onClick={newChat} disabled={sending || messages.length <= 1}>
+                        새 대화
+                    </button>
+                </div>
             </header>
+
+            {showList && (
+                <div style={S.listPanel}>
+                    {listError && <div style={S.listEmpty}>{listError}</div>}
+                    {!listError && sessions === null && <div style={S.listEmpty}>불러오는 중…</div>}
+                    {!listError && sessions?.length === 0 && <div style={S.listEmpty}>저장된 대화가 없습니다.</div>}
+                    {sessions?.map((s) => (
+                        <div key={s.id} style={s.id === sessionId ? { ...S.listItem, ...S.listItemActive } : S.listItem}>
+                            <button type="button" style={S.listOpen} onClick={() => void openSession(s.id)}>
+                                <span style={S.listTitle}>{s.title}</span>
+                                <span style={S.listDate}>{when(s.updatedAt)}</span>
+                            </button>
+                            <button type="button" style={S.listDelete} onClick={() => void deleteSession(s.id)} aria-label="대화 삭제">
+                                삭제
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div style={S.log}>
                 {messages.map((m, i) => (
@@ -157,6 +230,40 @@ const S: Record<string, CSSProperties> = {
     },
     header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
     title: { margin: 0, fontSize: 20 },
+    headerBtns: { display: "flex", gap: 6 },
+    listPanel: {
+        maxHeight: 260,
+        overflowY: "auto",
+        border: "1px solid #e5e7ef",
+        borderRadius: 10,
+        marginBottom: 8,
+        background: "#fff",
+    },
+    listEmpty: { padding: "12px 14px", color: "#6b7186", fontSize: 13 },
+    listItem: { display: "flex", alignItems: "center", borderBottom: "1px solid #eef0f5" },
+    listItemActive: { background: "#eef2ff" },
+    listOpen: {
+        flex: 1,
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "10px 14px",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        textAlign: "left",
+        minWidth: 0,
+    },
+    listTitle: { fontSize: 14, color: "#1e2235", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+    listDate: { fontSize: 12, color: "#8a90a6", whiteSpace: "nowrap" },
+    listDelete: {
+        border: "none",
+        background: "transparent",
+        color: "#b91c1c",
+        fontSize: 12,
+        padding: "10px 14px",
+        cursor: "pointer",
+    },
     resetBtn: {
         border: "1px solid #d6d9e4",
         background: "#fff",
