@@ -48,6 +48,7 @@ run_container() {   # $1 = 이미지 태그
         -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet
         -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent
         -v /mnt/200gb/NAS/data/lotto:/mnt/200gb/NAS/data/lotto
+        -v /mnt/200gb/NAS/exercise-gifs:/mnt/200gb/NAS/exercise-gifs   # 운동 GIF (/api/exercise/gif/** 가 여기서 읽음, 업로드도 여기로)
         --restart unless-stopped
     )
 
