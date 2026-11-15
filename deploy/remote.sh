@@ -55,6 +55,7 @@ run_container() {   # $1 = 이미지 태그
         args+=(
             -e APP_SCHEDULING_ENABLED=false          # 로또/연금복권 자동 동기화 끔(운영과 중복 실행 방지)
             -e SLACK_WEBHOOK_URL=                    # 슬랙 알림 끔
+            -e DEV_REQUESTS_ENABLED=true             # 개발 요청함(Claude 대화)은 개발 서버에서만
             -e "APP_BASE_URL=http://$SERVER_IP:$PORT"
             -e JAVA_OPTS=-Xmx512m
             --memory 900m

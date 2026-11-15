@@ -1,0 +1,24 @@
+# 개발 요청함 워커 (deploy/dev-request-worker.py --loop)
+# 설치: sudo cp deploy/lifemetrics-devreq.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#       && sudo systemctl enable --now lifemetrics-devreq
+# 로그: journalctl -u lifemetrics-devreq -f   (요청별 로그는 /mnt/200gb/devreq/logs/req-<id>.log)
+# 설정: /mnt/200gb/devreq/worker.env (DEVREQ_API, DEVREQ_BASE, DEVREQ_NO_PROMOTE …, 없어도 됨)
+[Unit]
+Description=LifeMetrics dev-request worker (Claude Code)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+User=jihoon
+WorkingDirectory=/mnt/200gb/devreq
+EnvironmentFile=-/mnt/200gb/devreq/worker.env
+ExecStart=/usr/bin/python3 -u /mnt/200gb/devreq/bin/dev-request-worker.py --loop
+Restart=always
+RestartSec=10
+# 재시작하면 진행 중이던 메시지·배포는 FAILED 로 정리되고(/worker/startup), 열려 있던 대화는 같은 세션으로 다시 띄운다.
+# 대화마다 claude 프로세스가 하나씩 떠 있다(입력 없이 DEVREQ_IDLE_MIN 분 지나면 닫힘).
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

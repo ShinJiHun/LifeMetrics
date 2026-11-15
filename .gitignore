@@ -96,3 +96,7 @@ backend/src/main/resources/sql/local/*
 ### 배포 산출물 / 백업 ###
 lifemetrics-build.tar.gz
 *.bak
+
+### Python 캐시 (deploy/ 스크립트 문법 검사 때 생김) ###
+__pycache__/
+*.pyc

@@ -34,7 +34,7 @@ public class GetProfileAndGearTool implements AthleteTool {
 
     @Override
     public String execute(JsonNode input, long userId, LocalDate today) {
-        String text = contextService.profileAndGear(userId).stripTrailing();
+        String text = contextService.profileAndGear(userId, today).stripTrailing();
         return text.length() <= MAX_RESULT_CHARS ? text : text.substring(0, MAX_RESULT_CHARS) + "\n(길어서 잘림)";
     }
 }

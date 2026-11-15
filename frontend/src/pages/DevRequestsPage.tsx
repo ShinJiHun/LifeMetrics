@@ -1,0 +1,698 @@
+// 개발 요청함 (관리자 전용) — Claude 와 실시간으로 대화하며 요청하고 답을 받는다.
+// 대화 하나 = 브랜치 하나 + Claude 세션 하나. 메시지 하나 = dev_request 한 행(rootId 로 묶임, parentId 로 이어짐).
+// 대화가 열려 있는 동안 서버 워커가 그 대화의 Claude 프로세스를 띄워 두고 메시지를 바로 넣는다.
+// 대화 중에는 코드만 고치고(커밋), [dev 배포]/[대화 종료] 때 한 번에 빌드 → 개발 서버(8081) 배포(DEPLOY 행).
+// 개발 서버에서 확인한 뒤 "운영 반영"을 누르면 master 머지 → 운영 배포.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
+import { useSearchParams } from "react-router-dom";
+import Markdown from "@/components/common/Markdown";
+import {
+    approveDevRequest,
+    cancelDevRequest,
+    closeDevConversation,
+    createDevRequest,
+    deployDevConversation,
+    fetchDevConversations,
+    fetchDevRequest,
+    fetchDevRequests,
+    rejectDevRequest,
+    startDevConversation,
+    DEV_REPOS,
+    type DevConversation,
+    type DevRepo,
+    type DevRequest,
+    type DevRequestStatus,
+} from "@/api/devRequests";
+
+const DEV_URL = "http://34.172.162.148:8081";
+const IDLE_MIN = 30; // 워커 DEVREQ_IDLE_MIN 기본값
+const INK = "#111827";
+const MUTED = "#6b7280";
+const BORDER = "#e5e7eb";
+const ACCENT = "#2563eb";
+
+const STATUS: Record<DevRequestStatus, { label: string; color: string; bg: string }> = {
+    QUEUED: { label: "대기", color: "#4b5563", bg: "#f3f4f6" },
+    RUNNING: { label: "작업 중", color: "#1d4ed8", bg: "#dbeafe" },
+    DEV_READY: { label: "개발 서버 확인", color: "#047857", bg: "#d1fae5" },
+    ANSWERED: { label: "답변", color: "#0369a1", bg: "#e0f2fe" },
+    FAILED: { label: "실패", color: "#b91c1c", bg: "#fee2e2" },
+    APPROVED: { label: "운영 반영 대기", color: "#7c3aed", bg: "#ede9fe" },
+    PROMOTING: { label: "운영 반영 중", color: "#7c3aed", bg: "#ede9fe" },
+    DONE: { label: "운영 반영됨", color: "#065f46", bg: "#a7f3d0" },
+    REJECTED: { label: "반려", color: "#6b7280", bg: "#f3f4f6" },
+    CANCELLED: { label: "취소", color: "#6b7280", bg: "#f3f4f6" },
+    SUPERSEDED: { label: "이어짐", color: "#6b7280", bg: "#f3f4f6" },
+};
+const ACTIVE: DevRequestStatus[] = ["QUEUED", "RUNNING", "APPROVED", "PROMOTING"];
+// 서버 DevRequestService.FOLLOWABLE 와 같게
+const FOLLOWABLE: DevRequestStatus[] = ["DEV_READY", "ANSWERED", "FAILED", "DONE", "REJECTED", "CANCELLED"];
+
+interface Thread {
+    rootId: number;
+    title: string;
+    turns: DevRequest[]; // 오래된 순
+    last: DevRequest;
+}
+
+function errorMessage(e: unknown): string {
+    const anyErr = e as { response?: { status?: number; data?: { message?: string } } };
+    if (anyErr.response?.status === 403) return "관리자 로그인이 필요합니다.";
+    return anyErr.response?.data?.message || "요청에 실패했습니다.";
+}
+
+const when = (s: string | null) => (s ? s.replace("T", " ").slice(0, 16) : "–");
+const shortWhen = (s: string | null) => (s ? s.replace("T", " ").slice(5, 16) : "");
+
+/** rootId(없으면 parentId 사슬)로 대화를 묶는다. 최근 대화가 위로. */
+function buildThreads(items: DevRequest[]): Thread[] {
+    const byId = new Map(items.map((r) => [r.id, r]));
+    const rootOf = (r: DevRequest): number => {
+        if (r.rootId != null) return r.rootId;
+        let cur = r;
+        for (let i = 0; i < 100 && cur.parentId != null && byId.has(cur.parentId); i++) cur = byId.get(cur.parentId)!;
+        return cur.id;
+    };
+    const groups = new Map<number, DevRequest[]>();
+    for (const r of items) {
+        const root = rootOf(r);
+        if (!groups.has(root)) groups.set(root, []);
+        groups.get(root)!.push(r);
+    }
+    return [...groups.entries()]
+        .map(([rootId, turns]) => {
+            turns.sort((a, b) => a.id - b.id);
+            const first = turns.find((t) => t.kind !== "DEPLOY") ?? turns[0];
+            return { rootId, title: first.title, turns, last: turns[turns.length - 1] };
+        })
+        .sort((a, b) => b.last.id - a.last.id);
+}
+
+/** 진행 로그에서 사람이 볼 만한 최근 줄(💬 생각, 🔧 도구, ▶ 단계). */
+function progressLines(logTail: string | null, n = 6): string[] {
+    if (!logTail) return [];
+    return logTail
+        .split("\n")
+        .map((l) => l.replace(/^\d\d:\d\d:\d\d /, ""))
+        .filter((l) => /^(💬|🔧|▶|✅|❌)/.test(l))
+        .slice(-n);
+}
+
+function useNarrow(max = 760) {
+    const q = `(max-width: ${max}px)`;
+    const [narrow, setNarrow] = useState(() => window.matchMedia(q).matches);
+    useEffect(() => {
+        const m = window.matchMedia(q);
+        const on = () => setNarrow(m.matches);
+        m.addEventListener("change", on);
+        return () => m.removeEventListener("change", on);
+    }, [q]);
+    return narrow;
+}
+
+function Badge({ status }: { status: DevRequestStatus }) {
+    const m = STATUS[status] ?? STATUS.QUEUED;
+    return (
+        <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 999, color: m.color, background: m.bg, whiteSpace: "nowrap" }}>
+            {m.label}
+        </span>
+    );
+}
+
+export default function DevRequestsPage() {
+    const [items, setItems] = useState<DevRequest[]>([]);
+    const [params, setParams] = useSearchParams();
+    const selectedRoot = params.get("t") ? Number(params.get("t")) : null;
+    const [live, setLive] = useState<DevRequest | null>(null); // 진행 중인 마지막 메시지(로그 포함)
+    const [error, setError] = useState<string | null>(null);
+    const [draft, setDraft] = useState("");
+    const [busy, setBusy] = useState(false);
+    const narrow = useNarrow();
+
+    const select = useCallback(
+        (root: number | null) => {
+            const next = new URLSearchParams(params);
+            if (root == null) next.delete("t");
+            else next.set("t", String(root));
+            setParams(next, { replace: true });
+            setLive(null);
+        },
+        [params, setParams],
+    );
+
+    const [convs, setConvs] = useState<DevConversation[]>([]);
+    const [newRepo, setNewRepo] = useState<DevRepo>("lifemetrics"); // 새 대화의 작업 대상
+
+    const load = useCallback(async () => {
+        try {
+            const [list, cs] = await Promise.all([fetchDevRequests(), fetchDevConversations()]);
+            setItems(list);
+            setConvs(cs);
+            setError(null);
+        } catch (e) {
+            setError(errorMessage(e));
+        }
+    }, []);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const threads = useMemo(() => buildThreads(items), [items]);
+    const convOf = useMemo(() => new Map(convs.map((c) => [c.rootId, c])), [convs]);
+    const thread = threads.find((t) => t.rootId === selectedRoot) ?? null;
+    const conv = thread ? convOf.get(thread.rootId) ?? null : null;
+    const convOpen = conv != null && conv.state !== "CLOSED";
+    const last = thread?.last ?? null;
+    const lastActive = last != null && ACTIVE.includes(last.status);
+    const anyActive = items.some((r) => ACTIVE.includes(r.status)) || convs.some((c) => c.state === "OPEN");
+
+    // 진행 중이면 목록 2초(대화 중이면 10초 — 자동 종료 반영), 보고 있는 대화의 마지막 메시지(로그) 1.5초마다
+    const anyOpen = convs.some((c) => c.state !== "CLOSED");
+    useEffect(() => {
+        if (!anyActive && !anyOpen) return;
+        const t = window.setInterval(load, anyActive ? 2000 : 10000);
+        return () => window.clearInterval(t);
+    }, [anyActive, anyOpen, load]);
+
+    const lastId = last?.id;
+    useEffect(() => {
+        if (lastId == null || !lastActive) {
+            setLive(null);
+            return;
+        }
+        let stop = false;
+        const tick = async () => {
+            try {
+                const r = await fetchDevRequest(lastId);
+                if (!stop) setLive(r);
+            } catch {
+                /* 목록 갱신에서 오류를 보여 준다 */
+            }
+        };
+        tick();
+        const t = window.setInterval(tick, 1500);
+        return () => {
+            stop = true;
+            window.clearInterval(t);
+        };
+    }, [lastId, lastActive]);
+
+    // 목록에는 로그가 없으니, 진행 중인 마지막 메시지는 상세(live)로 바꿔 끼운다
+    const turns = useMemo(() => {
+        if (!thread) return [];
+        return thread.turns.map((r) => (live && live.id === r.id ? live : r));
+    }, [thread, live]);
+
+    const act = async <T,>(fn: () => Promise<T>, confirmText?: string): Promise<T | null> => {
+        if (confirmText && !window.confirm(confirmText)) return null;
+        setBusy(true);
+        try {
+            const r = await fn();
+            await load();
+            setError(null);
+            return r;
+        } catch (e) {
+            setError(errorMessage(e));
+            return null;
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const canSend = !thread || (last != null && FOLLOWABLE.includes(last.status));
+    const send = async () => {
+        const text = draft.trim();
+        if (!text || busy || !canSend) return;
+        const r = await act(() => createDevRequest(text, undefined, last?.id, thread ? undefined : newRepo));
+        if (r) {
+            setDraft("");
+            if (!thread) select(r.id);
+        }
+    };
+
+    const lastIsDeploy = last?.kind === "DEPLOY";
+    const placeholder = !thread
+        ? "무엇을 바꾸거나 물어볼까요?\n예) 파워 프로필 화면에 최근 90일과 이전 90일 파워 커브를 겹쳐 보여 줘"
+        : last?.status === "QUEUED" || last?.status === "RUNNING"
+          ? lastIsDeploy
+              ? "개발 서버에 배포하는 중이에요. 끝나면 이어서 말할 수 있어요."
+              : "Claude 가 답하는 중이에요. 끝나면 이어서 보낼 수 있어요."
+          : last?.status === "APPROVED" || last?.status === "PROMOTING"
+            ? "운영 반영 중이에요."
+            : convOpen
+              ? "이어서 말하기 — 수정할 점이나 궁금한 점"
+              : "대화가 종료돼 있어요. 보내면 다시 시작해서 이어서 답해요.";
+
+    const busyThread = last != null && ACTIVE.includes(last.status);
+    const claudeBusy = busyThread && !lastIsDeploy; // 서버 DevRequestService.close 와 같게
+
+    const canDeploy = !!thread && !!conv?.undeployed && !busyThread && !busy;
+    const onStart = () => thread && act(() => startDevConversation(thread.rootId));
+    const onDeploy = () => thread && act(() => deployDevConversation(thread.rootId));
+    const onClose = () =>
+        thread &&
+        act(
+            () => closeDevConversation(thread.rootId),
+            conv?.undeployed
+                ? "대화를 종료합니다. 개발 서버에 안 올린 변경이 있어 빌드·배포까지 진행해요. 계속할까요?"
+                : "대화를 종료할까요? (다시 보내면 이어서 대화할 수 있어요)",
+        );
+
+    const showList = !narrow || selectedRoot == null;
+    const showChat = !narrow || selectedRoot != null || threads.length === 0;
+
+    return (
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "8px 0 16px", color: INK }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <h2 style={{ margin: 0 }}>🛠 개발 요청함</h2>
+                <span style={{ color: MUTED, fontSize: 13 }}>
+                    개발 서버 전용이에요. 대화를 시작할 때 작업 대상(LifeMetrics 앱 / data_pipeline)을 고르고 Claude 와 실시간으로 대화하세요. 대화 중에는 코드만 고치고, <b>dev 배포</b>나 <b>대화 종료</b>를 누르면{" "}
+                    <a href={DEV_URL} target="_blank" rel="noreferrer">개발 서버</a>에 올려요. 확인 후 <b>운영 반영</b>을 눌러야 운영에 배포됩니다.
+                    대화는 {IDLE_MIN}분 동안 입력이 없으면 자동 종료돼요.
+                </span>
+            </div>
+
+            {error && <div style={{ ...card, borderColor: "#fecaca", background: "#fef2f2", color: "#b91c1c", marginBottom: 8, padding: 10 }}>{error}</div>}
+
+            <div style={{ display: "flex", gap: 12, height: "calc(100vh - 150px)", minHeight: 480 }}>
+                {showList && (
+                    <div style={{ ...card, width: narrow ? "100%" : 270, flexShrink: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                        <div style={{ padding: 10, borderBottom: `1px solid ${BORDER}` }}>
+                            <button onClick={() => select(null)} style={{ ...primaryBtn(false), width: "100%" }}>
+                                ＋ 새 대화
+                            </button>
+                        </div>
+                        <div style={{ overflowY: "auto", flex: 1 }}>
+                            {threads.length === 0 && <div style={{ color: MUTED, fontSize: 13, padding: 12 }}>아직 대화가 없습니다.</div>}
+                            {threads.map((t) => (
+                                <button
+                                    key={t.rootId}
+                                    onClick={() => select(t.rootId)}
+                                    style={{
+                                        display: "block",
+                                        width: "100%",
+                                        textAlign: "left",
+                                        border: "none",
+                                        borderBottom: `1px solid ${BORDER}`,
+                                        background: t.rootId === selectedRoot ? "#eff6ff" : "#fff",
+                                        padding: "10px 12px",
+                                        cursor: "pointer",
+                                        font: "inherit",
+                                        color: INK,
+                                    }}
+                                >
+                                    <div style={{ fontSize: 14, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                        {t.title}
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                                        {convOf.get(t.rootId)?.state === "LIVE" && <span title="대화 중" style={{ color: "#16a34a", fontSize: 10 }}>●</span>}
+                                        <Badge status={t.last.status} />
+                                        {t.turns[0].repo === "data_pipeline" && <RepoTag repo="data_pipeline" />}
+                                        <span style={{ color: MUTED, fontSize: 11 }}>
+                                            {t.turns.length > 1 ? `메시지 ${t.turns.length} · ` : ""}
+                                            {shortWhen(t.last.createdAt)}
+                                        </span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {showChat && (
+                    <div style={{ ...card, flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                        <div style={{ padding: "10px 14px", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", gap: 8, minHeight: 22 }}>
+                            {narrow && (
+                                <button onClick={() => select(null)} style={{ ...linkBtn, fontSize: 18 }} aria-label="대화 목록">
+                                    ←
+                                </button>
+                            )}
+                            <span style={{ fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {thread ? thread.title : "새 대화"}
+                            </span>
+                            {thread && <RepoTag repo={thread.turns[0].repo ?? "lifemetrics"} />}
+                            {thread && <ConvState conv={conv} />}
+                            {thread && !narrow && thread.last.branch && <span style={{ color: MUTED, fontSize: 12 }}>{thread.last.branch}</span>}
+                        </div>
+                        {thread && (
+                            <div style={{ padding: "6px 14px", borderBottom: `1px solid ${BORDER}`, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", background: "#fcfcfd" }}>
+                                {convOpen ? (
+                                    <button onClick={onClose} disabled={busy || claudeBusy} style={smallBtn(busy || claudeBusy)} title={claudeBusy ? "Claude 답이 끝난 뒤 종료할 수 있어요" : undefined}>
+                                        ■ 대화 종료{conv?.undeployed ? " + dev 배포" : ""}
+                                    </button>
+                                ) : (
+                                    <button onClick={onStart} disabled={busy} style={smallBtn(busy)}>
+                                        ▶ 대화 시작
+                                    </button>
+                                )}
+                                <button onClick={onDeploy} disabled={!canDeploy} style={smallBtn(!canDeploy)} title={conv?.undeployed ? undefined : "개발 서버에 올릴 새 변경이 없어요"}>
+                                    🚀 dev 배포
+                                </button>
+                                <span style={{ color: MUTED, fontSize: 12 }}>
+                                    {conv?.undeployed ? "개발 서버에 안 올린 변경이 있어요" : conv?.state === "CLOSED" && conv.closeReason ? `종료: ${conv.closeReason}` : ""}
+                                </span>
+                            </div>
+                        )}
+
+                        <Messages turns={turns} threadKey={selectedRoot} busy={busy} act={act} />
+
+                        <div style={{ borderTop: `1px solid ${BORDER}`, padding: 10 }}>
+                            {!thread && (
+                                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 13 }}>
+                                    <span style={{ color: MUTED }}>작업 대상</span>
+                                    {DEV_REPOS.map((o) => (
+                                        <button
+                                            key={o.value}
+                                            onClick={() => setNewRepo(o.value)}
+                                            title={o.hint}
+                                            style={{
+                                                ...smallBtn(false),
+                                                borderColor: newRepo === o.value ? ACCENT : BORDER,
+                                                color: newRepo === o.value ? ACCENT : INK,
+                                                fontWeight: newRepo === o.value ? 600 : 400,
+                                            }}
+                                        >
+                                            {o.label}
+                                        </button>
+                                    ))}
+                                    <span style={{ color: MUTED, fontSize: 12 }}>{DEV_REPOS.find((o) => o.value === newRepo)?.hint}</span>
+                                </div>
+                            )}
+                            <Composer value={draft} onChange={setDraft} onSend={send} disabled={busy || !canSend} placeholder={placeholder} />
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function RepoTag({ repo }: { repo: DevRepo }) {
+    const py = repo === "data_pipeline";
+    return (
+        <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, whiteSpace: "nowrap", color: py ? "#854d0e" : "#3730a3", background: py ? "#fef3c7" : "#e0e7ff" }}>
+            {py ? "🐍 data_pipeline" : "LifeMetrics"}
+        </span>
+    );
+}
+
+function ConvState({ conv }: { conv: DevConversation | null }) {
+    const s = conv?.state ?? "CLOSED";
+    const m =
+        s === "LIVE"
+            ? { label: "대화 중", color: "#15803d", bg: "#dcfce7" }
+            : s === "OPEN"
+              ? { label: "연결 중…", color: "#a16207", bg: "#fef9c3" }
+              : { label: "종료됨", color: "#6b7280", bg: "#f3f4f6" };
+    return (
+        <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, color: m.color, background: m.bg, whiteSpace: "nowrap" }}>
+            {s === "LIVE" ? "● " : ""}
+            {m.label}
+        </span>
+    );
+}
+
+function Messages(props: {
+    turns: DevRequest[];
+    threadKey: number | null;
+    busy: boolean;
+    act: <T>(fn: () => Promise<T>, confirmText?: string) => Promise<T | null>;
+}) {
+    const { turns, busy, act } = props;
+    const endRef = useRef<HTMLDivElement>(null);
+    const last = turns[turns.length - 1];
+    const scrollKey = `${props.threadKey}:${turns.length}:${last?.status}:${last?.logTail?.length ?? 0}:${last?.summary?.length ?? 0}`;
+    useEffect(() => {
+        endRef.current?.scrollIntoView({ block: "end" });
+    }, [scrollKey]);
+
+    if (turns.length === 0) {
+        return (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 14, padding: 24, textAlign: "center", lineHeight: 1.7 }}>
+                바꾸고 싶은 것이나 궁금한 것을 적어 보내세요.
+                <br />
+                질문이면 답만 하고, 코드를 바꾸면 개발 서버에 올려 드려요.
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ flex: 1, overflowY: "auto", padding: "14px 14px 4px", background: "#f9fafb" }}>
+            {turns.map((r, i) => (
+                <div key={r.id}>
+                    {r.kind === "DEPLOY" ? <DeployDivider r={r} /> : <UserBubble r={r} />}
+                    <ClaudeBubble
+                        r={r}
+                        isLast={i === turns.length - 1}
+                        threadBusy={ACTIVE.includes(turns[turns.length - 1].status)}
+                        busy={busy}
+                        onCancel={() => act(() => cancelDevRequest(r.id))}
+                        onApprove={() =>
+                            act(
+                                () => approveDevRequest(r.id),
+                                r.repo === "data_pipeline"
+                                    ? "data_pipeline 에 반영합니다. main 에 머지·push 하고 서버의 실행용 체크아웃을 갱신해요(다음 실행부터 적용). 계속할까요?"
+                                    : "운영(ride.tho881.me)에 반영합니다. master 에 머지되고 운영 서버가 재시작됩니다. 계속할까요?",
+                            )
+                        }
+                        onReject={() => act(() => rejectDevRequest(r.id), "이 작업을 반려하고 대화를 종료할까요? (개발 서버는 다음 배포 때 덮어써집니다)")}
+                    />
+                </div>
+            ))}
+            <div ref={endRef} />
+        </div>
+    );
+}
+
+function UserBubble({ r }: { r: DevRequest }) {
+    return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginBottom: 10 }}>
+            <div style={{ maxWidth: "80%", background: ACCENT, color: "#fff", borderRadius: "14px 14px 4px 14px", padding: "8px 12px", ...pre }}>{r.body}</div>
+            <span style={{ fontSize: 11, color: MUTED, marginTop: 3 }}>
+                #{r.id} · {when(r.createdAt)}
+            </span>
+        </div>
+    );
+}
+
+function DeployDivider({ r }: { r: DevRequest }) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 10px", color: MUTED, fontSize: 12 }}>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+            <span>
+                🚀 {r.body} · #{r.id} · {when(r.createdAt)}
+            </span>
+            <div style={{ flex: 1, height: 1, background: BORDER }} />
+        </div>
+    );
+}
+
+function ClaudeBubble(props: {
+    r: DevRequest;
+    isLast: boolean;
+    threadBusy: boolean;
+    busy: boolean;
+    onCancel: () => void;
+    onApprove: () => void;
+    onReject: () => void;
+}) {
+    const { r, isLast, busy } = props;
+    const [log, setLog] = useState<string | null>(null);
+    const [showLog, setShowLog] = useState(false);
+    const [showDiff, setShowDiff] = useState(false);
+
+    const isDeploy = r.kind === "DEPLOY";
+    const working = r.status === "RUNNING" || r.status === "PROMOTING";
+    const progress = working || r.status === "APPROVED" ? progressLines(r.logTail) : [];
+    // 서버 DevRequestService.canApprove 와 같게: 개발 서버에 올라간(그 뒤 새 커밋 없는) 배포만
+    const canApprove = r.status === "DEV_READY" && !props.threadBusy;
+    const canReject = isLast && (r.status === "DEV_READY" || r.status === "FAILED");
+    const fileCount = r.diffStat ? r.diffStat.trim().split("\n").length - 1 : 0;
+
+    const toggleLog = async () => {
+        if (!showLog && log == null) {
+            try {
+                setLog((await fetchDevRequest(r.id)).logTail ?? "(로그 없음)");
+            } catch {
+                setLog("(로그를 불러오지 못했습니다)");
+            }
+        }
+        setShowLog(!showLog);
+    };
+
+    return (
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 16 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 999, background: "#fde68a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>
+                ✳︎
+            </div>
+            <div style={{ maxWidth: "85%", minWidth: 0, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: "4px 14px 14px 14px", padding: "8px 12px" }}>
+                {r.status === "QUEUED" && (
+                    <div style={{ color: MUTED, fontSize: 14 }}>
+                        <Dots /> 차례를 기다리는 중…
+                    </div>
+                )}
+
+                {working && !r.summary && (
+                    <div style={{ color: "#1d4ed8", fontSize: 14, marginBottom: progress.length ? 6 : 0 }}>
+                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : isDeploy ? (r.repo === "data_pipeline" ? "문법 검사 중" : "빌드·개발 서버 배포 중") : "답하는 중"}
+                    </div>
+                )}
+
+                {r.summary && (
+                    <div style={{ fontSize: 14 }}>
+                        <Markdown>{r.summary}</Markdown>
+                    </div>
+                )}
+
+                {working && r.summary && (
+                    <div style={{ color: "#1d4ed8", fontSize: 13, marginTop: 6 }}>
+                        <Dots /> {r.status === "PROMOTING" ? "운영 반영 중" : isDeploy ? "빌드·개발 서버 배포 중" : "마무리 중"}
+                    </div>
+                )}
+
+                {progress.length > 0 && (
+                    <div style={{ ...mono, color: MUTED, background: "#f9fafb", borderRadius: 6, padding: "6px 8px", marginTop: 6 }}>
+                        {progress.map((l, i) => (
+                            <div key={i} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {l}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {r.error && <div style={{ ...pre, color: "#b91c1c", fontSize: 13, marginTop: r.summary ? 8 : 0 }}>{r.error}</div>}
+
+                {r.status === "DEV_READY" && r.repo !== "data_pipeline" && (
+                    <div style={{ fontSize: 13, color: "#047857", marginTop: 8 }}>
+                        ✅ 개발 서버에 올렸어요.{" "}
+                        <a href={DEV_URL} target="_blank" rel="noreferrer">
+                            열어 보기 ↗
+                        </a>
+                    </div>
+                )}
+                {!isDeploy && r.status === "ANSWERED" && r.commitSha && (
+                    <div style={{ fontSize: 13, color: "#92400e", marginTop: 8 }}>💾 코드를 바꿔 커밋했어요. 확인하려면 위의 <b>dev 배포</b>를 눌러 주세요.</div>
+                )}
+                {r.status === "DONE" && <div style={{ fontSize: 13, color: "#065f46", marginTop: 8 }}>🎉 운영에 반영됐어요 ({when(r.promotedAt)})</div>}
+
+                {r.diffStat && (
+                    <div style={{ marginTop: 8 }}>
+                        <button onClick={() => setShowDiff(!showDiff)} style={linkBtn}>
+                            {showDiff ? "▾" : "▸"} 바뀐 파일{fileCount > 0 ? ` ${fileCount}개` : ""}
+                        </button>
+                        {showDiff && <div style={{ ...mono, ...pre, marginTop: 4 }}>{r.diffStat}</div>}
+                    </div>
+                )}
+
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 10px", marginTop: 8, fontSize: 11, color: MUTED }}>
+                    <Badge status={r.status} />
+                    {r.commitSha && <span>커밋 {r.commitSha.slice(0, 7)}</span>}
+                    {r.costUsd != null && <span>${Number(r.costUsd).toFixed(2)}</span>}
+                    {r.finishedAt && <span>{when(r.finishedAt)}</span>}
+                    {r.status !== "QUEUED" && (
+                        <button onClick={toggleLog} style={{ ...linkBtn, fontSize: 11 }}>
+                            {showLog ? "로그 접기" : "로그"}
+                        </button>
+                    )}
+                </div>
+                {showLog && <div style={{ ...mono, ...pre, maxHeight: 320, overflow: "auto", background: "#f9fafb", padding: 8, borderRadius: 6, marginTop: 6 }}>{working ? r.logTail : log}</div>}
+
+                {((isLast && r.status === "QUEUED") || canApprove || canReject) && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                        {isLast && r.status === "QUEUED" && (
+                            <button onClick={props.onCancel} disabled={busy} style={ghostBtn}>
+                                취소
+                            </button>
+                        )}
+                        {canApprove && (
+                            <button onClick={props.onApprove} disabled={busy} style={primaryBtn(busy)}>
+                                운영 반영
+                            </button>
+                        )}
+                        {canReject && (
+                            <button onClick={props.onReject} disabled={busy} style={ghostBtn}>
+                                반려
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function Composer(props: { value: string; onChange: (v: string) => void; onSend: () => void; disabled: boolean; placeholder: string }) {
+    const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+        // 한글 조합 중 Enter 는 무시. Enter 보내기, Shift+Enter 줄바꿈
+        if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            props.onSend();
+        }
+    };
+    const empty = !props.value.trim();
+    return (
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <textarea
+                value={props.value}
+                onChange={(e) => props.onChange(e.target.value)}
+                onKeyDown={onKey}
+                placeholder={props.placeholder}
+                rows={Math.min(8, Math.max(2, props.value.split("\n").length))}
+                style={textarea}
+            />
+            <button onClick={props.onSend} disabled={props.disabled || empty} style={{ ...primaryBtn(props.disabled || empty), height: 40, flexShrink: 0 }}>
+                보내기
+            </button>
+        </div>
+    );
+}
+
+function Dots() {
+    return <span style={{ display: "inline-block", animation: "devreq-pulse 1.2s ease-in-out infinite" }}>●<style>{"@keyframes devreq-pulse{0%,100%{opacity:.25}50%{opacity:1}}"}</style></span>;
+}
+
+const card: CSSProperties = { border: `1px solid ${BORDER}`, borderRadius: 10, background: "#fff" };
+const pre: CSSProperties = { whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 14, lineHeight: 1.55 };
+const mono: CSSProperties = { fontFamily: "ui-monospace, monospace", fontSize: 12, lineHeight: 1.5 };
+const textarea: CSSProperties = {
+    flex: 1,
+    width: "100%",
+    boxSizing: "border-box",
+    border: `1px solid ${BORDER}`,
+    borderRadius: 10,
+    padding: "9px 11px",
+    font: "inherit",
+    fontSize: 14,
+    resize: "none",
+};
+const primaryBtn = (disabled: boolean): CSSProperties => ({
+    border: "none",
+    borderRadius: 8,
+    padding: "8px 16px",
+    fontWeight: 600,
+    fontSize: 14,
+    color: "#fff",
+    background: disabled ? "#9ca3af" : ACCENT,
+    cursor: disabled ? "default" : "pointer",
+});
+const ghostBtn: CSSProperties = {
+    border: `1px solid ${BORDER}`,
+    borderRadius: 8,
+    padding: "8px 14px",
+    fontSize: 14,
+    color: INK,
+    background: "#fff",
+    cursor: "pointer",
+};
+const smallBtn = (disabled: boolean): CSSProperties => ({
+    border: `1px solid ${BORDER}`,
+    borderRadius: 8,
+    padding: "4px 10px",
+    fontSize: 13,
+    color: disabled ? "#9ca3af" : INK,
+    background: "#fff",
+    cursor: disabled ? "default" : "pointer",
+});
+const linkBtn: CSSProperties ={ border: "none", background: "none", padding: 0, color: ACCENT, cursor: "pointer", fontSize: 13 };

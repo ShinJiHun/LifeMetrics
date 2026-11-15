@@ -47,6 +47,20 @@ const MUSCLE_IMAGE_MAP: Record<number, MuscleImageInfo> = {
     13: { file: "calves.jpg", label: "종아리" },
 };
 
+/**
+ * 부위 이미지를 브라우저 캐시에 미리 받아 둔다(한 번만). 이미지는 237×400 JPEG(장당 15KB 안팎) —
+ * 원본(4001×6747, 장당 1.2MB)을 그대로 쓰면 클릭할 때마다 몇 MB 를 받아 느렸다.
+ */
+let preloaded = false;
+export function preloadMuscleImages() {
+    if (preloaded) return;
+    preloaded = true;
+    new Set(Object.values(MUSCLE_IMAGE_MAP).map((m) => m.file)).forEach((file) => {
+        const img = new Image();
+        img.src = `/muscles/${file}`;
+    });
+}
+
 // ============================================================
 // 타입
 // ============================================================
