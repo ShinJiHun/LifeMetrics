@@ -58,6 +58,22 @@ public class PowerProfileService {
         this.meterSince = LocalDate.parse(meterSince);
     }
 
+    /** 첫 화면·애슐리트 챗이 느리지 않게 서버가 뜨면 라이딩별 계산을 미리 해 둔다. */
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void warmUp() {
+        Thread t = new Thread(() -> {
+            try {
+                long start = System.currentTimeMillis();
+                int n = rides(1L, LocalDate.now(KST)).size();
+                log.info("파워 프로필 미리 계산: 라이딩 {}회, {}ms", n, System.currentTimeMillis() - start);
+            } catch (Exception e) {
+                log.warn("파워 프로필 미리 계산 실패: {}", e.getMessage());
+            }
+        }, "power-profile-warmup");
+        t.setDaemon(true);
+        t.start();
+    }
+
     // ── 라이딩 1회 ───────────────────────────────────
 
     record RideStats(long activityId, LocalDate date, String name, double km, long seconds, long joules, int np,

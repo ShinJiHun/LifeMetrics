@@ -9,7 +9,8 @@ import java.util.List;
  * 라이딩 1회분 파워(1초 간격)를 계산하는 순수 함수 모음.
  * <p>
  * 포인트 간격이 {@link #MAX_GAP_SEC}초 이하면 그 사이 초를 현재 값으로 채우고(가민 스마트 기록·센서 끊김),
- * 그보다 길면 정지로 보고 구간을 나눈다. 구간을 넘는 창(window)은 만들지 않는다.
+ * 그보다 길면 정지로 보고 구간을 나눈다. 최고 평균 파워는 정지 시간을 뺀 "움직인 시간" 기준이라
+ * 구간들을 이어 붙여 계산한다(신호 대기·보급 정지가 잦은 장거리에서 1시간 이상 값이 끊기지 않게).
  */
 public final class PowerCalculator {
 
@@ -65,26 +66,25 @@ public final class PowerCalculator {
         h.clear();
     }
 
-    /** 구간들을 이어 붙인 누적합 (길이 n+1). 구간 경계 정보는 starts 로 따로 둔다. */
-    private record Joined(long[] prefix, int[] segEnd) {}
+    /** 구간들을 이어 붙인 누적합 (길이 n+1). */
+    private record Joined(long[] prefix) {
+        int n() { return prefix.length - 1; }
+    }
 
     private static Joined join(List<Segment> segs) {
         int n = segs.stream().mapToInt(Segment::length).sum();
         long[] prefix = new long[n + 1];
-        int[] segEnd = new int[n]; // 각 초가 속한 구간의 끝(배타) 인덱스
         int k = 0;
         for (Segment s : segs) {
-            int end = k + s.length();
             for (int v : s.power()) {
                 prefix[k + 1] = prefix[k] + v;
-                segEnd[k] = end;
                 k++;
             }
         }
-        return new Joined(prefix, segEnd);
+        return new Joined(prefix);
     }
 
-    /** duration 초 동안의 최고 평균 파워. 그만큼 긴 구간이 없으면 0. */
+    /** 움직인 시간 duration 초 동안의 최고 평균 파워. 라이딩이 그보다 짧으면 0. */
     public static int bestAverage(List<Segment> segs, int duration) {
         Joined j = join(segs);
         return bestAverage(j, duration);
@@ -92,9 +92,8 @@ public final class PowerCalculator {
 
     private static int bestAverage(Joined j, int duration) {
         long best = -1;
-        int n = j.segEnd.length;
+        int n = j.n();
         for (int i = 0; i + duration <= n; i++) {
-            if (i + duration > j.segEnd[i]) continue;
             long sum = j.prefix[i + duration] - j.prefix[i];
             if (sum > best) best = sum;
         }
@@ -116,9 +115,8 @@ public final class PowerCalculator {
         Joined j = join(segs);
         long[] best = new long[bands];
         java.util.Arrays.fill(best, -1);
-        int n = j.segEnd.length;
+        int n = j.n();
         for (int i = 0; i + duration <= n; i++) {
-            if (i + duration > j.segEnd[i]) continue;
             int band = (int) Math.min(bands - 1, j.prefix[i] / 1000 / bandKj);
             long sum = j.prefix[i + duration] - j.prefix[i];
             if (sum > best[band]) best[band] = sum;

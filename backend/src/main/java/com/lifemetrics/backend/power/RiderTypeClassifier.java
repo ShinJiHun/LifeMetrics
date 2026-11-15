@@ -45,7 +45,7 @@ public final class RiderTypeClassifier {
         int max = scores.stream().mapToInt(Score::score).max().orElse(0);
         int min = scores.stream().mapToInt(Score::score).min().orElse(0);
         if (max - min < BALANCED_SPREAD) {
-            return new Result("allrounder", "올라운더", "짧은 폭발력부터 역치까지 고르게 갖춘 균형형입니다.", scores);
+            return new Result("allrounder", "올라운더", "축별 점수 차가 작아 뚜렷하게 치우친 쪽 없이 고른 형태입니다.", scores);
         }
         Score top = scores.stream().max(java.util.Comparator.comparingInt(Score::score)).orElseThrow();
         return switch (top.key()) {

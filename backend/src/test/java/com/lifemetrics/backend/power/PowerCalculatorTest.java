@@ -30,13 +30,13 @@ class PowerCalculatorTest {
     }
 
     @Test
-    void 최고_평균은_구간을_넘지_않는다() {
+    void 최고_평균은_정지_시간을_빼고_이어서_본다() {
         List<PowerCalculator.Sample> s = new ArrayList<>(seq(0, 100, 400));
-        s.addAll(seq(100, 400, 100));
+        s.addAll(seq(100, 400, 100)); // 98초 정지 후 재개
         var segs = PowerCalculator.toSegments(s);
-        assertThat(PowerCalculator.bestAverage(segs, 2)).isEqualTo(250);
-        assertThat(PowerCalculator.bestAverage(segs, 1)).isEqualTo(400);
-        assertThat(PowerCalculator.bestAverage(segs, 3)).isZero();
+        assertThat(PowerCalculator.bestAverage(segs, 2)).isEqualTo(400);
+        assertThat(PowerCalculator.bestAverage(segs, 4)).isEqualTo(250);
+        assertThat(PowerCalculator.bestAverage(segs, 5)).isZero();
     }
 
     @Test
