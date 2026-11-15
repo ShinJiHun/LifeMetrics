@@ -19,3 +19,9 @@ CREATE TABLE IF NOT EXISTS `riding_db`.`note_chunk` (
     `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY `uq_note_chunk` (`user_id`, `source`, `source_id`, `chunk_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='애슐리트 챗 RAG 조각';
+
+-- 2026-11-15: 임베딩 없이(키워드 검색) 먼저 쓰도록 벡터를 선택 항목으로. 임베딩을 켜면 다음 색인 때 채워진다.
+ALTER TABLE `riding_db`.`note_chunk`
+    MODIFY COLUMN `model`     VARCHAR(60) NULL,
+    MODIFY COLUMN `dims`      INT         NULL,
+    MODIFY COLUMN `embedding` MEDIUMBLOB  NULL;

@@ -19,7 +19,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * RAG 색인 수동 실행·상태. 색인은 수백 번 임베딩을 호출해 1~2분 걸리므로 백그라운드로 돌린다.
+ * RAG 색인 수동 실행·상태. 백그라운드로 돌린다(임베딩을 켜면 수백 번 호출해 1~2분 걸림).
+ * 서버가 뜰 때 한 번 색인한다(키워드 전용이면 외부 호출 없이 몇 초).
  * POST 는 AdminWriteFilter 가 관리자만 허용, GET 은 여기서 확인한다.
  */
 @Slf4j
@@ -41,9 +42,6 @@ public class NoteIndexController {
 
     @PostMapping("/reindex")
     public ResponseEntity<?> reindex() {
-        if (!embedder.isConfigured()) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of("message", "GEMINI_API_KEY 가 설정되지 않았습니다."));
-        }
         if (!start()) return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "이미 색인 중입니다."));
         return ResponseEntity.accepted().body(Map.of("message", "색인을 시작했습니다. 상태는 GET /api/athlete/notes/status"));
     }
@@ -58,9 +56,14 @@ public class NoteIndexController {
         s.put("lastResult", lastResult);
         s.put("lastFinishedAt", lastFinishedAt);
         s.put("lastError", lastError);
-        s.put("model", embedder.model());
-        s.put("dims", embedder.dims());
+        s.put("searchMode", indexService.mode());
+        s.put("embeddingModel", embedder.isConfigured() ? embedder.model() : null);
         return ResponseEntity.ok(s);
+    }
+
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void indexOnStartup() {
+        start();
     }
 
     /** 백그라운드 색인 시작. 이미 돌고 있으면 false. 스케줄러도 이걸 쓴다. */

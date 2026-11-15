@@ -6,13 +6,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 매일 새벽 RAG 색인(바뀐 조각만 임베딩). 진료 기록을 외부 임베딩 API 로 보내므로 기본은 꺼져 있다.
- * Gemini 키의 프로젝트를 유료 등급으로 확인한 뒤 rag.index.enabled=true (RAG_INDEX_ENABLED) 로 켠다.
- * dev 에서는 켜지 않는다(수동 POST /api/athlete/notes/reindex 로 시험).
+ * 매일 새벽 RAG 색인(바뀐 조각만). 키워드 전용이면 외부 호출이 없고, 임베딩을 켰으면 바뀐 조각만 Gemini 로 보낸다.
+ * 다른 스케줄러와 같이 app.scheduling.enabled=false(dev)면 돌지 않는다.
  */
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "rag.index.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "app.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 public class NoteIndexScheduler {
 
     private final NoteIndexController controller;

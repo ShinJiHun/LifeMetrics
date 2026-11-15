@@ -36,8 +36,10 @@ import java.util.Set;
 /**
  * 애슐리트 챗 RAG 색인·검색.
  * 숫자 기록은 조회 도구가 맡고, 여기서는 긴 텍스트(치료·진료, 과거 AI 분석, 목표·대회 메모)만 다룬다.
- * 원본 → 문서 → 조각(최대 CHUNK_CHARS) → 임베딩. 본문이 같은 조각은 다시 임베딩하지 않는다.
- * 검색은 사용자 조각 전체(수백 개)를 메모리에서 내적(정규화 벡터라 코사인과 같음)으로 고른다.
+ * 원본 → 문서 → 조각(최대 CHUNK_CHARS) → (임베딩을 켰으면) 임베딩. 본문이 같은 조각은 다시 처리하지 않는다.
+ * 검색은 사용자 조각 전체(수백 개)를 메모리에서 고른다:
+ *   임베딩 켬  → 질문 벡터와 내적(정규화 벡터라 코사인과 같음)
+ *   임베딩 끔  → 키워드 점수(단어 일치 + 한글 2글자 겹침). 외부 호출이 없다.
  */
 @Slf4j
 @Service
@@ -72,20 +74,22 @@ public class NoteIndexService {
         Map<String, NoteChunk> existing = new HashMap<>();
         for (NoteChunk c : chunkRepo.findByUserId(userId)) existing.put(key(c.getSource(), c.getSourceId(), c.getChunkNo()), c);
 
+        boolean useEmbedding = embedder.isConfigured();
+        String model = useEmbedding ? embedder.model() : null;
         int chunks = 0, embedded = 0, unchanged = 0, failed = 0;
         for (Doc d : docs) {
             List<String> parts = chunk(d.body());
             for (int i = 0; i < parts.size(); i++) {
                 chunks++;
                 String text = d.title() + "\n" + parts.get(i);
-                String hash = sha256(embedder.model() + "|" + embedder.dims() + "|" + text);
+                String hash = sha256((useEmbedding ? embedder.model() + "|" + embedder.dims() : "keyword") + "|" + text);
                 NoteChunk c = existing.remove(key(d.source(), d.sourceId(), i));
                 if (c != null && hash.equals(c.getContentHash())) {
                     unchanged++;
                     continue;
                 }
                 try {
-                    float[] v = embedder.embed(text, GeminiEmbeddingClient.Task.RETRIEVAL_DOCUMENT);
+                    float[] v = useEmbedding ? embedder.embed(text, GeminiEmbeddingClient.Task.RETRIEVAL_DOCUMENT) : null;
                     if (c == null) c = new NoteChunk();
                     c.setUserId(userId);
                     c.setSource(d.source());
@@ -95,20 +99,20 @@ public class NoteIndexService {
                     c.setTitle(cut(d.title(), 200));
                     c.setText(text);
                     c.setContentHash(hash);
-                    c.setModel(embedder.model());
-                    c.setDims(v.length);
-                    c.setEmbedding(toBytes(v));
+                    c.setModel(model);
+                    c.setDims(v == null ? null : v.length);
+                    c.setEmbedding(v == null ? null : toBytes(v));
                     chunkRepo.save(c);
                     embedded++;
                 } catch (Exception e) {
                     failed++;
-                    log.warn("RAG 임베딩 실패 {}:{}#{} - {}", d.source(), d.sourceId(), i, e.getMessage());
+                    log.warn("RAG 색인 실패 {}:{}#{} - {}", d.source(), d.sourceId(), i, e.getMessage());
                 }
             }
         }
         // 원본이 지워졌거나 조각 수가 줄어든 나머지
         chunkRepo.deleteAll(existing.values());
-        log.info("RAG 색인: 문서 {} 조각 {} 임베딩 {} 그대로 {} 삭제 {} 실패 {}",
+        log.info("RAG 색인({}): 문서 {} 조각 {} 갱신 {} 그대로 {} 삭제 {} 실패 {}", useEmbedding ? model : "키워드",
                 docs.size(), chunks, embedded, unchanged, existing.size(), failed);
         return new IndexResult(docs.size(), chunks, embedded, unchanged, existing.size(), failed);
     }
@@ -163,17 +167,70 @@ public class NoteIndexService {
 
     /** 질문과 가까운 조각 k 개. sources·기간이 주어지면 그 안에서만 고른다. */
     public List<Hit> search(long userId, String query, Set<String> sources, LocalDate from, LocalDate to, int k) {
-        float[] q = embedder.embed(query, GeminiEmbeddingClient.Task.RETRIEVAL_QUERY);
-        return chunkRepo.findByUserId(userId).stream()
+        List<NoteChunk> pool = chunkRepo.findByUserId(userId).stream()
                 .filter(c -> sources == null || sources.isEmpty() || sources.contains(c.getSource()))
                 .filter(c -> from == null || (c.getChunkDate() != null && !c.getChunkDate().isBefore(from)))
                 .filter(c -> to == null || (c.getChunkDate() != null && !c.getChunkDate().isAfter(to)))
-                .filter(c -> c.getDims() == q.length)
-                .map(c -> new Hit(c.getSource(), c.getSourceId(), c.getChunkDate(), c.getTitle(), c.getText(),
-                        dot(q, fromBytes(c.getEmbedding()))))
+                .toList();
+        boolean vectors = embedder.isConfigured() && pool.stream().anyMatch(c -> c.getEmbedding() != null);
+        if (vectors) {
+            float[] q = embedder.embed(query, GeminiEmbeddingClient.Task.RETRIEVAL_QUERY);
+            return pool.stream()
+                    .filter(c -> c.getEmbedding() != null && c.getDims() != null && c.getDims() == q.length)
+                    .map(c -> hit(c, dot(q, fromBytes(c.getEmbedding()))))
+                    .sorted(Comparator.comparingDouble(Hit::score).reversed())
+                    .limit(k)
+                    .toList();
+        }
+        Keywords q = Keywords.of(query);
+        return pool.stream()
+                .map(c -> hit(c, q.score(c.getText())))
+                .filter(h -> h.score() > 0)
                 .sorted(Comparator.comparingDouble(Hit::score).reversed())
                 .limit(k)
                 .toList();
+    }
+
+    /** 지금 검색 방식: "embedding" 또는 "keyword". */
+    public String mode() {
+        return embedder.isConfigured() ? "embedding" : "keyword";
+    }
+
+    private static Hit hit(NoteChunk c, double score) {
+        return new Hit(c.getSource(), c.getSourceId(), c.getChunkDate(), c.getTitle(), c.getText(), score);
+    }
+
+    /**
+     * 키워드 점수 = 0.7 × (질문 단어 중 본문에 있는 비율) + 0.3 × (질문의 2글자 조각 중 본문에 있는 비율).
+     * 2글자 조각은 "무릎이/무릎을"처럼 조사가 붙은 한국어를 어느 정도 맞춘다. 0~1.
+     */
+    record Keywords(Set<String> terms, Set<String> grams) {
+        static Keywords of(String query) {
+            Set<String> terms = new java.util.LinkedHashSet<>();
+            for (String t : normalize(query).split(" ")) if (t.length() >= 2) terms.add(t);
+            return new Keywords(terms, bigrams(normalize(query)));
+        }
+
+        double score(String text) {
+            if (terms.isEmpty() && grams.isEmpty()) return 0;
+            String t = normalize(text);
+            long termHits = terms.stream().filter(t::contains).count();
+            Set<String> textGrams = bigrams(t);
+            long gramHits = grams.stream().filter(textGrams::contains).count();
+            double termPart = terms.isEmpty() ? 0 : (double) termHits / terms.size();
+            double gramPart = grams.isEmpty() ? 0 : (double) gramHits / grams.size();
+            return 0.7 * termPart + 0.3 * gramPart;
+        }
+
+        static String normalize(String s) {
+            return s == null ? "" : s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
+        }
+
+        static Set<String> bigrams(String s) {
+            Set<String> out = new java.util.HashSet<>();
+            for (String w : s.split(" ")) for (int i = 0; i + 2 <= w.length(); i++) out.add(w.substring(i, i + 2));
+            return out;
+        }
     }
 
     // ── 도우미 ───────────────────────────────────────

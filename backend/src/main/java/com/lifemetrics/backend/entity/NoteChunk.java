@@ -7,7 +7,7 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 
-/** RAG 조각: 원본 텍스트 일부 + 정규화된 임베딩(float32 리틀엔디언). */
+/** RAG 조각: 원본 텍스트 일부 + (임베딩을 켰을 때) 정규화된 임베딩(float32 리틀엔디언). 끄면 키워드 검색만 한다. */
 @Entity
 @Table(name = "note_chunk")
 @Getter
@@ -43,13 +43,12 @@ public class NoteChunk {
     @Column(name = "content_hash", nullable = false)
     private String contentHash;
 
-    @Column(nullable = false)
+    /** 임베딩 모델. 키워드 전용이면 null */
     private String model;
 
-    @Column(nullable = false)
     private Integer dims;
 
     @Lob
-    @Column(nullable = false, columnDefinition = "mediumblob")
+    @Column(columnDefinition = "mediumblob")
     private byte[] embedding;
 }

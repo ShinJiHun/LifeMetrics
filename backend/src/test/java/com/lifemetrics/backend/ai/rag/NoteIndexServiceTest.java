@@ -89,6 +89,7 @@ class NoteIndexServiceTest {
 
     @Test
     void 바뀐_조각만_임베딩하고_사라진_조각은_지운다() {
+        when(embedder.isConfigured()).thenReturn(true);
         when(treatments.findAllForList(1L)).thenReturn(List.of(treatment(1L, "1달 통원치료")));
         when(analyses.findByUserId(1L)).thenReturn(List.of(analysis(9L, "{\"summary\":\"새 분석\"}")));
         when(embedder.embed(anyString(), eq(GeminiEmbeddingClient.Task.RETRIEVAL_DOCUMENT))).thenReturn(new float[]{1, 0, 0});
@@ -117,6 +118,7 @@ class NoteIndexServiceTest {
 
     @Test
     void 임베딩이_실패한_조각은_세고_나머지는_계속한다() {
+        when(embedder.isConfigured()).thenReturn(true);
         when(treatments.findAllForList(1L)).thenReturn(List.of(treatment(1L, "메모")));
         when(chunks.findByUserId(1L)).thenReturn(new ArrayList<>());
         when(embedder.embed(anyString(), any())).thenThrow(new IllegalStateException("HTTP 429"));
@@ -127,6 +129,7 @@ class NoteIndexServiceTest {
 
     @Test
     void 검색은_내적_순으로_고르고_출처와_기간으로_거른다() {
+        when(embedder.isConfigured()).thenReturn(true);
         when(embedder.embed("무릎", GeminiEmbeddingClient.Task.RETRIEVAL_QUERY)).thenReturn(new float[]{1, 0, 0});
         NoteChunk near = chunk("treatment", 1L, "h", new float[]{0.9f, 0.1f, 0}, LocalDate.of(2026, 10, 5));
         NoteChunk far = chunk("ai_analysis", 2L, "h", new float[]{0, 1, 0}, LocalDate.of(2026, 10, 27));
@@ -136,6 +139,39 @@ class NoteIndexServiceTest {
         assertThat(service.search(1L, "무릎", null, null, null, 2)).extracting(NoteIndexService.Hit::sourceId).containsExactly(3L, 1L);
         assertThat(service.search(1L, "무릎", Set.of("ai_analysis"), null, null, 5)).extracting(NoteIndexService.Hit::sourceId).containsExactly(2L);
         assertThat(service.search(1L, "무릎", null, LocalDate.of(2026, 1, 1), null, 5)).extracting(NoteIndexService.Hit::sourceId).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void 임베딩이_꺼져_있으면_외부_호출_없이_본문만_색인하고_키워드로_찾는다() {
+        when(embedder.isConfigured()).thenReturn(false);
+        when(treatments.findAllForList(1L)).thenReturn(List.of(treatment(1L, "1달 통원치료, 주사치료와 체외충격파")));
+        when(chunks.findByUserId(1L)).thenReturn(new ArrayList<>());
+
+        assertThat(service.reindex(1L).embedded()).isEqualTo(1);
+        verify(embedder, never()).embed(anyString(), any());
+        ArgumentCaptor<NoteChunk> saved = ArgumentCaptor.forClass(NoteChunk.class);
+        verify(chunks).save(saved.capture());
+        assertThat(saved.getValue().getEmbedding()).isNull();
+        assertThat(saved.getValue().getModel()).isNull();
+
+        NoteChunk knee = saved.getValue();
+        NoteChunk other = chunk("ai_analysis", 2L, "h", new float[]{0, 0, 1}, null);
+        other.setText("어깨 위주 PT 세션, 레터럴 레이즈 횟수 조절");
+        when(chunks.findByUserId(1L)).thenReturn(List.of(other, knee));
+
+        // 조사가 붙은 말(무릎이)·띄어쓰기가 달라도 2글자 겹침으로 찾는다
+        var hits = service.search(1L, "무릎이 아플때 충격파 치료", null, null, null, 5);
+        assertThat(hits).extracting(NoteIndexService.Hit::source).containsExactly("treatment");
+        assertThat(service.mode()).isEqualTo("keyword");
+        verify(embedder, never()).embed(anyString(), any());
+    }
+
+    @Test
+    void 키워드_점수는_단어와_2글자_겹침을_섞는다() {
+        var q = NoteIndexService.Keywords.of("장경인대 운동 제한");
+        assertThat(q.score("운동 제한·권고: 장경인대 회복 전까지 고강도 금지")).isEqualTo(1.0);
+        assertThat(q.score("어깨 운동")).isBetween(0.2, 0.5);
+        assertThat(q.score("전혀 다른 내용")).isZero();
     }
 
     @Test

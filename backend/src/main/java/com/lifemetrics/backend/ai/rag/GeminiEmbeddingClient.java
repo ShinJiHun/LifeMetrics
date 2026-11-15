@@ -21,6 +21,7 @@ import java.util.Map;
  * POST https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent
  * gemini-embedding-001 은 3072 가 아닌 차원이면 정규화되지 않은 벡터를 주므로 여기서 L2 정규화한다.
  * 개인정보: AI Studio 무료 등급은 입력이 제품 개선에 쓰일 수 있다 → 키의 프로젝트에 결제를 연결해 유료 등급으로 쓸 것.
+ * 기본은 꺼져 있다(rag.embedding.enabled=false → 키워드 검색). 크레딧을 충전한 뒤 RAG_EMBEDDING_ENABLED=true 로 켠다.
  */
 @Slf4j
 @Component
@@ -31,16 +32,19 @@ public class GeminiEmbeddingClient {
     private static final String BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
     private static final int MAX_RETRIES = 4;
 
+    private final boolean enabled;
     private final String apiKey;
     private final String model;
     private final int dims;
     private final ObjectMapper objectMapper;
     private final RestTemplate rest;
 
-    public GeminiEmbeddingClient(@Value("${GEMINI_API_KEY:${gemini.api-key:}}") String apiKey,
+    public GeminiEmbeddingClient(@Value("${rag.embedding.enabled:false}") boolean enabled,
+                                 @Value("${GEMINI_API_KEY:${gemini.api-key:}}") String apiKey,
                                  @Value("${rag.embedding.model:gemini-embedding-001}") String model,
                                  @Value("${rag.embedding.dims:768}") int dims,
                                  ObjectMapper objectMapper) {
+        this.enabled = enabled;
         this.apiKey = apiKey;
         this.model = model;
         this.dims = dims;
@@ -51,8 +55,9 @@ public class GeminiEmbeddingClient {
         this.rest = new RestTemplate(f);
     }
 
+    /** 임베딩을 쓸 수 있는지: 설정으로 켜져 있고 키가 있을 때. */
     public boolean isConfigured() {
-        return apiKey != null && !apiKey.isBlank();
+        return enabled && apiKey != null && !apiKey.isBlank();
     }
 
     public String model() {
@@ -65,7 +70,7 @@ public class GeminiEmbeddingClient {
 
     /** 텍스트 하나의 정규화된 벡터. 429·5xx 는 지수 백오프로 재시도, 그래도 실패하면 IllegalStateException. */
     public float[] embed(String text, Task task) {
-        if (!isConfigured()) throw new IllegalStateException("GEMINI_API_KEY 가 설정되지 않았습니다.");
+        if (!isConfigured()) throw new IllegalStateException("임베딩이 꺼져 있거나 GEMINI_API_KEY 가 설정되지 않았습니다.");
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("content", Map.of("parts", List.of(Map.of("text", text))));
         body.put("taskType", task.name());

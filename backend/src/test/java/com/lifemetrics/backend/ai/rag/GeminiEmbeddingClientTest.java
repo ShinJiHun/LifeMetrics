@@ -28,8 +28,9 @@ class GeminiEmbeddingClientTest {
 
     @Test
     void 키가_없으면_설정되지_않은_상태다() {
-        var client = new GeminiEmbeddingClient("", "gemini-embedding-001", 768, OM);
+        var client = new GeminiEmbeddingClient(true, "", "gemini-embedding-001", 768, OM);
         assertThat(client.isConfigured()).isFalse();
         assertThatThrownBy(() -> client.embed("x", GeminiEmbeddingClient.Task.RETRIEVAL_QUERY)).hasMessageContaining("GEMINI_API_KEY");
+        assertThat(new GeminiEmbeddingClient(false, "key", "gemini-embedding-001", 768, OM).isConfigured()).isFalse();
     }
 }
