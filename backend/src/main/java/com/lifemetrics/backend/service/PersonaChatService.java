@@ -29,7 +29,8 @@ public class PersonaChatService {
 
     private final BlogPostRepository blogPostRepository;
     private final PersonaProfileService personaProfileService;
-    private final GeminiService geminiService;          // ✅ ClaudeClient 대체
+    private final GeminiService geminiService;          // Vertex(Gemini) — 서버 권한 설정 시에만 동작
+    private final PublicChatModel publicChatModel;       // Claude(기본 Haiku) — 키가 있으면 우선 사용
     private final OllamaService ollamaService;           // Gemini ADC 없는 로컬 개발용 대체
     private final RunPodClient runPodClient;              // 클라우드 서버리스 Ollama (RunPod)
     private final PersonaDocService personaDocService;
@@ -44,12 +45,14 @@ public class PersonaChatService {
     private static final int MAX_TOKENS = 2048;
 
     public String chat(List<PersonaChatRequest.Message> messages) {
-        boolean useOllama = ollamaService.isAvailable();
-        boolean useRunPod = !useOllama && runPodClient.isConfigured();
-        boolean useGemini = !useOllama && !useRunPod && geminiService.hasApiKey();
+        // 우선순위: Claude(키 있음) → 로컬 Ollama → RunPod → Vertex(Gemini)
+        boolean useClaude = publicChatModel.isConfigured();
+        boolean useOllama = !useClaude && ollamaService.isAvailable();
+        boolean useRunPod = !useClaude && !useOllama && runPodClient.isConfigured();
+        boolean useGemini = !useClaude && !useOllama && !useRunPod && geminiService.hasApiKey();
 
-        if (!useOllama && !useRunPod && !useGemini) {
-            return "AI 서비스가 설정되지 않았습니다. (로컬 Ollama 미기동 / RunPod 미설정 / ADC-Vertex 프로젝트 확인 필요)";
+        if (!useClaude && !useOllama && !useRunPod && !useGemini) {
+            return "AI 서비스가 설정되지 않았습니다. (Anthropic 키 / 로컬 Ollama / RunPod / ADC-Vertex 중 하나가 필요)";
         }
         if (messages == null || messages.isEmpty()) {
             return "메시지가 비어 있습니다.";
@@ -87,7 +90,9 @@ public class PersonaChatService {
         }
 
         String reply;
-        if (useOllama) {
+        if (useClaude) {
+            reply = publicChatModel.chat(systemPrompt, history, MAX_TOKENS).orElse(null);
+        } else if (useOllama) {
             reply = ollamaService.chat(systemPrompt, history);
         } else if (useRunPod) {
             // RunPod(Ollama)은 단일 프롬프트 문자열만 받으므로 systemPrompt + 이력을 합친다.

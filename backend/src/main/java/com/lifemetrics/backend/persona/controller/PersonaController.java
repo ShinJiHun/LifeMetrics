@@ -33,6 +33,8 @@ public class PersonaController {
     private final BlogPostRepository blogPostRepository;
     private final PersonaDocService personaDocService;
     private final SttService sttService;
+    private final com.lifemetrics.backend.security.AdminWriteFilter adminWriteFilter;
+    private final com.lifemetrics.backend.security.PublicChatRateLimiter rateLimiter;
 
     /** 블로그 재크롤링 + 이력서 재로딩 + 페르소나 프로필 재생성 (수동 트리거). */
     @PostMapping("/refresh")
@@ -48,7 +50,15 @@ public class PersonaController {
 
     /** 블로그 페르소나와 멀티턴 대화. */
     @PostMapping("/chat")
-    public PersonaChatResponse chat(@RequestBody PersonaChatRequest request) {
+    public PersonaChatResponse chat(@RequestBody PersonaChatRequest request,
+                                    jakarta.servlet.http.HttpServletRequest http) {
+        // 방문자 공개 챗: AI 호출 비용이 들어 IP 당·전체 하루 사용량을 제한한다(관리자 제외)
+        if (!adminWriteFilter.isAdmin(http)) {
+            var limit = rateLimiter.tryAcquire(http.getRemoteAddr());
+            if (limit != com.lifemetrics.backend.security.PublicChatRateLimiter.Result.OK) {
+                return new PersonaChatResponse(com.lifemetrics.backend.security.PublicChatRateLimiter.message(limit));
+            }
+        }
         String reply = personaChatService.chat(request.getMessages());
         return new PersonaChatResponse(reply);
     }

@@ -30,15 +30,18 @@ public class ActivityChatService {
     private final UserBodyRecordRepository bodyRecordRepo;
     private final ObjectMapper objectMapper;
 
-    // ✅ Claude 대신 Vertex(Gemini) 호출 서비스 주입
+    // Claude(기본 Haiku)를 우선 쓰고, 키가 없을 때만 Vertex(Gemini)
     private final GeminiService geminiService;
+    private final PublicChatModel publicChatModel;
 
     @PostConstruct
     public void logKeyStatus() {
-        if (geminiService.hasApiKey()) {
+        if (publicChatModel.isConfigured()) {
+            System.out.println("✅ [ActivityChatService] Claude(" + publicChatModel.model() + ") 사용");
+        } else if (geminiService.hasApiKey()) {
             System.out.println("✅ [ActivityChatService] Gemini(Vertex) 준비됨");
         } else {
-            System.out.println("⚠️ [ActivityChatService] Gemini(Vertex) 미설정 - ADC / vertex.project-id 확인 필요");
+            System.out.println("⚠️ [ActivityChatService] AI 미설정 - Anthropic 키 또는 ADC / vertex.project-id 필요");
         }
     }
 
@@ -47,8 +50,8 @@ public class ActivityChatService {
     private static final int MAX_OUTPUT_TOKENS = 2048;
 
     public String chat(Long userId, Long activityId, List<ActivityChatRequest.Message> messages) {
-        if (!geminiService.hasApiKey()) {
-            return "AI 서비스가 설정되지 않았습니다. (ADC / Vertex 프로젝트 확인 필요)";
+        if (!publicChatModel.isConfigured() && !geminiService.hasApiKey()) {
+            return "AI 서비스가 설정되지 않았습니다. (Anthropic 키 또는 ADC / Vertex 프로젝트 필요)";
         }
         if (messages == null || messages.isEmpty()) {
             return "메시지가 비어 있습니다.";
@@ -79,7 +82,9 @@ public class ActivityChatService {
             return "질문 메시지가 없습니다.";
         }
 
-        String reply = geminiService.chat(systemPrompt, history, MAX_OUTPUT_TOKENS);
+        String reply = publicChatModel.isConfigured()
+                ? publicChatModel.chat(systemPrompt, history, MAX_OUTPUT_TOKENS).orElse(null)
+                : geminiService.chat(systemPrompt, history, MAX_OUTPUT_TOKENS);
         if (reply == null || reply.isBlank()) {
             // 인증/모델/토큰 등 실제 원인은 GeminiService 로그(finishReason, 응답 본문)에서 확인.
             return "죄송합니다. 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";

@@ -63,6 +63,11 @@ public class ClaudeChatClient {
 
     /** 답변 텍스트. 키가 없거나 호출이 실패하면 empty. */
     public Optional<String> chat(String system, List<Message> messages, int maxTokens) {
+        return chat(system, messages, maxTokens, model);
+    }
+
+    /** 모델을 지정해 호출한다(예: 방문자용 공개 챗은 저렴한 모델). */
+    public Optional<String> chat(String system, List<Message> messages, int maxTokens, String model) {
         if (!isConfigured()) return Optional.empty();
 
         List<Map<String, String>> body = new ArrayList<>();
