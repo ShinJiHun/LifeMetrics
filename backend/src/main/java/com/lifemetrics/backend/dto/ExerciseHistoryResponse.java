@@ -30,6 +30,12 @@ public class ExerciseHistoryResponse {
         private String categoryName;
         private Integer restTimeSec;
         private String memo;
+        // 유산소(카테고리 '유산소')일 때만 채움
+        private Boolean cardio;
+        private Integer durationSec;
+        private Double distanceKm;
+        private Integer kcal;
+        private Integer avgHr;
         private List<ExerciseSetDto> sets;
         private List<MuscleMappingDto> muscleMappings;
     }

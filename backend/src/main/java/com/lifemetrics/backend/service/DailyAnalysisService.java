@@ -180,6 +180,13 @@ public class DailyAnalysisService {
                 m.put("name", log.getExerciseNameKo());
                 m.put("category", log.getCategoryName());
                 m.put("sets", sets);
+                // 유산소 기록만 키를 넣는다 (유산소 없는 날의 입력 해시는 그대로 유지)
+                if (Boolean.TRUE.equals(log.getCardio())) {
+                    if (log.getDurationSec() != null) m.put("durationMin", Math.round(log.getDurationSec() / 6.0) / 10.0);
+                    if (log.getDistanceKm() != null) m.put("distanceKm", log.getDistanceKm());
+                    if (log.getKcal() != null) m.put("kcal", log.getKcal());
+                    if (log.getAvgHr() != null) m.put("avgHeartRate", log.getAvgHr());
+                }
                 m.put("memo", log.getMemo());
                 logs.add(m);
             }
@@ -241,7 +248,7 @@ public class DailyAnalysisService {
                 - dailyActivity: 폰에서 집계한 걸음 수, 거리, 칼로리. 값이 null 이면 측정하지 않은 것입니다. 수면과 안정시 심박은 재는 기기가 없어 보통 비어 있으니 언급하지 마세요.
                 - phoneExercises: 폰에 기록된 운동 세션. kcal 은 기초대사량이 포함될 수 있어 부정확합니다. rides 와 시간이 겹치면 같은 운동이므로 rides 값을 우선하고 이중으로 세지 마세요.
                 - rides: 자전거 컴퓨터로 기록한 라이딩. 가장 정확합니다.
-                - fitness: 직접 입력한 웨이트 트레이닝.
+                - fitness: 헬스장 운동 기록. category 가 '유산소'인 항목(러닝머신·천국의 계단 등)은 durationMin·distanceKm·kcal·avgHeartRate 가 있는 유산소이고, 나머지는 웨이트 트레이닝입니다.
                 - meals: 식단 기록. 끼니가 일부만 입력됐을 수 있으니 합계를 하루 총 섭취량으로 단정하지 마세요.
                 - bodyRecords: 이 날 측정한 체성분. 없으면 언급하지 마세요.
                 - treatments: 이 날 진행 중이던 치료·부상(본인 입력). 있으면 운동 강도·부위 선택·볼륨을 이 상황에 맞춰 해석하세요.

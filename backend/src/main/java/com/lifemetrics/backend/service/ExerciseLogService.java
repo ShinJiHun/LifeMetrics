@@ -41,6 +41,8 @@ public class ExerciseLogService {
             Map.entry("전신", 6.0)
     );
     private static final double DEFAULT_MET = 5.5;
+    public static final String CARDIO_CATEGORY = "유산소";
+    private static final double CARDIO_MET = 7.0; // kcal 기록이 없을 때 추정용 (러닝머신 빠르게 걷기~조깅)
     private static final double DEFAULT_WEIGHT_KG = 75.0;
     private static final int SECONDS_PER_SET = 120; // 운동 60초 + 휴식 60초
 
@@ -71,6 +73,10 @@ public class ExerciseLogService {
         }
 
         for (ExerciseLogRequest.ExerciseEntry entry : request.getExercises()) {
+            if (entry.getDurationMin() != null || entry.getDistanceKm() != null) {
+                saveCardioLog(session.getId(), entry);
+                continue;
+            }
             ExerciseLog log = new ExerciseLog();
             log.setSessionId(session.getId());
             log.setExerciseItemId(entry.getExerciseItemId());
@@ -103,6 +109,20 @@ public class ExerciseLogService {
             }
         }
         return session.getId();
+    }
+
+    private void saveCardioLog(Long sessionId, ExerciseLogRequest.ExerciseEntry entry) {
+        ExerciseLog log = new ExerciseLog();
+        log.setSessionId(sessionId);
+        log.setExerciseItemId(entry.getExerciseItemId());
+        log.setSets(1);
+        log.setDurationSec(entry.getDurationMin() != null ? (int) Math.round(entry.getDurationMin() * 60) : null);
+        log.setDistanceKm(entry.getDistanceKm() != null ? BigDecimal.valueOf(entry.getDistanceKm()) : null);
+        log.setKcal(entry.getKcal());
+        log.setAvgHr(entry.getAvgHr());
+        log.setMemo(entry.getMemo());
+        log.setCreatedAt(LocalDateTime.now());
+        logRepository.save(log);
     }
 
     // ================================================================
@@ -205,13 +225,19 @@ public class ExerciseLogService {
                                         })
                                         .toList();
 
+                        boolean cardio = CARDIO_CATEGORY.equals(categoryName);
                         return ExerciseHistoryResponse.ExerciseLogDto.builder()
+                                .cardio(cardio)
+                                .durationSec(cardio ? log.getDurationSec() : null)
+                                .distanceKm(cardio && log.getDistanceKm() != null ? log.getDistanceKm().doubleValue() : null)
+                                .kcal(cardio ? log.getKcal() : null)
+                                .avgHr(cardio ? log.getAvgHr() : null)
                                 .id(log.getId())
                                 .exerciseItemId(log.getExerciseItemId())
                                 .exerciseNameKo(nameKo)
                                 .exerciseNameEn(nameEn)
                                 .categoryName(categoryName)
-                                .restTimeSec(log.getDurationSec())
+                                .restTimeSec(cardio ? null : log.getDurationSec())
                                 .memo(log.getMemo())
                                 .sets(setDtos)
                                 .muscleMappings(muscleMappingDtos)
@@ -223,8 +249,18 @@ public class ExerciseLogService {
             int sessionTotalSets = 0;
             double sessionTotalVolume = 0;
             double weightedMetSum = 0;
+            int cardioSeconds = 0;
+            double cardioKcal = 0;
 
             for (ExerciseHistoryResponse.ExerciseLogDto log : logDtos) {
+                if (Boolean.TRUE.equals(log.getCardio())) {
+                    // 유산소: 기록된 시간·칼로리를 그대로 더한다 (칼로리 없으면 MET 추정)
+                    int sec = log.getDurationSec() != null ? log.getDurationSec() : 0;
+                    cardioSeconds += sec;
+                    cardioKcal += log.getKcal() != null ? log.getKcal()
+                            : CARDIO_MET * DEFAULT_WEIGHT_KG * sec / 3600.0;
+                    continue;
+                }
                 int logSets = log.getSets().size();
                 sessionTotalSets += logSets;
 
@@ -243,10 +279,10 @@ public class ExerciseLogService {
             // 시간 계산: 1세트 = 120초 (운동 60초 + 휴식 60초)
             int estimatedSeconds = sessionTotalSets * SECONDS_PER_SET;
             double estimatedHours = estimatedSeconds / 3600.0;
-            int estimatedMinutes = estimatedSeconds / 60;
+            int estimatedMinutes = (estimatedSeconds + cardioSeconds) / 60;
 
-            // 칼로리 = MET × 체중(kg) × 시간(hour)
-            double estimatedCalories = avgMet * DEFAULT_WEIGHT_KG * estimatedHours;
+            // 칼로리 = MET × 체중(kg) × 시간(hour) + 유산소 칼로리
+            double estimatedCalories = avgMet * DEFAULT_WEIGHT_KG * estimatedHours + cardioKcal;
 
             return ExerciseHistoryResponse.builder()
                     .id(session.getId())

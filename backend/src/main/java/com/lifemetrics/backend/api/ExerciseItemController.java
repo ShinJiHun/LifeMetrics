@@ -33,6 +33,7 @@ public class ExerciseItemController {
     private final ExerciseLogService logService;
     private final ExerciseService exerciseService;
     private final AiAnalysisService analysisService;
+    private final com.lifemetrics.backend.service.CardioService cardioService;
 
     @Value("${exercise.gif.path:/mnt/200gb/NAS/exercise-gifs/}")
     private String gifBasePath;
@@ -70,6 +71,15 @@ public class ExerciseItemController {
             @RequestParam String month,
             @RequestParam Long userId) {
         return logService.getHistory(userId, month);
+    }
+
+    // ── 유산소 모아보기 (헬스장 유산소 + 라이딩 + 폰 걷기) ──────────
+    @GetMapping("/cardio")
+    public List<com.lifemetrics.backend.service.CardioService.CardioEntry> getCardio(
+            @RequestParam String from,
+            @RequestParam String to,
+            @RequestParam(defaultValue = "1") Long userId) {
+        return cardioService.list(userId, java.time.LocalDate.parse(from), java.time.LocalDate.parse(to));
     }
 
     // ── GIF 서빙 (서브폴더 경로 지원: /gif/chest/CHEST_PRESS.gif) ─

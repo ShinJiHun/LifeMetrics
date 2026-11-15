@@ -9,7 +9,8 @@ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 interface ExerciseSet { id: number; setNumber: number; weight: number; reps: number; }
 interface MuscleMapping { muscleGroupId: number; muscleName: string; role: "PRIMARY" | "SECONDARY" | "SYNERGIST"; activationLevel: number; }
-interface ExerciseLog { id: number; exerciseItemId: number; exerciseNameKo: string; exerciseNameEn: string; categoryName: string; sets: ExerciseSet[]; restTimeSec: number; memo: string; muscleMappings?: MuscleMapping[]; }
+interface ExerciseLog { id: number; exerciseItemId: number; exerciseNameKo: string; exerciseNameEn: string; categoryName: string; sets: ExerciseSet[]; restTimeSec: number; memo: string; muscleMappings?: MuscleMapping[];
+    cardio?: boolean; durationSec?: number | null; distanceKm?: number | null; kcal?: number | null; avgHr?: number | null; }
 interface ExerciseSession {
     id: number; sessionDate: string; isPT: boolean; memo: string; logs: ExerciseLog[];
     estimatedCalories?: number; totalVolume?: number; totalSets?: number; estimatedMinutes?: number;
@@ -18,6 +19,15 @@ interface ExerciseAnalysis {
     id: number; sessionId: number; summary: string; targetMuscles: string;
     volumeLevel: string; intensityLevel: string; highlights: string[]; suggestions: string[]; score: number;
 }
+
+/** 시트 동기화 마커([sheet#12], [cardio#날짜#종목#1])는 화면에서 뗀다 */
+const cleanMemo = (memo?: string | null) => (memo || "").replace(/^\[(sheet|cardio)#[^\]]*\]\s*/, "").trim();
+
+/** 1230초 → "20분 30초" */
+export const formatDuration = (sec: number) => {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return s ? `${m}분 ${s}초` : `${m}분`;
+};
 
 const MUSCLE_COLOR_MAP: Record<string, string> = {
     가슴: "#ef4444", 등: "#3b82f6", 어깨: "#f59e0b",
@@ -220,8 +230,9 @@ export default function ExerciseHistoryPage() {
                                 </div>
                                 <div className="session-summary">
                                     <span>{session.logs.length}종목</span>
-                                    <span>{session.totalSets || 0}세트</span>
-                                    <span>{(session.totalVolume || 0).toLocaleString()}kg</span>
+                                    {(session.totalSets || 0) > 0 && <span>{session.totalSets}세트</span>}
+                                    {(session.totalVolume || 0) > 0 && <span>{(session.totalVolume || 0).toLocaleString()}kg</span>}
+                                    {session.logs.some(l => l.cardio) && <span className="cardio-chip">🫀 유산소 {Math.round(session.logs.filter(l => l.cardio).reduce((m, l) => m + (l.durationSec || 0), 0) / 60)}분</span>}
                                 </div>
                                 <span className="expand-icon">{expandedSession === session.id ? "▲" : "▼"}</span>
                             </div>
@@ -254,13 +265,22 @@ export default function ExerciseHistoryPage() {
                                                     })}
                                                 </div>
                                             )}
-                                            {log.memo && <div className="log-memo">📝 {log.memo}</div>}
+                                            {cleanMemo(log.memo) && <div className="log-memo">📝 {cleanMemo(log.memo)}</div>}
+                                            {log.cardio ? (
+                                                <div className="cardio-stats">
+                                                    {log.durationSec != null && <span>⏱ {formatDuration(log.durationSec)}</span>}
+                                                    {log.distanceKm != null && <span>📏 {log.distanceKm}km</span>}
+                                                    {log.kcal != null && <span>🔥 {log.kcal}kcal</span>}
+                                                    {log.avgHr != null && <span>❤️ {log.avgHr}bpm</span>}
+                                                </div>
+                                            ) : (<>
                                             {log.restTimeSec > 0 && <div className="log-rest">⏱️ 휴식 {log.restTimeSec}초</div>}
                                             <div className="sets-table">
                                                 <div className="sets-header"><span>세트</span><span>무게</span><span>횟수</span><span>볼륨</span></div>
                                                 {log.sets.map((set) => (<div key={set.id} className="set-row"><span>{set.setNumber}</span><span>{set.weight}kg</span><span>{set.reps}회</span><span className="volume">{(set.weight*set.reps).toLocaleString()}kg</span></div>))}
                                             </div>
                                             <div className="log-total">총 볼륨: {log.sets.reduce((s,st)=>s+st.weight*st.reps,0).toLocaleString()}kg</div>
+                                            </>)}
                                         </div>
                                     ))}
 
