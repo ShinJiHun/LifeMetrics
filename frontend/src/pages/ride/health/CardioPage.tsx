@@ -112,7 +112,8 @@ export default function CardioPage() {
             .map((e) => e.date)).size;
         return { ws, n, current: ymd(ws) === ymd(weekStart) };
     });
-    const trendMax = Math.max(WEEKLY_GYM_GOAL, ...trend.map((t) => t.n));
+    // 막대 위 숫자 자리를 남기려고 최대값보다 조금 크게 잡는다
+    const trendScale = Math.max(WEEKLY_GYM_GOAL, ...trend.map((t) => t.n)) * 1.25;
 
     // ── 날짜별 목록 ──
     const byDate = useMemo(() => {
@@ -183,15 +184,21 @@ export default function CardioPage() {
 
             <section className="cardio-trend">
                 <div className="cardio-section-title">최근 {TREND_WEEKS}주 헬스장 유산소 <small>(목표 주 {WEEKLY_GYM_GOAL}회)</small></div>
-                <div className="cardio-trend-bars">
-                    <div className="goal-line" style={{ bottom: `${(WEEKLY_GYM_GOAL / trendMax) * 100}%` }} />
+                <div className="cardio-trend-plot">
+                    <div className="goal-line" style={{ bottom: `${(WEEKLY_GYM_GOAL / trendScale) * 100}%` }}>
+                        <span>목표 {WEEKLY_GYM_GOAL}</span>
+                    </div>
                     {trend.map((t) => (
                         <button key={ymd(t.ws)} className={`bar-col ${t.current ? "current" : ""}`}
                                 onClick={() => setWeekStart(t.ws)} title={`${t.ws.getMonth() + 1}/${t.ws.getDate()} 주: ${t.n}회`}>
-                            <span className="bar-n">{t.n}</span>
-                            <span className={`bar ${t.n >= WEEKLY_GYM_GOAL ? "met" : ""}`} style={{ height: `${(t.n / trendMax) * 100}%` }} />
-                            <span className="bar-label">{t.ws.getMonth() + 1}/{t.ws.getDate()}</span>
+                            <span className={`bar ${t.n >= WEEKLY_GYM_GOAL ? "met" : ""}`} style={{ height: `${(t.n / trendScale) * 100}%` }} />
+                            <span className="bar-n" style={{ bottom: `calc(${(t.n / trendScale) * 100}% + 2px)` }}>{t.n}</span>
                         </button>
+                    ))}
+                </div>
+                <div className="cardio-trend-labels">
+                    {trend.map((t) => (
+                        <span key={ymd(t.ws)} className={t.current ? "current" : ""}>{t.ws.getMonth() + 1}/{t.ws.getDate()}</span>
                     ))}
                 </div>
             </section>

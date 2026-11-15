@@ -17,3 +17,6 @@ UPDATE exercise_item i
 JOIN exercise_category dst ON dst.name = '유산소'
 SET i.category_id = dst.id
 WHERE i.name_en = 'Treadmill';
+
+-- 시트 '유산소' 탭에서 쓰는 이름으로 (영문명 Treadmill 로 PT 시트의 '트레드 밀'도 계속 매칭됨)
+UPDATE exercise_item SET name = '러닝머신', name_ko = '러닝머신' WHERE name_en = 'Treadmill';
