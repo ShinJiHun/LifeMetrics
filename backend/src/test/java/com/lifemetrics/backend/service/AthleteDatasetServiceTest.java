@@ -38,7 +38,8 @@ class AthleteDatasetServiceTest {
 
     private final AthleteContextService context = new AthleteContextService(daily, activities, exercises, body, goals,
             treatments, visits, measurements, bikes, fits, zones,
-            mock(com.lifemetrics.backend.repository.RandonneuringResultRepository.class));
+            mock(com.lifemetrics.backend.repository.RandonneuringResultRepository.class),
+            mock(com.lifemetrics.backend.power.PowerProfileService.class));
 
     @Test
     void 공개용_컨텍스트는_진료_체성분_식단_신체치수를_아예_조회하지_않는다() {

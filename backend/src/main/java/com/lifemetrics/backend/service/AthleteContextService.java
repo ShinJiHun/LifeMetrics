@@ -14,6 +14,7 @@ import com.lifemetrics.backend.health.entity.HealthTreatmentVisit;
 import com.lifemetrics.backend.health.repository.HealthTreatmentRepository;
 import com.lifemetrics.backend.health.repository.HealthTreatmentVisitRepository;
 import com.lifemetrics.backend.health.service.TreatmentVisitService;
+import com.lifemetrics.backend.power.PowerProfileService;
 import com.lifemetrics.backend.health.service.DailySummaryService;
 import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.BikeFitRepository;
@@ -67,6 +68,7 @@ public class AthleteContextService {
     private final BikeFitRepository fitRepo;
     private final RiderZoneSettingRepository zoneRepo;
     private final RandonneuringResultRepository randoResultRepo;
+    private final PowerProfileService powerProfileService;
 
     /**
      * 본인용 전체 기록. today 이후의 기록은 넣지 않는다(학습 데이터를 과거 날짜 기준으로 만들 때도 그 시점의 기록만 보이게).
@@ -82,6 +84,7 @@ public class AthleteContextService {
         section(sb, "사용 중인 자전거와 최신 피팅 (길이 mm, 각도 °)", () -> bikes(true, today));
         section(sb, "최근 " + SUMMARY_DAYS + "일 일별 요약 (섭취·소모·에너지 수지)", () -> dailySummaries(userId, today));
         section(sb, "최근 " + RIDE_DAYS + "일 라이딩", () -> rides(userId, today));
+        section(sb, "파워 프로필 (파워미터 기록 전체에서 계산)", () -> powerProfileService.summaryLines(userId));
         section(sb, "랜도너스 공식 경력 (완주·DNF 포함 요약)", () -> career(userId));
         section(sb, "랜도너스 공식 참가 기록 (최신순)", () -> randoResultRepo.findByUserIdOrderByEventDateDescIdDesc(userId)
                 .stream().limit(RANDO_MAX).map(RandonneuringCareer::line).toList());

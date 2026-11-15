@@ -203,6 +203,7 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
                     {to: "/records/riding", label: "라이딩 기록"},
                     {to: "/records/riding-map", label: "라이딩 지도"},
                     {to: "/records/randonneuring", label: "랜도너스 기록"},
+                    {to: "/records/power-profile", label: "파워 프로필"},
                     {to: "/plan/live", label: "라이브 라이딩"},
                 ],
             },

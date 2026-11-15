@@ -6,6 +6,7 @@ import BodyRecordPage from "@/pages/ride/body/BodyRecordPage";
 import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
 import DailyAnalysisPage from "@/pages/ride/analysis/DailyAnalysisPage";
 import AthleteChatPage from "@/pages/ride/analysis/AthleteChatPage";
+import PowerProfilePage from "@/pages/ride/analysis/PowerProfilePage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import HealthTreatmentPage from "@/pages/ride/body/HealthTreatmentPage";
 import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
@@ -74,6 +75,7 @@ export default function App() {
                 <Route path="/records/riding" element={<RidingRecordPage />} />
                 <Route path="/records/riding-map" element={<RidingMapPage />} />
                 <Route path="/records/randonneuring" element={<RandonneuringRecordPage />} />
+                <Route path="/records/power-profile" element={<PowerProfilePage />} />
                 <Route path="/plan/brevet" element={<BrevePlanPage />} />
                 <Route path="/plan/permanent" element={<PermanentCoursesPage />} />
                 <Route path="/plan/live" element={<LiveRidePage />} />
