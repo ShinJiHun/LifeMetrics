@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import api from "@/lib/axios";
+import ChatMarkdown from "@/components/common/ChatMarkdown";
 
 type ToolCall = { name: string; input?: Record<string, unknown>; error?: boolean };
 type Message = { role: "user" | "assistant"; content: string; toolCalls?: ToolCall[] };
@@ -161,7 +162,7 @@ export default function AthleteChatPage() {
                 {messages.map((m, i) => (
                     <div key={i} style={m.role === "user" ? S.userRow : S.botRow}>
                         <div style={m.role === "user" ? S.userBubble : S.botBubble}>
-                            {m.content}
+                            {m.role === "assistant" ? <ChatMarkdown>{m.content}</ChatMarkdown> : m.content}
                             {m.toolCalls && m.toolCalls.length > 0 && (
                                 <div style={S.sources}>근거: {m.toolCalls.map(toolLabel).join(" · ")}</div>
                             )}

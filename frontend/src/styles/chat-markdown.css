@@ -1,0 +1,17 @@
+/* 챗 말풍선 안의 마크다운. 색·글자 크기는 말풍선을 따른다. */
+.chat-md {
+    white-space: normal;
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+.chat-md > *:first-child { margin-top: 0; }
+.chat-md > *:last-child { margin-bottom: 0; }
+.chat-md p { margin: 0 0 0.6em; }
+.chat-md ul, .chat-md ol { margin: 0.2em 0 0.6em; padding-left: 1.3em; }
+.chat-md li { margin: 0.15em 0; }
+.chat-md h1, .chat-md h2, .chat-md h3, .chat-md h4 { font-size: 1em; font-weight: 700; margin: 0.6em 0 0.3em; }
+.chat-md strong { font-weight: 700; }
+.chat-md code { font-family: ui-monospace, monospace; font-size: 0.92em; padding: 0 0.25em; border-radius: 4px; background: rgba(127, 127, 127, 0.15); }
+.chat-md table { border-collapse: collapse; margin: 0.4em 0; font-size: 0.92em; }
+.chat-md th, .chat-md td { border: 1px solid rgba(127, 127, 127, 0.35); padding: 3px 6px; }

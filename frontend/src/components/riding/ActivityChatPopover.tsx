@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from "react";
 import {useTts} from "@/hooks/useTts.ts";
+import ChatMarkdown, {plainText} from "@/components/common/ChatMarkdown";
 
 interface ChatMessage {
     role: "user" | "assistant";
@@ -86,7 +87,7 @@ export default function ActivityChatPopover({activityId, userId = 1}: Props) {
                 content: reply,
             }]);
             // 보이스 버전일 때만 자동 읽기 (전송 제스처 직후라 autoplay 정책 통과)
-            if (mode === "voice" && ttsSupported) speak(reply);
+            if (mode === "voice" && ttsSupported) speak(plainText(reply));
         } catch (e) {
             console.error("[채팅 네트워크 에러]", e);
             setMessages(prev => [...prev, {
@@ -197,12 +198,12 @@ export default function ActivityChatPopover({activityId, userId = 1}: Props) {
                                         ...(m.role === "user" ? S.bubbleUser : S.bubbleAssistant),
                                     }}
                                 >
-                                    {m.content}
+                                    {m.role === "assistant" ? <ChatMarkdown>{m.content}</ChatMarkdown> : m.content}
                                 </div>
                                 {/* 보이스 버전에서만 답변별 수동 읽기 버튼 노출 */}
                                 {mode === "voice" && ttsSupported && m.role === "assistant" && (
                                     <button
-                                        onClick={() => speak(m.content)}
+                                        onClick={() => speak(plainText(m.content))}
                                         style={S.speakBtn}
                                         title="이 답변 읽기"
                                     >
