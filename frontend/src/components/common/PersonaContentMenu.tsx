@@ -2,6 +2,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import type { Persona } from "@/types/content";
 import { categoriesOf, subMenusOf, useContent } from "@/lib/contentStore";
+import { useAdmin } from "@/lib/admin";
 
 const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "8px 14px 8px 28px",
@@ -20,6 +21,7 @@ export default function PersonaContentMenu({
     accent: string;
 }) {
     const data = useContent();
+    const { isAdmin } = useAdmin();
     const categories = categoriesOf(data, persona);
     const base = `/${persona}`;
 
@@ -50,6 +52,12 @@ export default function PersonaContentMenu({
                         <NavLink to="/persona/developer/contact" style={linkRoot(accent)}>
                             ✉️ 연락처
                         </NavLink>
+                        {/* 본인 전용 — 지금 하는 일의 일일·주간보고 (포트폴리오 방문자에게는 안 보임) */}
+                        {isAdmin && (
+                            <NavLink to="/persona/developer/worklog" style={linkRoot(accent)}>
+                                🗂 업무 일지
+                            </NavLink>
+                        )}
                     </>
                 ) : persona === "lottery" ? (
                     <>
