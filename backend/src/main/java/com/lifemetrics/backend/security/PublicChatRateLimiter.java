@@ -1,5 +1,6 @@
 package com.lifemetrics.backend.security;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ public class PublicChatRateLimiter {
     private final Map<String, AtomicInteger> perIp = new ConcurrentHashMap<>();
     private final AtomicInteger total = new AtomicInteger();
 
+    @Autowired  // 테스트용 Clock 생성자가 따로 있어 스프링이 쓸 생성자를 지정한다
     public PublicChatRateLimiter(@Value("${ai.public-chat.per-ip-per-day:30}") int perIpPerDay,
                                  @Value("${ai.public-chat.total-per-day:300}") int totalPerDay) {
         this(perIpPerDay, totalPerDay, Clock.system(ZoneId.of("Asia/Seoul")));
