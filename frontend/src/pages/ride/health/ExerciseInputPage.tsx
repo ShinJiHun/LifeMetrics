@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import "@/styles/global.css";
 import "@/styles/exercise-input.css";
+import { useAdmin } from "@/lib/admin";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -43,6 +44,9 @@ interface SelectedExercise {
 }
 
 export default function ExerciseInputPage() {
+    const { isAdmin } = useAdmin();
+    const [gifBusy, setGifBusy] = useState(false);
+    const [gifMessage, setGifMessage] = useState<string | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<ExerciseItem[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -72,6 +76,37 @@ export default function ExerciseInputPage() {
             .then((data) => { setItems(data); setLoading(false); })
             .catch((err) => { console.error("운동 종목 로드 실패:", err); setLoading(false); });
     }, [selectedCategory]);
+
+    // 관리자: 선택한 운동의 GIF 추가·교체. 서버가 기존 파일을 백업한 뒤 덮어쓰고 새 주소(?v=)를 돌려준다.
+    const uploadGif = async (file: File) => {
+        if (!selectedExercise) return;
+        setGifBusy(true);
+        setGifMessage(null);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const res = await fetch(`${API_BASE}/api/exercise/gif/${selectedExercise.item.id}`, {
+                method: "POST",
+                body: form,
+                credentials: "include",
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.gifUrl) {
+                setGifMessage(res.status === 403 ? "관리자 로그인이 필요합니다." : data.message ?? "GIF 를 저장하지 못했습니다.");
+                return;
+            }
+            const id = selectedExercise.item.id;
+            setItems((prev) => prev.map((it) => (it.id === id ? { ...it, gifUrl: data.gifUrl } : it)));
+            setSelectedExercise({ ...selectedExercise, item: { ...selectedExercise.item, gifUrl: data.gifUrl } });
+            setGifMessage("GIF 를 저장했습니다.");
+        } catch {
+            setGifMessage("GIF 를 저장하지 못했습니다.");
+        } finally {
+            setGifBusy(false);
+        }
+    };
+
+    const gifFileName = (url: string) => url.split("?")[0].split("/").pop() ?? "exercise.gif";
 
     const filteredItems = items.filter((item) => {
         const matchEquipment = selectedEquipment === "all" || item.equipmentType === selectedEquipment;
@@ -275,7 +310,7 @@ export default function ExerciseInputPage() {
                 <div className={`exercise-input-area ${isPanelExpanded ? "expanded" : "collapsed"}`}>
 
                     {/* GIF 미리보기: gifUrl 우선, 없으면 mediaUrl, 없으면 플레이스홀더 */}
-                    <div className="exercise-gif-preview">
+                    <div className={`exercise-gif-preview${selectedExercise?.item.gifUrl || selectedExercise?.item.mediaUrl ? " has-gif" : ""}`}>
                         {selectedExercise?.item.gifUrl ? (
                             <img
                                 src={selectedExercise.item.gifUrl}
@@ -293,6 +328,35 @@ export default function ExerciseInputPage() {
                             </div>
                         )}
                     </div>
+
+                    {isAdmin && selectedExercise && (
+                        <div className="gif-admin">
+                            {selectedExercise.item.gifUrl && (
+                                <a
+                                    className="gif-admin-btn"
+                                    href={selectedExercise.item.gifUrl}
+                                    download={gifFileName(selectedExercise.item.gifUrl)}
+                                >
+                                    ⬇ 다운로드
+                                </a>
+                            )}
+                            <label className={`gif-admin-btn${gifBusy ? " disabled" : ""}`}>
+                                {gifBusy ? "저장 중…" : selectedExercise.item.gifUrl ? "⬆ GIF 교체" : "⬆ GIF 추가"}
+                                <input
+                                    type="file"
+                                    accept="image/gif"
+                                    hidden
+                                    disabled={gifBusy}
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        e.target.value = "";
+                                        if (f) void uploadGif(f);
+                                    }}
+                                />
+                            </label>
+                            {gifMessage && <span className="gif-admin-msg">{gifMessage}</span>}
+                        </div>
+                    )}
 
                     <div className="panel-header" onClick={() => setIsPanelExpanded(!isPanelExpanded)}>
                         <h3>

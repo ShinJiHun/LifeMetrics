@@ -503,9 +503,43 @@
 }
 
 .exercise-gif-preview img {
+    display: block;
     width: 100%;
-    max-height: 200px;
+    max-height: 240px;
     object-fit: contain;
+}
+
+/* GIF 가 있으면 GIF 의 흰 배경과 이어지도록 상자도 흰색 */
+.exercise-gif-preview.has-gif {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+}
+
+/* 관리자: GIF 다운로드·교체 */
+.gif-admin {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: -4px 0 12px;
+}
+.gif-admin-btn {
+    font-size: 12px;
+    padding: 5px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    text-decoration: none;
+}
+.gif-admin-btn.disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+.gif-admin-msg {
+    font-size: 12px;
+    color: #6b7280;
 }
 
 .gif-label {
