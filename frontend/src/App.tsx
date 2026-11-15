@@ -7,6 +7,7 @@ import WeightLossAnalysisPage from "@/pages/ride/body/WeightLossAnalysisPage";
 import DailyAnalysisPage from "@/pages/ride/analysis/DailyAnalysisPage";
 import AthleteChatPage from "@/pages/ride/analysis/AthleteChatPage";
 import PowerProfilePage from "@/pages/ride/analysis/PowerProfilePage";
+import WorkLogPage from "@/pages/persona/WorkLogPage";
 import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import HealthTreatmentPage from "@/pages/ride/body/HealthTreatmentPage";
 import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
@@ -64,6 +65,8 @@ export default function App() {
             <Route element={<Layout />}>
                 <Route path="/records/daily-analysis" element={<RequireAdmin><DailyAnalysisPage /></RequireAdmin>} />
                 <Route path="/records/athlete-chat" element={<RequireAdmin><AthleteChatPage /></RequireAdmin>} />
+                {/* 업무 일지는 개발 페르소나로 이동 — 예전 주소는 새 주소로 보낸다 */}
+                <Route path="/records/worklog" element={<Navigate to="/persona/developer/worklog" replace />} />
                 <Route path="/records/body" element={<BodyRecordPage />} />
                 <Route path="/records/body/weight-loss" element={<WeightLossAnalysisPage />} />
                 <Route path="/records/body/health-checkup" element={<RequireAdmin><HealthCheckupPage /></RequireAdmin>} />
@@ -91,6 +94,7 @@ export default function App() {
                 <Route path="/persona/developer/manage" element={<RequireAdmin><ProfileManagePage /></RequireAdmin>} />
                 <Route path="/persona/developer/experiences" element={<RequireAdmin><DevExperiencePage /></RequireAdmin>} />
                 <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
+                <Route path="/persona/developer/worklog" element={<RequireAdmin><WorkLogPage /></RequireAdmin>} />
                 <Route path="/persona/developer/career-detail/:companyId" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/career-detail/:companyId/:page" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/:section" element={<PersonaPortfolioPage />} />
