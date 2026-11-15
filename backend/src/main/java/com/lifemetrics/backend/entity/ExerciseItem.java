@@ -28,6 +28,8 @@ public class ExerciseItem {
     @Column(name = "media_url")
     private String mediaUrl;
 
+    @lombok.Setter  // 관리자 GIF 교체 시 경로 갱신
+
     @Column(name = "gif_url")
     private String gifUrl;
 

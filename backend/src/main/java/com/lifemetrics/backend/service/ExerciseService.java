@@ -50,6 +50,15 @@ public class ExerciseService {
                 .collect(Collectors.toList());
     }
 
+    static boolean isGif(byte[] b) {
+        return b != null && b.length >= 6 && b[0] == 'G' && b[1] == 'I' && b[2] == 'F'
+                && b[3] == '8' && (b[4] == '7' || b[4] == '9') && b[5] == 'a';
+    }
+
+    private static ResponseEntity<Map<String, Object>> badGif(String message) {
+        return ResponseEntity.badRequest().body(Map.of("success", false, "message", message));
+    }
+
     // ── 운동 목록 조회 (DTO 변환 + gifUrl prefix 적용) ────────────
     public List<ExerciseItemDto> getItems(Long categoryId, Boolean hasMedia) {
         List<ExerciseItem> items;
@@ -79,17 +88,44 @@ public class ExerciseService {
                 .body(new FileSystemResource(gifPath));
     }
 
-    // ── GIF 업로드 ────────────────────────────────────────────────
+    static final long MAX_GIF_BYTES = 15L * 1024 * 1024;
+
+    // ── GIF 업로드(관리자: 추가·교체) ─────────────────────────────
+    /**
+     * 운동의 GIF 를 올리거나 바꾼다. 이미 경로(gif_url)가 있으면 같은 경로에 덮어쓰고, 없으면 uploads/{id}.gif 로 저장해
+     * DB 경로를 채운다. 덮어쓰기 전 기존 파일은 .backup/ 아래에 시각을 붙여 복사해 둔다.
+     * 돌려주는 gifUrl 에는 ?v= 를 붙여 브라우저 캐시 때문에 옛 그림이 보이지 않게 한다.
+     */
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Map<String, Object>> uploadGif(Long itemId, MultipartFile file) {
         try {
-            Path dirPath = Paths.get(gifBasePath);
-            Files.createDirectories(dirPath);
-            Files.copy(file.getInputStream(), dirPath.resolve(itemId + ".gif"),
-                    StandardCopyOption.REPLACE_EXISTING);
+            ExerciseItem item = exerciseItemRepository.findById(itemId).orElse(null);
+            if (item == null) return ResponseEntity.status(404).body(Map.of("success", false, "message", "운동 항목이 없습니다."));
+            if (file == null || file.isEmpty()) return badGif("파일이 비어 있습니다.");
+            if (file.getSize() > MAX_GIF_BYTES) return badGif("GIF 는 15MB 이하만 올릴 수 있습니다.");
+            byte[] bytes = file.getBytes();
+            if (!isGif(bytes)) return badGif("GIF 파일만 올릴 수 있습니다.");
+
+            String relative = item.getGifUrl() != null && !item.getGifUrl().isBlank()
+                    ? item.getGifUrl() : "uploads/" + itemId + ".gif";
+            Path base = Paths.get(gifBasePath).toAbsolutePath().normalize();
+            Path target = base.resolve(relative).normalize();
+            if (!target.startsWith(base)) return badGif("잘못된 파일 경로입니다.");
+            Files.createDirectories(target.getParent());
+            if (Files.exists(target)) {
+                Path backup = base.resolve(".backup").resolve(relative.replace('/', '_') + "." + System.currentTimeMillis());
+                Files.createDirectories(backup.getParent());
+                Files.copy(target, backup, StandardCopyOption.REPLACE_EXISTING);
+            }
+            Files.write(target, bytes);
+            if (item.getGifUrl() == null || item.getGifUrl().isBlank()) {
+                item.setGifUrl(relative);
+                exerciseItemRepository.save(item);
+            }
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "gifUrl", gifBaseUrl + itemId + ".gif",
-                    "message", "GIF 업로드 완료"
+                    "gifUrl", gifBaseUrl + relative + "?v=" + System.currentTimeMillis(),
+                    "message", "GIF 를 저장했습니다."
             ));
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body(Map.of(
