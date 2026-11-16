@@ -34,6 +34,7 @@ public class ExerciseItemController {
     private final ExerciseService exerciseService;
     private final AiAnalysisService analysisService;
     private final com.lifemetrics.backend.service.CardioService cardioService;
+    private final com.lifemetrics.backend.service.CardioRecommendService cardioRecommendService;
 
     @Value("${exercise.gif.path:/mnt/200gb/NAS/exercise-gifs/}")
     private String gifBasePath;
@@ -80,6 +81,23 @@ public class ExerciseItemController {
             @RequestParam String to,
             @RequestParam(defaultValue = "1") Long userId) {
         return cardioService.list(userId, java.time.LocalDate.parse(from), java.time.LocalDate.parse(to));
+    }
+
+    // ── 유산소 추천 (월 감량 목표 → 오늘 남은 적자 → 러닝머신 시간·강도) ──
+    @GetMapping("/cardio/recommend")
+    public com.lifemetrics.backend.service.CardioRecommendService.Result getCardioRecommend(
+            @RequestParam(required = false) String date,
+            @RequestParam(defaultValue = "1") Long userId) {
+        return cardioRecommendService.recommend(userId, date == null || date.isBlank() ? null : java.time.LocalDate.parse(date));
+    }
+
+    // ── 한 달 감량 목표 저장 (body: {"monthlyLossKg": 2.0}) ──────────
+    @PutMapping("/cardio/target")
+    public Map<String, Object> saveCardioTarget(
+            @RequestBody Map<String, Double> body,
+            @RequestParam(defaultValue = "1") Long userId) {
+        cardioRecommendService.saveMonthlyLossKg(userId, body.get("monthlyLossKg"));
+        return Map.of("monthlyLossKg", cardioRecommendService.getMonthlyLossKg(userId));
     }
 
     // ── GIF 서빙 (서브폴더 경로 지원: /gif/chest/CHEST_PRESS.gif) ─

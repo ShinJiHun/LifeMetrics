@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import "@/styles/global.css";
 import "@/styles/cardio.css";
+import CardioRecommendCard from "./CardioRecommendCard";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 const WEEKLY_GYM_GOAL = 3;   // 헬스장 유산소 주 3회 목표
@@ -127,6 +128,8 @@ export default function CardioPage() {
     return (
         <div className="cardio-page">
             <h2>🫀 유산소</h2>
+
+            <CardioRecommendCard />
 
             <div className="cardio-week-nav">
                 <button onClick={() => setWeekStart(addDays(weekStart, -7))} aria-label="이전 주">◀</button>
