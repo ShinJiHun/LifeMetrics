@@ -69,6 +69,10 @@ public class WorkLogCareerService {
             Map.entry("프로그램/테스트 ID", Pattern.compile("\\b[A-Z]{2,4}[-_][A-Z]{0,3}_?\\d{3,4}\\b"))
     );
 
+    /** 파일명 패턴에 걸리지만 공개 기술명인 것. */
+    private static final Set<String> TECH_NAMES = Set.of("vue.js", "node.js", "next.js", "nuxt.js", "react.js",
+            "express.js", "chart.js", "three.js", "d3.js", "socket.io");
+
     private final NamedParameterJdbcTemplate jdbc;
     private final ClaudeChatClient claude;
     private final ObjectMapper objectMapper;
@@ -360,7 +364,9 @@ public class WorkLogCareerService {
         for (Map.Entry<String, Pattern> e : LEAK_PATTERNS) {
             Matcher m = e.getValue().matcher(all);
             LinkedHashSet<String> hits = new LinkedHashSet<>();
-            while (m.find() && hits.size() < 5) hits.add(m.group());
+            while (m.find() && hits.size() < 5) {
+                if (!TECH_NAMES.contains(m.group().toLowerCase(Locale.ROOT))) hits.add(m.group());
+            }
             if (!hits.isEmpty()) out.add(e.getKey() + " 의심: " + String.join(", ", hits));
         }
         return out;
