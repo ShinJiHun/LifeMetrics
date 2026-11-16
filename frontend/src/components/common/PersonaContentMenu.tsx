@@ -54,9 +54,14 @@ export default function PersonaContentMenu({
                         </NavLink>
                         {/* 본인 전용 — 지금 하는 일의 일일·주간보고 (포트폴리오 방문자에게는 안 보임) */}
                         {isAdmin && (
-                            <NavLink to="/persona/developer/worklog" style={linkRoot(accent)}>
-                                🗂 업무 일지
-                            </NavLink>
+                            <>
+                                <NavLink to="/persona/developer/worklog" end style={linkRoot(accent)}>
+                                    🗂 업무 일지
+                                </NavLink>
+                                <NavLink to="/persona/developer/worklog/upload" style={linkRoot(accent)}>
+                                    📤 보고 JSON 업로드
+                                </NavLink>
+                            </>
                         )}
                     </>
                 ) : persona === "lottery" ? (

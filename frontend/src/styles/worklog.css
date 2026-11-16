@@ -68,8 +68,8 @@
 /* 탭 */
 .worklog-tabs {
     display: flex;
+    flex-wrap: wrap;   /* 좁은 화면에서 세 번째 탭이 가로 스크롤 밖으로 숨지 않게 */
     gap: 0.25rem;
-    overflow-x: auto;
     border-bottom: 1px solid #e5e7eb;
     margin-bottom: 1rem;
 }

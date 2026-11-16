@@ -95,6 +95,7 @@ export default function App() {
                 <Route path="/persona/developer/experiences" element={<RequireAdmin><DevExperiencePage /></RequireAdmin>} />
                 <Route path="/persona/developer/chat" element={<PersonaChatPage />} />
                 <Route path="/persona/developer/worklog" element={<RequireAdmin><WorkLogPage /></RequireAdmin>} />
+                <Route path="/persona/developer/worklog/upload" element={<RequireAdmin><WorkLogPage initialTab="upload" /></RequireAdmin>} />
                 <Route path="/persona/developer/career-detail/:companyId" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/career-detail/:companyId/:page" element={<CareerCompanyDetailPage />} />
                 <Route path="/persona/developer/:section" element={<PersonaPortfolioPage />} />

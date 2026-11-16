@@ -29,8 +29,12 @@ const WEEKLY_SECTIONS = [
     { key: "issues", title: "이슈" },
 ] as const;
 
-export default function WorkLogPage() {
-    const [tab, setTab] = useState<"daily" | "weekly" | "upload">("daily");
+type Tab = "daily" | "weekly" | "upload";
+
+/** initialTab: 메뉴 "📤 보고 JSON 업로드"(/persona/developer/worklog/upload)로 들어오면 업로드 탭부터 연다. */
+export default function WorkLogPage({ initialTab = "daily" }: { initialTab?: Tab }) {
+    const [tab, setTab] = useState<Tab>(initialTab);
+    useEffect(() => setTab(initialTab), [initialTab]);
     const [date, setDate] = useState(ymd(new Date()));
     const [weekEntries, setWeekEntries] = useState<Entry[]>([]);
 
