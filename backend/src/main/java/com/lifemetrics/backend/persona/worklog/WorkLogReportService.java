@@ -35,8 +35,9 @@ public class WorkLogReportService {
     public record ReportDetail(String kind, String reportDate, String periodEnd, String category, String title,
                                String author, JsonNode summary, JsonNode plan, JsonNode details, Long uploadId,
                                String updatedAt) {}
-    public record CategoryGroup(String category, int dailyCount, String firstDate, String lastDate,
-                                List<String> tasks) {}
+    public record TopicTask(String date, String task, String content, String status) {}
+    public record TopicGroup(String topic, int taskCount, int dayCount, String firstDate, String lastDate,
+                             List<TopicTask> tasks) {}
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -203,31 +204,32 @@ public class WorkLogReportService {
         return l.get(0);
     }
 
-    /** 일일보고를 업무 분류별로 묶음 — 포트폴리오 초안 재료. 분류가 없으면 "(분류 없음)". */
-    public List<CategoryGroup> categories() {
-        Map<String, List<Object[]>> byCat = new LinkedHashMap<>();
+    /**
+     * 일일보고 과제를 큰 주제별로 묶음 — 포트폴리오 초안 재료. 주제는 과제마다 키워드로 정한다({@link WorkLogTopics}).
+     */
+    public List<TopicGroup> topics() {
+        Map<String, List<TopicTask>> byTopic = new HashMap<>();
         jdbc.query("""
                 SELECT category, report_date, summary_json FROM work_log_report
                 WHERE kind = 'daily' ORDER BY report_date
                 """, new MapSqlParameterSource(), rs -> {
-            String c = rs.getString("category");
-            byCat.computeIfAbsent(c == null || c.isBlank() ? "(분류 없음)" : c, x -> new ArrayList<>())
-                    .add(new Object[]{rs.getDate("report_date").toLocalDate().toString(), rs.getString("summary_json")});
-        });
-        List<CategoryGroup> out = new ArrayList<>();
-        byCat.forEach((cat, rows) -> {
-            LinkedHashSet<String> tasks = new LinkedHashSet<>();
-            for (Object[] r : rows) {
-                JsonNode s = node((String) r[1]);
-                if (s != null && s.isArray()) for (JsonNode t : s) {
-                    String task = text(t, "task");
-                    if (task != null) tasks.add(task);
-                }
+            String cat = rs.getString("category");
+            String date = rs.getDate("report_date").toLocalDate().toString();
+            JsonNode s = node(rs.getString("summary_json"));
+            if (s == null || !s.isArray()) return;
+            for (JsonNode t : s) {
+                String task = text(t, "task"), content = text(t, "content");
+                if (task == null && content == null) continue;
+                String topic = WorkLogTopics.classify(task, content, cat);
+                byTopic.computeIfAbsent(topic, x -> new ArrayList<>())
+                        .add(new TopicTask(date, task, content, text(t, "status")));
             }
-            out.add(new CategoryGroup(cat, rows.size(), (String) rows.get(0)[0], (String) rows.get(rows.size() - 1)[0],
-                    new ArrayList<>(tasks)));
         });
-        out.sort(Comparator.comparing(CategoryGroup::lastDate).reversed());
+        List<TopicGroup> out = new ArrayList<>();
+        byTopic.forEach((topic, tasks) -> out.add(new TopicGroup(topic, tasks.size(),
+                (int) tasks.stream().map(TopicTask::date).distinct().count(),
+                tasks.get(0).date(), tasks.get(tasks.size() - 1).date(), tasks)));
+        out.sort(Comparator.comparingInt((TopicGroup g) -> WorkLogTopics.order(g.topic())));
         return out;
     }
 

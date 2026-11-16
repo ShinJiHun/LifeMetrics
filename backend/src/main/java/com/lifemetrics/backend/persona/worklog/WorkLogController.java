@@ -61,10 +61,10 @@ public class WorkLogController {
         return reportService.list(kind);
     }
 
-    @GetMapping("/reports/categories")
-    public List<WorkLogReportService.CategoryGroup> reportCategories(HttpServletRequest req) {
+    @GetMapping("/reports/topics")
+    public List<WorkLogReportService.TopicGroup> reportTopics(HttpServletRequest req) {
         requireAdmin(req);
-        return reportService.categories();
+        return reportService.topics();
     }
 
     @GetMapping("/reports/{kind}/{date}")

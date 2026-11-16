@@ -341,23 +341,25 @@ interface ReportSummary { kind: "daily" | "weekly"; reportDate: string; periodEn
 interface SummaryItem { task?: string; content?: string; status?: string; }
 interface DetailItem { heading?: string; items?: string[]; }
 interface ReportDetail extends ReportSummary { summary: SummaryItem[] | null; plan: SummaryItem[] | null; details: DetailItem[] | null; }
-interface CategoryGroup { category: string; dailyCount: number; firstDate: string; lastDate: string; tasks: string[]; }
+interface TopicTask { date: string; task: string | null; content: string | null; status: string | null; }
+interface TopicGroup { topic: string; taskCount: number; dayCount: number; firstDate: string; lastDate: string; tasks: TopicTask[]; }
 
 const periodLabel = (r: ReportSummary) =>
     r.kind === "weekly" ? `${label(r.reportDate)} ~ ${r.periodEnd ? label(r.periodEnd) : "?"}` : label(r.reportDate);
 
-/** 업로드 JSON 을 풀어 저장한 보고서: 날짜별 목록 / 업무 분류별 묶음(포트폴리오 초안 재료). */
+/** 업로드 JSON 을 풀어 저장한 보고서: 날짜별 목록 / 주제별 묶음(포트폴리오 초안 재료). */
 function ReportList() {
-    const [view, setView] = useState<"daily" | "weekly" | "category">("daily");
+    const [view, setView] = useState<"daily" | "weekly" | "topic">("daily");
     const [rows, setRows] = useState<ReportSummary[]>([]);
-    const [cats, setCats] = useState<CategoryGroup[]>([]);
+    const [topics, setTopics] = useState<TopicGroup[]>([]);
+    const [openTopic, setOpenTopic] = useState<string | null>(null);
     const [open, setOpen] = useState<ReportDetail | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         setOpen(null); setError(null);
-        if (view === "category") {
-            api.get<CategoryGroup[]>("/worklog/reports/categories").then(({ data }) => setCats(data)).catch((e) => setError(errMsg(e)));
+        if (view === "topic") {
+            api.get<TopicGroup[]>("/worklog/reports/topics").then(({ data }) => setTopics(data)).catch((e) => setError(errMsg(e)));
         } else {
             api.get<ReportSummary[]>("/worklog/reports", { params: { kind: view } }).then(({ data }) => setRows(data)).catch((e) => setError(errMsg(e)));
         }
@@ -375,12 +377,12 @@ function ReportList() {
             <div className="report-switch">
                 <button className={view === "daily" ? "on" : ""} onClick={() => setView("daily")}>일일</button>
                 <button className={view === "weekly" ? "on" : ""} onClick={() => setView("weekly")}>주간</button>
-                <button className={view === "category" ? "on" : ""} onClick={() => setView("category")}>업무 분류별</button>
+                <button className={view === "topic" ? "on" : ""} onClick={() => setView("topic")}>주제별</button>
             </div>
             {error && <div className="worklog-error">{error}</div>}
 
-            {view !== "category" && rows.length === 0 && <div className="chat-empty">저장된 보고서가 없습니다.</div>}
-            {view !== "category" && rows.map((r) => {
+            {view !== "topic" && rows.length === 0 && <div className="chat-empty">저장된 보고서가 없습니다.</div>}
+            {view !== "topic" && rows.map((r) => {
                 const isOpen = open?.kind === r.kind && open.reportDate === r.reportDate;
                 return (
                     <div key={r.kind + r.reportDate} className="report-row">
@@ -394,14 +396,25 @@ function ReportList() {
                 );
             })}
 
-            {view === "category" && cats.length === 0 && <div className="chat-empty">저장된 일일보고가 없습니다.</div>}
-            {view === "category" && cats.map((c) => (
-                <div key={c.category} className="report-row">
-                    <div className="report-head static">
-                        <b>{c.category}</b>
-                        <span className="upload-meta">{label(c.firstDate)} ~ {label(c.lastDate)} · {c.dailyCount}일</span>
-                    </div>
-                    <ul className="report-items">{c.tasks.map((t) => <li key={t}>{t}</li>)}</ul>
+            {view === "topic" && topics.length === 0 && <div className="chat-empty">저장된 일일보고가 없습니다.</div>}
+            {view === "topic" && topics.map((g) => (
+                <div key={g.topic} className="report-row">
+                    <button className="report-head" onClick={() => setOpenTopic(openTopic === g.topic ? null : g.topic)}>
+                        <b>{g.topic}</b>
+                        <span className="report-cat">{label(g.firstDate)} ~ {label(g.lastDate)}</span>
+                        <span className="upload-meta">{g.dayCount}일 · 과제 {g.taskCount}건</span>
+                    </button>
+                    {openTopic === g.topic && (
+                        <ul className="report-items report-body">
+                            {g.tasks.map((t, i) => (
+                                <li key={i}>
+                                    <span className="upload-meta">{label(t.date)}</span> <b>{t.task}</b>
+                                    {t.content && <> — {t.content}</>}
+                                    {t.status && <span className="report-status">{t.status}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
             ))}
         </div>
