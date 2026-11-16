@@ -30,6 +30,15 @@ public class ExerciseLog {
     @Column(name = "duration_sec")
     private Integer durationSec;
 
+    // 유산소 전용 (exercise_cardio.sql)
+    @Column(name = "distance_km")
+    private BigDecimal distanceKm;
+
+    private Integer kcal;
+
+    @Column(name = "avg_hr")
+    private Integer avgHr;
+
     private Integer rpe;
     private String memo;
 

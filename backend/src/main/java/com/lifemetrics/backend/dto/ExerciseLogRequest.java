@@ -19,6 +19,11 @@ public class ExerciseLogRequest {
         private Integer restTimeSec;  // 휴식 시간 (초) 추가
         private String memo;          // 메모 추가
         private List<SetEntry> sets;
+        // 유산소 입력 (있으면 sets 대신 사용)
+        private Double durationMin;
+        private Double distanceKm;
+        private Integer kcal;
+        private Integer avgHr;
     }
 
     @Getter

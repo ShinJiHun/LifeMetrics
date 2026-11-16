@@ -18,6 +18,7 @@ import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
+import CardioPage from "@/pages/ride/health/CardioPage";
 import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
 import GlossaryPage from "@/pages/ride/guide/GlossaryPage";
 import RidingMapPage from "@/pages/ride/riding/RidingMapPage";
@@ -75,6 +76,7 @@ export default function App() {
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />
                 <Route path="/records/health/history" element={<ExerciseHistoryPage />} />
+                <Route path="/records/health/cardio" element={<CardioPage />} />
                 <Route path="/records/riding" element={<RidingRecordPage />} />
                 <Route path="/records/riding-map" element={<RidingMapPage />} />
                 <Route path="/records/randonneuring" element={<RandonneuringRecordPage />} />

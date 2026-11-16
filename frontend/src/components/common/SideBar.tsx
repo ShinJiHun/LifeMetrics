@@ -195,6 +195,7 @@ const ATHLETE_MENU: { label: string; sections: MenuSection[] }[] = [
             {
                 key: "fitness", label: "🏋️ 피트니스", items: [
                     {to: "/records/health/history", label: "운동 기록"},
+                    {to: "/records/health/cardio", label: "유산소"},
                     {to: "/records/health/log", label: "운동 입력"},
                 ],
             },
