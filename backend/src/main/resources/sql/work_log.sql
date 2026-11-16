@@ -68,3 +68,22 @@ CREATE TABLE IF NOT EXISTS `work_log_report` (
     `updated_at`   DATETIME     NOT NULL,
     PRIMARY KEY (`kind`, `report_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- 경력기술서 초안 (2026-11-16). 저장된 일일·주간보고로 AI 가 현재 프로젝트 경력기술서 초안을 만들고,
+-- 관리자가 확인·수정 후 "반영"해야만 career_company / career_project / career_project_task 에 들어간다.
+CREATE TABLE IF NOT EXISTS `work_log_career_draft` (
+    `id`                 BIGINT      NOT NULL AUTO_INCREMENT,
+    `status`             VARCHAR(16) NOT NULL DEFAULT 'draft',  -- draft | applied | discarded
+    `trigger_type`       VARCHAR(16) NOT NULL,                  -- manual | batch
+    `draft_json`         LONGTEXT    NOT NULL,                  -- {company:{...}, project:{title, periodLabel, intro, summary, stack, tasks[]}}
+    `source_from`        DATE        DEFAULT NULL,
+    `source_to`          DATE        DEFAULT NULL,
+    `report_count`       INT         NOT NULL DEFAULT 0,
+    `applied_company_id` BIGINT      DEFAULT NULL,
+    `applied_project_id` BIGINT      DEFAULT NULL,
+    `backup_json`        LONGTEXT    DEFAULT NULL,              -- 반영 직전 career_* 내용
+    `created_at`         DATETIME    NOT NULL,
+    `applied_at`         DATETIME    DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_wlcd_status` (`status`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

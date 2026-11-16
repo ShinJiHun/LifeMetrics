@@ -29,7 +29,7 @@ const WEEKLY_SECTIONS = [
     { key: "issues", title: "이슈" },
 ] as const;
 
-type Tab = "daily" | "weekly" | "upload";
+type Tab = "daily" | "weekly" | "upload" | "career";
 
 /** initialTab: 메뉴 "📤 보고 JSON 업로드"(/persona/developer/worklog/upload)로 들어오면 업로드 탭부터 연다. */
 export default function WorkLogPage({ initialTab = "daily" }: { initialTab?: Tab }) {
@@ -80,11 +80,13 @@ export default function WorkLogPage({ initialTab = "daily" }: { initialTab?: Tab
                     주간보고 · {weekStart.getMonth() + 1}/{weekStart.getDate()} 주
                 </button>
                 <button className={tab === "upload" ? "on" : ""} onClick={() => setTab("upload")}>📤 JSON 업로드</button>
+                <button className={tab === "career" ? "on" : ""} onClick={() => setTab("career")}>🧾 경력기술서</button>
             </div>
 
             {tab === "daily" && <Daily key={date} date={date} onSaved={loadWeek} />}
             {tab === "weekly" && <WeeklyView key={weekDays[0]} weekStart={weekDays[0]} />}
             {tab === "upload" && <UploadView />}
+            {tab === "career" && <CareerView />}
         </div>
     );
 }
@@ -443,5 +445,140 @@ function ReportBody({ r }: { r: ReportDetail }) {
                 </div>
             ))}
         </div>
+    );
+}
+
+// ── 경력기술서 초안: 보고서 → AI 초안 → 확인·수정 → 반영(승인) ──
+interface DraftSummary { id: number; status: "draft" | "applied"; triggerType: string; sourceFrom: string | null; sourceTo: string | null; reportCount: number; createdAt: string; appliedAt: string | null; }
+interface DraftCompany { companyName: string; shortName: string; domain: string; role: string; startDate: string; stack: string; }
+interface DraftProject { title: string; periodLabel: string; intro: string; summary: string; stack: string; tasks: string[]; }
+interface DraftBody { company: DraftCompany; project: DraftProject; }
+interface CurrentCareer { companyName?: string; periodLabel?: string; role?: string; title?: string; projectPeriod?: string; paragraphs?: string; tasks?: string[]; }
+interface DraftDetail extends DraftSummary { draft: DraftBody; warnings: string[]; current: CurrentCareer | null; }
+
+const stripHtml = (h: string) => h.replace(/<\/p>/g, "\n").replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").trim();
+const when = (s: string) => s.replace("T", " ").slice(0, 16);
+
+function CareerView() {
+    const [drafts, setDrafts] = useState<DraftSummary[]>([]);
+    const [cur, setCur] = useState<DraftDetail | null>(null);
+    const [edit, setEdit] = useState<DraftBody | null>(null);
+    const [dirty, setDirty] = useState(false);
+    const [busy, setBusy] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const loadList = () => api.get<DraftSummary[]>("/worklog/career-drafts").then(({ data }) => setDrafts(data)).catch((e) => setError(errMsg(e)));
+    const open = (d: DraftDetail) => { setCur(d); setEdit(structuredClone(d.draft)); setDirty(false); };
+    useEffect(() => { loadList(); }, []);
+
+    const run = async (label: string, fn: () => Promise<void>) => {
+        setBusy(label); setError(null); setMsg(null);
+        try { await fn(); } catch (e) { setError(errMsg(e)); } finally { setBusy(null); }
+    };
+    const generate = () => run("초안 만드는 중… (30초~1분)", async () => {
+        const { data } = await api.post<DraftDetail>("/worklog/career-drafts", null, { timeout: 180000 });
+        open(data); loadList();
+    });
+    const select = (id: number) => run("불러오는 중…", async () => { open((await api.get<DraftDetail>(`/worklog/career-drafts/${id}`)).data); });
+    const save = () => run("저장 중…", async () => {
+        if (!cur || !edit) return;
+        open((await api.put<DraftDetail>(`/worklog/career-drafts/${cur.id}`, edit)).data); setMsg("저장했습니다.");
+    });
+    const apply = () => run("반영 중…", async () => {
+        if (!cur || !edit) return;
+        if (cur.warnings.length && !confirm("내부 정보로 의심되는 표현이 남아 있습니다. 그래도 반영할까요?")) return;
+        if (!confirm("경력기술서(포트폴리오)에 반영할까요? 현재 내용은 초안에 백업됩니다.")) return;
+        if (dirty) await api.put(`/worklog/career-drafts/${cur.id}`, edit);
+        open((await api.post<DraftDetail>(`/worklog/career-drafts/${cur.id}/apply`)).data); loadList();
+        setMsg("경력기술서에 반영했습니다. 포트폴리오 화면에서 바로 확인할 수 있습니다.");
+    });
+    const discard = () => run("버리는 중…", async () => {
+        if (!cur || !confirm("이 초안을 버릴까요?")) return;
+        await api.delete(`/worklog/career-drafts/${cur.id}`); setCur(null); setEdit(null); loadList();
+    });
+
+    const setC = (k: keyof DraftCompany, v: string) => { if (edit) { setEdit({ ...edit, company: { ...edit.company, [k]: v } }); setDirty(true); } };
+    const setP = (k: keyof DraftProject, v: string | string[]) => { if (edit) { setEdit({ ...edit, project: { ...edit.project, [k]: v } }); setDirty(true); } };
+    const editable = cur?.status === "draft";
+
+    return (
+        <section className="worklog-report worklog-career">
+            <p className="sub-title">
+                저장된 일일·주간보고로 이번 프로젝트의 경력기술서 초안을 만듭니다. 내부 정보는 일반화해서 쓰고,
+                <b> 반영을 눌러야만</b> 포트폴리오에 들어갑니다. 매주 금요일 21시에 보고서가 바뀌었으면 초안을 자동으로 만들어 둡니다.
+            </p>
+            <div className="report-switch">
+                <button onClick={generate} disabled={!!busy}>✨ 새 초안 만들기</button>
+            </div>
+            {busy && <div className="upload-meta">{busy}</div>}
+            {msg && <div className="upload-ok">{msg}</div>}
+            {error && <div className="worklog-error">{error}</div>}
+
+            <div className="sub-title" style={{ marginTop: "0.75rem" }}>초안 ({drafts.length})</div>
+            {drafts.length === 0 && <div className="chat-empty">아직 초안이 없습니다.</div>}
+            {drafts.map((d) => (
+                <div key={d.id} className="report-row">
+                    <button className="report-head" onClick={() => select(d.id)}>
+                        <b>#{d.id}</b>
+                        <span className="report-cat">
+                            {d.sourceFrom && d.sourceTo ? `${label(d.sourceFrom)} ~ ${label(d.sourceTo)} 보고서 ${d.reportCount}건` : ""}
+                        </span>
+                        <span className={`report-status ${d.status}`}>{d.status === "applied" ? `반영됨 ${when(d.appliedAt || "")}` : "초안"}</span>
+                        <span className="upload-meta">{d.triggerType === "batch" ? "자동" : "수동"} · {when(d.createdAt)}</span>
+                    </button>
+                </div>
+            ))}
+
+            {cur && edit && (
+                <div className="career-edit">
+                    <div className="sub-title" style={{ marginTop: "1rem" }}>초안 #{cur.id} {editable ? "— 확인·수정 후 반영" : "(반영됨, 읽기 전용)"}</div>
+                    {cur.warnings.length > 0 && (
+                        <div className="worklog-error">⚠️ 내부 정보로 의심되는 표현 — 확인 후 고쳐 주세요<ul>{cur.warnings.map((w) => <li key={w}>{w}</li>)}</ul></div>
+                    )}
+                    <fieldset disabled={!editable}>
+                        <legend>회사</legend>
+                        <label>회사명<input value={edit.company.companyName} onChange={(e) => setC("companyName", e.target.value)} /></label>
+                        <label>짧은 이름<input value={edit.company.shortName} onChange={(e) => setC("shortName", e.target.value)} /></label>
+                        <label>분야<input value={edit.company.domain} onChange={(e) => setC("domain", e.target.value)} /></label>
+                        <label>역할<input value={edit.company.role} onChange={(e) => setC("role", e.target.value)} /></label>
+                        <label>시작일<input value={edit.company.startDate} placeholder="YYYY-MM-DD" onChange={(e) => setC("startDate", e.target.value)} /></label>
+                        <label>기술 스택<input value={edit.company.stack} onChange={(e) => setC("stack", e.target.value)} /></label>
+                    </fieldset>
+                    <fieldset disabled={!editable}>
+                        <legend>프로젝트</legend>
+                        <label>프로젝트명<input value={edit.project.title} onChange={(e) => setP("title", e.target.value)} /></label>
+                        <label>기간<input value={edit.project.periodLabel} onChange={(e) => setP("periodLabel", e.target.value)} /></label>
+                        <label>소개<textarea rows={3} value={edit.project.intro} onChange={(e) => setP("intro", e.target.value)} /></label>
+                        <label>요약<input value={edit.project.summary} onChange={(e) => setP("summary", e.target.value)} /></label>
+                        <label>사용 기술<input value={edit.project.stack} onChange={(e) => setP("stack", e.target.value)} /></label>
+                        <label>주요 작업 (한 줄에 하나)
+                            <textarea rows={Math.max(6, edit.project.tasks.length + 1)} value={edit.project.tasks.join("\n")}
+                                      onChange={(e) => setP("tasks", e.target.value.split("\n"))} />
+                        </label>
+                    </fieldset>
+                    {editable && (
+                        <div className="report-switch">
+                            <button onClick={save} disabled={!!busy || !dirty}>{dirty ? "💾 저장" : "저장됨"}</button>
+                            <button className="on" onClick={apply} disabled={!!busy}>✅ 경력기술서에 반영</button>
+                            <button onClick={discard} disabled={!!busy}>🗑 버리기</button>
+                        </div>
+                    )}
+
+                    <div className="sub-title" style={{ marginTop: "1rem" }}>현재 경력기술서</div>
+                    {!cur.current && <div className="chat-empty">아직 이 회사가 경력기술서에 없습니다. 반영하면 맨 위(현재 재직)로 새로 추가됩니다.</div>}
+                    {cur.current && (
+                        <div className="report-body">
+                            <div><b>{cur.current.companyName}</b> <span className="upload-meta">{cur.current.periodLabel} · {cur.current.role}</span></div>
+                            {cur.current.title ? <>
+                                <div className="report-sec">{cur.current.title} <span className="upload-meta">{cur.current.projectPeriod}</span></div>
+                                <div style={{ whiteSpace: "pre-wrap" }}>{stripHtml(cur.current.paragraphs || "")}</div>
+                                <ul className="report-items">{cur.current.tasks?.map((t, i) => <li key={i}>{stripHtml(t)}</li>)}</ul>
+                            </> : <div className="chat-empty">반영된 프로젝트가 없습니다.</div>}
+                        </div>
+                    )}
+                </div>
+            )}
+        </section>
     );
 }

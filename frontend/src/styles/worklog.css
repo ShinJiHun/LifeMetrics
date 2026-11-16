@@ -323,3 +323,25 @@
 .worklog-upload .report-status {
     margin-left: 0.4rem; font-size: 0.75rem; color: #4338ca; background: #eef2ff; border-radius: 4px; padding: 0 0.3rem;
 }
+
+/* 경력기술서 초안 */
+.worklog-career .report-switch button { border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: 0.3rem 0.9rem; font-size: 0.88rem; cursor: pointer; }
+.worklog-career .report-switch button.on { background: #6366f1; border-color: #6366f1; color: #fff; }
+.worklog-career .report-switch button:disabled { opacity: 0.5; cursor: default; }
+.worklog-career .report-switch { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.5rem 0; }
+.worklog-career .report-row { border-bottom: 1px solid #e5e7eb; padding: 0.3rem 0; }
+.worklog-career .report-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; width: 100%; background: none; border: none; padding: 0.2rem 0; text-align: left; cursor: pointer; font-size: 0.9rem; color: inherit; }
+.worklog-career .report-cat { color: #4b5563; font-size: 0.85rem; margin-right: auto; }
+.worklog-career .report-status { font-size: 0.75rem; color: #4338ca; background: #eef2ff; border-radius: 4px; padding: 0 0.35rem; }
+.worklog-career .report-status.applied { color: #047857; background: #ecfdf5; }
+.worklog-career .upload-meta { color: #6b7280; font-size: 0.8rem; }
+.worklog-career .upload-ok { margin-top: 0.5rem; color: #047857; font-size: 0.9rem; }
+.worklog-career fieldset { border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.6rem 0.8rem; margin: 0.6rem 0; min-width: 0; }
+.worklog-career legend { font-weight: 600; font-size: 0.9rem; padding: 0 0.3rem; }
+.worklog-career label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; color: #4b5563; margin-bottom: 0.5rem; }
+.worklog-career input, .worklog-career textarea { font: inherit; font-size: 0.9rem; color: #111827; border: 1px solid #d1d5db; border-radius: 6px; padding: 0.35rem 0.5rem; width: 100%; box-sizing: border-box; }
+.worklog-career fieldset:disabled input, .worklog-career fieldset:disabled textarea { background: #f9fafb; }
+.worklog-career .report-body { font-size: 0.88rem; padding: 0.3rem 0; }
+.worklog-career .report-sec { font-weight: 600; margin-top: 0.5rem; }
+.worklog-career .report-items { margin: 0.25rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
+.worklog-career .worklog-error ul { margin: 0.3rem 0 0; padding-left: 1.2rem; }

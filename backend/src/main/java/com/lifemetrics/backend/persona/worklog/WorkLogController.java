@@ -1,5 +1,6 @@
 package com.lifemetrics.backend.persona.worklog;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.lifemetrics.backend.security.AdminWriteFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class WorkLogController {
     private final WorkLogService service;
     private final WorkLogUploadService uploadService;
     private final WorkLogReportService reportService;
+    private final WorkLogCareerService careerService;
     private final AdminWriteFilter adminWriteFilter;
 
     public record ChatRequest(String message) {}
@@ -65,6 +67,44 @@ public class WorkLogController {
     public List<WorkLogReportService.TopicGroup> reportTopics(HttpServletRequest req) {
         requireAdmin(req);
         return reportService.topics();
+    }
+
+    // ── 경력기술서 초안 (보고서 → AI 초안 → 승인 시 career_* 반영) ──
+    @GetMapping("/career-drafts")
+    public List<WorkLogCareerService.DraftSummary> careerDrafts(HttpServletRequest req) {
+        requireAdmin(req);
+        return careerService.list();
+    }
+
+    @PostMapping("/career-drafts")
+    public WorkLogCareerService.Draft generateCareerDraft(HttpServletRequest req) {
+        requireAdmin(req);
+        return careerService.generate("manual");
+    }
+
+    @GetMapping("/career-drafts/{id}")
+    public WorkLogCareerService.Draft careerDraft(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return careerService.get(id);
+    }
+
+    @PutMapping("/career-drafts/{id}")
+    public WorkLogCareerService.Draft updateCareerDraft(@PathVariable long id, @RequestBody JsonNode draft,
+                                                        HttpServletRequest req) {
+        requireAdmin(req);
+        return careerService.update(id, draft);
+    }
+
+    @PostMapping("/career-drafts/{id}/apply")
+    public WorkLogCareerService.Draft applyCareerDraft(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return careerService.apply(id);
+    }
+
+    @DeleteMapping("/career-drafts/{id}")
+    public void discardCareerDraft(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        careerService.discard(id);
     }
 
     @GetMapping("/reports/{kind}/{date}")
