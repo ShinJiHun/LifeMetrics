@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /** 일일·주간보고 JSON 파일 업로드: 형식 검증(JSON 인지)만 하고 원문 그대로 journal_db.work_log_upload 에 보관. */
@@ -50,8 +51,10 @@ public class WorkLogUploadService {
         String name = fileName == null || fileName.isBlank() ? "upload.json"
                 : fileName.length() > 255 ? fileName.substring(0, 255) : fileName;
         GeneratedKeyHolder key = new GeneratedKeyHolder();
-        jdbc.update("INSERT INTO work_log_upload (file_name, content, size_bytes) VALUES (:n, :c, :s)",
-                new MapSqlParameterSource("n", name).addValue("c", content).addValue("s", size), key, new String[]{"id"});
+        // DB 기본값(CURRENT_TIMESTAMP)은 DB 서버 시간대(UTC)라 9시간 어긋남 → JVM 기본(Asia/Seoul) 시각을 직접 넣는다.
+        jdbc.update("INSERT INTO work_log_upload (file_name, content, size_bytes, uploaded_at) VALUES (:n, :c, :s, :t)",
+                new MapSqlParameterSource("n", name).addValue("c", content).addValue("s", size)
+                        .addValue("t", LocalDateTime.now().withNano(0)), key, new String[]{"id"});
         return get(key.getKey().longValue()).summary();
     }
 
