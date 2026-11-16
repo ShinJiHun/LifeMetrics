@@ -303,3 +303,23 @@
     padding: 0.6rem;
     font-size: 0.78rem;
 }
+
+/* 저장된 보고서 (업로드 JSON 파싱 결과) */
+.worklog-upload .report-switch { display: flex; gap: 0.4rem; margin: 0.5rem 0; flex-wrap: wrap; }
+.worklog-upload .report-switch button {
+    border: 1px solid #d1d5db; background: #fff; border-radius: 999px; padding: 0.25rem 0.8rem; font-size: 0.85rem; cursor: pointer;
+}
+.worklog-upload .report-switch button.on { background: #6366f1; border-color: #6366f1; color: #fff; }
+.worklog-upload .report-row { border-bottom: 1px solid #e5e7eb; padding: 0.4rem 0; }
+.worklog-upload .report-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; width: 100%;
+    background: none; border: none; padding: 0.2rem 0; text-align: left; cursor: pointer; font-size: 0.92rem; color: inherit;
+}
+.worklog-upload .report-head.static { cursor: default; }
+.worklog-upload .report-cat { color: #4b5563; font-size: 0.85rem; margin-right: auto; }
+.worklog-upload .report-body { padding: 0.3rem 0 0.5rem 0.5rem; font-size: 0.88rem; }
+.worklog-upload .report-sec { font-weight: 600; margin-top: 0.5rem; color: #374151; }
+.worklog-upload .report-items { margin: 0.25rem 0 0; padding-left: 1.2rem; font-size: 0.88rem; line-height: 1.5; }
+.worklog-upload .report-status {
+    margin-left: 0.4rem; font-size: 0.75rem; color: #4338ca; background: #eef2ff; border-radius: 4px; padding: 0 0.3rem;
+}

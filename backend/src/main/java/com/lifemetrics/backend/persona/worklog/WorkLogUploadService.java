@@ -28,10 +28,26 @@ public class WorkLogUploadService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final WorkLogReportService reportService;
 
-    public WorkLogUploadService(@Qualifier("journalDataSource") DataSource dataSource, ObjectMapper objectMapper) {
+    public record UploadResult(Upload upload, WorkLogReportService.ParseResult parsed) {}
+
+    public WorkLogUploadService(@Qualifier("journalDataSource") DataSource dataSource, ObjectMapper objectMapper,
+                                WorkLogReportService reportService) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.objectMapper = objectMapper;
+        this.reportService = reportService;
+    }
+
+    /** 원본 보관 후 보고서 단위로 풀어 저장(같은 날짜는 덮어씀). */
+    public UploadResult saveAndParse(String fileName, String content) {
+        Upload u = save(fileName, content);
+        return new UploadResult(u, reportService.parse(u.id(), content));
+    }
+
+    /** 이미 올린 파일을 다시 파싱. */
+    public WorkLogReportService.ParseResult reparse(long id) {
+        return reportService.parse(id, get(id).content());
     }
 
     public Upload save(String fileName, String content) {

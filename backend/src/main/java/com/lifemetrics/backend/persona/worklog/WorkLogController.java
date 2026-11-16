@@ -20,6 +20,7 @@ public class WorkLogController {
 
     private final WorkLogService service;
     private final WorkLogUploadService uploadService;
+    private final WorkLogReportService reportService;
     private final AdminWriteFilter adminWriteFilter;
 
     public record ChatRequest(String message) {}
@@ -41,9 +42,36 @@ public class WorkLogController {
     }
 
     @PostMapping("/uploads")
-    public WorkLogUploadService.Upload addUpload(@RequestBody UploadRequest body, HttpServletRequest req) {
+    public WorkLogUploadService.UploadResult addUpload(@RequestBody UploadRequest body, HttpServletRequest req) {
         requireAdmin(req);
-        return uploadService.save(body.fileName(), body.content());
+        return uploadService.saveAndParse(body.fileName(), body.content());
+    }
+
+    @PostMapping("/uploads/{id}/parse")
+    public WorkLogReportService.ParseResult reparse(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return uploadService.reparse(id);
+    }
+
+    // ── 파싱된 보고서 (업로드 JSON 을 날짜별로 풀어 저장한 것) ──
+    @GetMapping("/reports")
+    public List<WorkLogReportService.ReportSummary> reports(@RequestParam(required = false) String kind,
+                                                            HttpServletRequest req) {
+        requireAdmin(req);
+        return reportService.list(kind);
+    }
+
+    @GetMapping("/reports/categories")
+    public List<WorkLogReportService.CategoryGroup> reportCategories(HttpServletRequest req) {
+        requireAdmin(req);
+        return reportService.categories();
+    }
+
+    @GetMapping("/reports/{kind}/{date}")
+    public WorkLogReportService.ReportDetail report(@PathVariable String kind, @PathVariable String date,
+                                                    HttpServletRequest req) {
+        requireAdmin(req);
+        return reportService.get(kind, LocalDate.parse(date));
     }
 
     @DeleteMapping("/uploads/{id}")

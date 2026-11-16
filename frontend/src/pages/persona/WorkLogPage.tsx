@@ -246,6 +246,9 @@ function WeeklyView({ weekStart }: { weekStart: string }) {
 }
 
 interface Upload { id: number; fileName: string; sizeBytes: number; uploadedAt: string; }
+interface ParseResult { inserted: number; updated: number; unchanged: number; skipped: string[]; }
+const parseMsg = (p: ParseResult) =>
+    `보고서 새로 ${p.inserted} · 변경 ${p.updated} · 동일 ${p.unchanged}` + (p.skipped.length ? ` · 건너뜀 ${p.skipped.length}` : "");
 
 function UploadView() {
     const [uploads, setUploads] = useState<Upload[]>([]);
@@ -254,6 +257,7 @@ function UploadView() {
     const [error, setError] = useState<string | null>(null);
     const [done, setDone] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     const load = () => { api.get<Upload[]>("/worklog/uploads").then(({ data }) => setUploads(data)).catch((e) => setError(errMsg(e))); };
     useEffect(load, []);
@@ -264,14 +268,26 @@ function UploadView() {
         const ok: string[] = []; const fail: string[] = [];
         for (const f of Array.from(files)) {
             try {
-                await api.post("/worklog/uploads", { fileName: f.name, content: await f.text() });
-                ok.push(f.name);
+                const { data } = await api.post<{ upload: Upload; parsed: ParseResult }>(
+                    "/worklog/uploads", { fileName: f.name, content: await f.text() });
+                ok.push(`${f.name} — ${parseMsg(data.parsed)}`);
+                data.parsed.skipped.forEach((x) => fail.push(`${f.name}: ${x}`));
             } catch (e) { fail.push(`${f.name}: ${errMsg(e)}`); }
         }
-        if (ok.length) setDone(`올렸습니다: ${ok.join(", ")}`);
+        if (ok.length) setDone(`올렸습니다:\n${ok.join("\n")}`);
         if (fail.length) setError(fail.join("\n"));
         if (fileRef.current) fileRef.current.value = "";
-        setBusy(false); load();
+        setBusy(false); load(); setReloadKey((k) => k + 1);
+    };
+
+    const reparse = async (u: Upload) => {
+        setError(null); setDone(null);
+        try {
+            const { data } = await api.post<ParseResult>(`/worklog/uploads/${u.id}/parse`);
+            setDone(`${u.fileName} 다시 파싱 — ${parseMsg(data)}`);
+            if (data.skipped.length) setError(data.skipped.join("\n"));
+            setReloadKey((k) => k + 1);
+        } catch (e) { setError(errMsg(e)); }
     };
 
     const show = async (id: number) => {
@@ -292,7 +308,7 @@ function UploadView() {
 
     return (
         <section className="worklog-report worklog-upload">
-            <p className="sub-title">일일·주간보고 JSON 파일을 올리면 원본 그대로 보관합니다 (여러 개 선택 가능, 파일당 최대 5MB).</p>
+            <p className="sub-title">일일·주간보고 JSON 파일을 올리면 원본을 보관하고 날짜별 보고서로 풀어 저장합니다. 같은 날짜는 새 내용으로 덮어쓰니 누적 파일을 통째로 다시 올려도 됩니다 (여러 개 선택 가능, 파일당 최대 5MB).</p>
             <label className={`upload-drop ${busy ? "busy" : ""}`}
                    onDragOver={(e) => e.preventDefault()}
                    onDrop={(e) => { e.preventDefault(); onFiles(e.dataTransfer.files); }}>
@@ -300,7 +316,7 @@ function UploadView() {
                        onChange={(e) => onFiles(e.target.files)} />
                 <span>{busy ? "올리는 중…" : "📂 파일 선택 또는 여기로 끌어놓기"}</span>
             </label>
-            {done && <div className="upload-ok">{done}</div>}
+            {done && <div className="upload-ok" style={{ whiteSpace: "pre-wrap" }}>{done}</div>}
             {error && <div className="worklog-error" style={{ whiteSpace: "pre-wrap" }}>{error}</div>}
 
             <div className="sub-title" style={{ marginTop: "1rem" }}>올린 파일 ({uploads.length})</div>
@@ -309,10 +325,110 @@ function UploadView() {
                 <div key={u.id} className="upload-row">
                     <button className="upload-name" onClick={() => show(u.id)}>{u.fileName}</button>
                     <span className="upload-meta">{(u.sizeBytes / 1024).toFixed(1)}KB · {u.uploadedAt.replace("T", " ").slice(0, 16)}</span>
+                    <button className="ghost" onClick={() => reparse(u)} title="이 파일로 보고서 다시 풀기">🔄</button>
                     <button className="ghost" onClick={() => remove(u)} aria-label="삭제">🗑</button>
                     {preview?.id === u.id && <pre className="upload-preview">{preview.content}</pre>}
                 </div>
             ))}
+            <p className="upload-meta">원본 파일을 지워도 풀어 저장한 보고서는 남습니다.</p>
+
+            <ReportList key={reloadKey} />
         </section>
+    );
+}
+
+interface ReportSummary { kind: "daily" | "weekly"; reportDate: string; periodEnd: string | null; category: string | null; title: string | null; taskCount: number; }
+interface SummaryItem { task?: string; content?: string; status?: string; }
+interface DetailItem { heading?: string; items?: string[]; }
+interface ReportDetail extends ReportSummary { summary: SummaryItem[] | null; plan: SummaryItem[] | null; details: DetailItem[] | null; }
+interface CategoryGroup { category: string; dailyCount: number; firstDate: string; lastDate: string; tasks: string[]; }
+
+const periodLabel = (r: ReportSummary) =>
+    r.kind === "weekly" ? `${label(r.reportDate)} ~ ${r.periodEnd ? label(r.periodEnd) : "?"}` : label(r.reportDate);
+
+/** 업로드 JSON 을 풀어 저장한 보고서: 날짜별 목록 / 업무 분류별 묶음(포트폴리오 초안 재료). */
+function ReportList() {
+    const [view, setView] = useState<"daily" | "weekly" | "category">("daily");
+    const [rows, setRows] = useState<ReportSummary[]>([]);
+    const [cats, setCats] = useState<CategoryGroup[]>([]);
+    const [open, setOpen] = useState<ReportDetail | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setOpen(null); setError(null);
+        if (view === "category") {
+            api.get<CategoryGroup[]>("/worklog/reports/categories").then(({ data }) => setCats(data)).catch((e) => setError(errMsg(e)));
+        } else {
+            api.get<ReportSummary[]>("/worklog/reports", { params: { kind: view } }).then(({ data }) => setRows(data)).catch((e) => setError(errMsg(e)));
+        }
+    }, [view]);
+
+    const toggle = async (r: ReportSummary) => {
+        if (open && open.kind === r.kind && open.reportDate === r.reportDate) { setOpen(null); return; }
+        try { const { data } = await api.get<ReportDetail>(`/worklog/reports/${r.kind}/${r.reportDate}`); setOpen(data); }
+        catch (e) { setError(errMsg(e)); }
+    };
+
+    return (
+        <div className="report-list">
+            <div className="sub-title" style={{ marginTop: "1.25rem" }}>저장된 보고서</div>
+            <div className="report-switch">
+                <button className={view === "daily" ? "on" : ""} onClick={() => setView("daily")}>일일</button>
+                <button className={view === "weekly" ? "on" : ""} onClick={() => setView("weekly")}>주간</button>
+                <button className={view === "category" ? "on" : ""} onClick={() => setView("category")}>업무 분류별</button>
+            </div>
+            {error && <div className="worklog-error">{error}</div>}
+
+            {view !== "category" && rows.length === 0 && <div className="chat-empty">저장된 보고서가 없습니다.</div>}
+            {view !== "category" && rows.map((r) => {
+                const isOpen = open?.kind === r.kind && open.reportDate === r.reportDate;
+                return (
+                    <div key={r.kind + r.reportDate} className="report-row">
+                        <button className="report-head" onClick={() => toggle(r)}>
+                            <b>{periodLabel(r)}</b>
+                            <span className="report-cat">{r.category || "(분류 없음)"}</span>
+                            <span className="upload-meta">{r.taskCount}건</span>
+                        </button>
+                        {isOpen && open && <ReportBody r={open} />}
+                    </div>
+                );
+            })}
+
+            {view === "category" && cats.length === 0 && <div className="chat-empty">저장된 일일보고가 없습니다.</div>}
+            {view === "category" && cats.map((c) => (
+                <div key={c.category} className="report-row">
+                    <div className="report-head static">
+                        <b>{c.category}</b>
+                        <span className="upload-meta">{label(c.firstDate)} ~ {label(c.lastDate)} · {c.dailyCount}일</span>
+                    </div>
+                    <ul className="report-items">{c.tasks.map((t) => <li key={t}>{t}</li>)}</ul>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ReportBody({ r }: { r: ReportDetail }) {
+    return (
+        <div className="report-body">
+            {r.summary && r.summary.length > 0 && <>
+                <div className="report-sec">{r.kind === "weekly" ? "주간 실적" : "금일 실적"}</div>
+                <ul className="report-items">
+                    {r.summary.map((s, i) => (
+                        <li key={i}><b>{s.task}</b> — {s.content}{s.status && <span className="report-status">{s.status}</span>}</li>
+                    ))}
+                </ul>
+            </>}
+            {r.plan && r.plan.length > 0 && <>
+                <div className="report-sec">차주 계획</div>
+                <ul className="report-items">{r.plan.map((s, i) => <li key={i}><b>{s.task}</b> — {s.content}</li>)}</ul>
+            </>}
+            {r.details?.map((d, i) => (
+                <div key={i}>
+                    <div className="report-sec">{d.heading}</div>
+                    <ul className="report-items">{d.items?.map((x, j) => <li key={j}>{x}</li>)}</ul>
+                </div>
+            ))}
+        </div>
     );
 }
