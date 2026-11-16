@@ -69,11 +69,13 @@
 .worklog-tabs {
     display: flex;
     gap: 0.25rem;
+    overflow-x: auto;
     border-bottom: 1px solid #e5e7eb;
     margin-bottom: 1rem;
 }
 
 .worklog-tabs button {
+    white-space: nowrap;
     border: none;
     background: none;
     padding: 0.6rem 0.9rem;
@@ -253,4 +255,51 @@
 
 .day-card pre.issue {
     color: #b45309;
+}
+
+/* JSON 업로드 */
+.worklog-upload .upload-drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 90px;
+    border: 2px dashed #d1d5db;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #4b5563;
+    text-align: center;
+    padding: 1rem;
+}
+.worklog-upload .upload-drop:hover { border-color: #6366f1; background: #f5f5ff; }
+.worklog-upload .upload-drop.busy { opacity: 0.6; cursor: wait; }
+.worklog-upload .upload-drop input { display: none; }
+.worklog-upload .upload-ok { margin-top: 0.5rem; color: #047857; font-size: 0.9rem; }
+.worklog-upload .upload-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px solid #f3f4f6;
+    padding: 0.5rem 0;
+}
+.worklog-upload .upload-name {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #4338ca;
+    cursor: pointer;
+    text-align: left;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+.worklog-upload .upload-meta { color: #6b7280; font-size: 0.8rem; margin-right: auto; }
+.worklog-upload .upload-preview {
+    flex-basis: 100%;
+    max-height: 360px;
+    overflow: auto;
+    margin: 0;
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 0.6rem;
+    font-size: 0.78rem;
 }

@@ -36,3 +36,15 @@ CREATE TABLE IF NOT EXISTS `work_log_weekly` (
     `updated_at`   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`week_start`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- 업로드한 일일·주간보고 JSON 원본 (2026-11-16). 형식이 정해지기 전이라 원본 그대로 보관하고,
+-- 나중에 이걸 읽어 포트폴리오 데이터셋으로 정리한다.
+CREATE TABLE IF NOT EXISTS `work_log_upload` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT,
+    `file_name`   VARCHAR(255) NOT NULL,
+    `content`     LONGTEXT     NOT NULL,  -- JSON 원문
+    `size_bytes`  INT          NOT NULL,
+    `uploaded_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_work_log_upload_at` (`uploaded_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

@@ -19,11 +19,38 @@ import java.util.Map;
 public class WorkLogController {
 
     private final WorkLogService service;
+    private final WorkLogUploadService uploadService;
     private final AdminWriteFilter adminWriteFilter;
 
     public record ChatRequest(String message) {}
     public record EntryRequest(String todayDone, String tomorrowPlan, String issues) {}
     public record WeeklyRequest(String doneSummary, String nextPlan, String issues) {}
+    public record UploadRequest(String fileName, String content) {}
+
+    // ── JSON 파일 업로드 (원본 보관) ── /{date} 보다 먼저 선언(경로 구분은 Spring 이 리터럴 우선으로 처리)
+    @GetMapping("/uploads")
+    public List<WorkLogUploadService.Upload> uploads(HttpServletRequest req) {
+        requireAdmin(req);
+        return uploadService.list();
+    }
+
+    @GetMapping("/uploads/{id}")
+    public WorkLogUploadService.UploadDetail upload(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return uploadService.get(id);
+    }
+
+    @PostMapping("/uploads")
+    public WorkLogUploadService.Upload addUpload(@RequestBody UploadRequest body, HttpServletRequest req) {
+        requireAdmin(req);
+        return uploadService.save(body.fileName(), body.content());
+    }
+
+    @DeleteMapping("/uploads/{id}")
+    public void deleteUpload(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        uploadService.delete(id);
+    }
 
     @GetMapping
     public List<WorkLogService.Entry> list(@RequestParam String from, @RequestParam String to, HttpServletRequest req) {

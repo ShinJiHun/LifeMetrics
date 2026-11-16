@@ -30,7 +30,7 @@ const WEEKLY_SECTIONS = [
 ] as const;
 
 export default function WorkLogPage() {
-    const [tab, setTab] = useState<"daily" | "weekly">("daily");
+    const [tab, setTab] = useState<"daily" | "weekly" | "upload">("daily");
     const [date, setDate] = useState(ymd(new Date()));
     const [weekEntries, setWeekEntries] = useState<Entry[]>([]);
 
@@ -75,11 +75,12 @@ export default function WorkLogPage() {
                 <button className={tab === "weekly" ? "on" : ""} onClick={() => setTab("weekly")}>
                     주간보고 · {weekStart.getMonth() + 1}/{weekStart.getDate()} 주
                 </button>
+                <button className={tab === "upload" ? "on" : ""} onClick={() => setTab("upload")}>📤 JSON 업로드</button>
             </div>
 
-            {tab === "daily"
-                ? <Daily key={date} date={date} onSaved={loadWeek} />
-                : <WeeklyView key={weekDays[0]} weekStart={weekDays[0]} />}
+            {tab === "daily" && <Daily key={date} date={date} onSaved={loadWeek} />}
+            {tab === "weekly" && <WeeklyView key={weekDays[0]} weekStart={weekDays[0]} />}
+            {tab === "upload" && <UploadView />}
         </div>
     );
 }
@@ -237,5 +238,77 @@ function WeeklyView({ weekStart }: { weekStart: string }) {
                 </div>
             </section>
         </div>
+    );
+}
+
+interface Upload { id: number; fileName: string; sizeBytes: number; uploadedAt: string; }
+
+function UploadView() {
+    const [uploads, setUploads] = useState<Upload[]>([]);
+    const [preview, setPreview] = useState<{ id: number; content: string } | null>(null);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [done, setDone] = useState<string | null>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    const load = () => { api.get<Upload[]>("/worklog/uploads").then(({ data }) => setUploads(data)).catch((e) => setError(errMsg(e))); };
+    useEffect(load, []);
+
+    const onFiles = async (files: FileList | null) => {
+        if (!files?.length) return;
+        setBusy(true); setError(null); setDone(null);
+        const ok: string[] = []; const fail: string[] = [];
+        for (const f of Array.from(files)) {
+            try {
+                await api.post("/worklog/uploads", { fileName: f.name, content: await f.text() });
+                ok.push(f.name);
+            } catch (e) { fail.push(`${f.name}: ${errMsg(e)}`); }
+        }
+        if (ok.length) setDone(`올렸습니다: ${ok.join(", ")}`);
+        if (fail.length) setError(fail.join("\n"));
+        if (fileRef.current) fileRef.current.value = "";
+        setBusy(false); load();
+    };
+
+    const show = async (id: number) => {
+        if (preview?.id === id) { setPreview(null); return; }
+        try {
+            const { data } = await api.get<Upload & { content: string }>(`/worklog/uploads/${id}`);
+            let pretty = data.content;
+            try { pretty = JSON.stringify(JSON.parse(data.content), null, 2); } catch { /* 원문 그대로 */ }
+            setPreview({ id, content: pretty });
+        } catch (e) { setError(errMsg(e)); }
+    };
+
+    const remove = async (u: Upload) => {
+        if (!confirm(`${u.fileName} 을(를) 삭제할까요?`)) return;
+        try { await api.delete(`/worklog/uploads/${u.id}`); if (preview?.id === u.id) setPreview(null); load(); }
+        catch (e) { setError(errMsg(e)); }
+    };
+
+    return (
+        <section className="worklog-report worklog-upload">
+            <p className="sub-title">일일·주간보고 JSON 파일을 올리면 원본 그대로 보관합니다 (여러 개 선택 가능, 파일당 최대 5MB).</p>
+            <label className={`upload-drop ${busy ? "busy" : ""}`}
+                   onDragOver={(e) => e.preventDefault()}
+                   onDrop={(e) => { e.preventDefault(); onFiles(e.dataTransfer.files); }}>
+                <input ref={fileRef} type="file" accept=".json,application/json" multiple disabled={busy}
+                       onChange={(e) => onFiles(e.target.files)} />
+                <span>{busy ? "올리는 중…" : "📂 파일 선택 또는 여기로 끌어놓기"}</span>
+            </label>
+            {done && <div className="upload-ok">{done}</div>}
+            {error && <div className="worklog-error" style={{ whiteSpace: "pre-wrap" }}>{error}</div>}
+
+            <div className="sub-title" style={{ marginTop: "1rem" }}>올린 파일 ({uploads.length})</div>
+            {uploads.length === 0 && <div className="chat-empty">아직 올린 파일이 없습니다.</div>}
+            {uploads.map((u) => (
+                <div key={u.id} className="upload-row">
+                    <button className="upload-name" onClick={() => show(u.id)}>{u.fileName}</button>
+                    <span className="upload-meta">{(u.sizeBytes / 1024).toFixed(1)}KB · {u.uploadedAt.replace("T", " ").slice(0, 16)}</span>
+                    <button className="ghost" onClick={() => remove(u)} aria-label="삭제">🗑</button>
+                    {preview?.id === u.id && <pre className="upload-preview">{preview.content}</pre>}
+                </div>
+            ))}
+        </section>
     );
 }
