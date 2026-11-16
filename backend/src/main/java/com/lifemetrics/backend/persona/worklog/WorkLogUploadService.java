@@ -21,7 +21,9 @@ public class WorkLogUploadService {
     private static final int MAX_BYTES = 5 * 1024 * 1024;
 
     public record Upload(long id, String fileName, int sizeBytes, String uploadedAt) {}
-    public record UploadDetail(long id, String fileName, int sizeBytes, String uploadedAt, String content) {}
+    public record UploadDetail(long id, String fileName, int sizeBytes, String uploadedAt, String content) {
+        public Upload summary() { return new Upload(id, fileName, sizeBytes, uploadedAt); }
+    }
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
