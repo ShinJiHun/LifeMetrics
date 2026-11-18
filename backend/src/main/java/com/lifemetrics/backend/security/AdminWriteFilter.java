@@ -55,7 +55,7 @@ public class AdminWriteFilter extends OncePerRequestFilter {
             "/api/dev-requests/worker/**",
             // 애슐리트 파인튜닝 데이터셋 생성(data_pipeline 스크립트): AthleteDatasetController 가 Bearer ATHLETE_DATASET_TOKEN 을 검사한다
             "/api/athlete/dataset/sample",
-            // 휴먼 일기: 웹은 관리자 쿠키, 폰 앱은 Bearer HEALTH_SYNC_TOKEN — DiaryController 가 둘 중 하나를 검사한다(조회 포함)
+            // 휴먼 일기: DiaryController 가 관리자 쿠키 또는 Bearer HEALTH_SYNC_TOKEN 을 검사한다(조회 포함, 모든 엔드포인트)
             "/api/diary/**"
     );
 

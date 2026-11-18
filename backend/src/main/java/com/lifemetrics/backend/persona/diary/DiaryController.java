@@ -18,7 +18,7 @@ import java.util.Map;
 /**
  * 휴먼 일기. 개인 메모라 조회(GET)도 관리자만.
  * 인증: 웹은 관리자 쿠키, 폰 앱은 {@code Authorization: Bearer <HEALTH_SYNC_TOKEN>}(헬스 동기화와 같은 앱 토큰).
- * 둘 다 없거나 틀리면 401 — 앱은 그때만 관리자 로그인 창을 띄운다.
+ * 둘 다 없거나 틀리면 403 {"message":"관리자만 접근할 수 있습니다."} — 앱은 이 응답을 보고 로그인 창을 띄운다.
  * AdminWriteFilter 는 이 경로를 쿠키로 막지 않고 여기에 맡긴다.
  */
 @RestController
@@ -100,7 +100,7 @@ public class DiaryController {
 
     private void requireAdmin(HttpServletRequest request) {
         if (adminWriteFilter.isAdmin(request) || hasValidAppToken(request)) return;
-        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "관리자 로그인 또는 앱 토큰이 필요합니다.");
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자만 접근할 수 있습니다.");
     }
 
     private boolean hasValidAppToken(HttpServletRequest request) {
