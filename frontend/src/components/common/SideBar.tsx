@@ -78,6 +78,14 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                         </NavLink>
                     </div>
                 )}
+
+                {isAdmin && (
+                    <div style={{ marginTop: devRequestsEnabled ? 0 : 24, borderTop: devRequestsEnabled ? "none" : "1px solid #f0f1f4", paddingTop: devRequestsEnabled ? 0 : 12 }}>
+                        <NavLink to="/docs" style={subLinkStyle(meta.accent)}>
+                            📄 기획서·결과서
+                        </NavLink>
+                    </div>
+                )}
             </div>
 
             {persona === "developer" && isAdmin && (

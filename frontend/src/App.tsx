@@ -15,6 +15,7 @@ import HandlerTripsPage from "@/pages/human/HandlerTripsPage";
 import ReadingNotesPage from "@/pages/human/ReadingNotesPage";
 import DiaryPage from "@/pages/human/DiaryPage";
 import DevRequestsPage from "@/pages/DevRequestsPage";
+import DocsPage from "@/pages/DocsPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
 import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
 import GearPlanPage from "@/pages/ride/plan/GearPlanPage";
@@ -129,6 +130,9 @@ export default function App() {
 
                 {/* 개발 요청함 (관리자 전용) — 서버 워커가 Claude 로 작업해 개발 서버에 배포 */}
                 <Route path="/dev-requests" element={<RequireAdmin><DevRequestsPage /></RequireAdmin>} />
+                <Route path="/docs" element={<Navigate to="/docs/plan" replace />} />
+                <Route path="/docs/:slug" element={<RequireAdmin><DocsPage /></RequireAdmin>} />
+                <Route path="/docs/:slug/:date" element={<RequireAdmin><DocsPage /></RequireAdmin>} />
 
                 {/* 인간 페르소나 - 로또 (관리자 전용) */}
                 {/* 인간 페르소나 - 연금복권 (관리자 전용) */}

@@ -126,7 +126,8 @@ export default function DevRequestsPage() {
     const selectedRoot = params.get("t") ? Number(params.get("t")) : null;
     const [live, setLive] = useState<DevRequest | null>(null); // 진행 중인 마지막 메시지(로그 포함)
     const [error, setError] = useState<string | null>(null);
-    const [draft, setDraft] = useState("");
+    // ?draft= 로 들어오면 입력창을 미리 채운다(문서 뷰어의 "수정 요청" 버튼).
+    const [draft, setDraft] = useState(() => params.get("draft") ?? "");
     const [busy, setBusy] = useState(false);
     const narrow = useNarrow();
 
