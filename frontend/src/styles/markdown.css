@@ -92,7 +92,9 @@
 
 .md-body img {
     max-width: 100%;
+    height: auto; /* width/height 속성이 있는 이미지(옮겨 온 블로그 글)도 비율 유지 — 속성은 로딩 전 자리만 잡는다 */
     border-radius: 10px;
+    background: #eef1f6; /* 로딩 중 빈 자리 */
 }
 
 .md-body hr {
