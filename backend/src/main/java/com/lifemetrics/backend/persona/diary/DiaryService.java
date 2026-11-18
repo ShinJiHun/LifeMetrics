@@ -41,8 +41,11 @@ public class DiaryService {
 
     static final long USER_ID = 1L;
     private static final int MAX_NOTE_BYTES = 1024 * 1024;
-    /** 일기에 넣는 기록. 식단·치료는 블로그 글감이 아니라서 넣지 않는다. */
-    private static final List<String> RECORD_KEYS = List.of("fitness", "rides", "bodyRecords", "phoneExercises", "dailyActivity");
+    /**
+     * 일기에 넣는 기록. 식단·치료는 블로그 글감이 아니라서 넣지 않는다.
+     * 폰 일일 활동(걸음 수 등)은 자정에 동기화돼서 밤 10시엔 늘 거의 0 → "하루 종일 집에 있었다" 같은 오해를 만들어 뺀다.
+     */
+    private static final List<String> RECORD_KEYS = List.of("fitness", "rides", "bodyRecords", "phoneExercises");
 
     public record Note(long id, String noteDate, String source, String fileName, String content, String createdAt) {}
     public record Entry(long id, String entryDate, String kind, String title, String content, List<String> warnings,
@@ -161,8 +164,9 @@ public class DiaryService {
         importFolder(date);
         List<Note> notes = notes(date);
         Map<String, Object> records = records(date);
-        if (notes.isEmpty() && records.isEmpty()) {
-            if (force) throw bad("이 날짜에는 메모도 운동 기록도 없습니다.");
+        // 기록만으로 쓰면 하루를 추측해서 지어내게 된다 → 메모가 하나라도 있어야 쓴다.
+        if (notes.isEmpty()) {
+            if (force) throw bad("메모가 없습니다. 메모를 먼저 추가해 주세요.");
             return Optional.empty();
         }
         Optional<Entry> current = entry(date, "diary");
@@ -313,7 +317,6 @@ public class DiaryService {
         sb.append("날짜: ").append(date).append(" (")
                 .append(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN)).append(")\n\n");
         sb.append("# 메모 ").append(notes.size()).append("건\n");
-        if (notes.isEmpty()) sb.append("(메모 없음 — 기록 데이터만으로 짧게 쓴다)\n");
         for (Note n : notes) {
             sb.append("\n## 메모 ").append(n.id()).append(" · ").append(sourceLabel(n.source()));
             if (n.fileName() != null) sb.append(" · ").append(n.fileName());
