@@ -98,6 +98,11 @@ if wait_healthy; then
     docker tag "$IMAGE:new" "$IMAGE:latest"
     echo "✅ $NAME 정상 (http://localhost:$PORT/ → 200)"
     docker ps --filter "name=^${NAME}$" --format '   {{.Names}}  {{.Status}}  {{.Ports}}'
+    # 용량 관리(2026-11-18, 빌드 캐시가 135GB 까지 쌓였던 일 이후): 배포가 성공하면 이름 없는 옛 이미지를 지우고
+    # 빌드 캐시는 최근 5GB 만 남긴다. :latest/:prev 와 실행 중인 이미지는 지워지지 않는다. 실패해도 배포는 성공으로 둔다.
+    docker image prune -f >/dev/null 2>&1 || true
+    docker builder prune -f --max-used-space 5GB >/dev/null 2>&1 || true
+    echo "🧹 Docker 정리: $(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null | tr '\n' ' ')"
     exit 0
 fi
 
