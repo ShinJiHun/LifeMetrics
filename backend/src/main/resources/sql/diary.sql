@@ -4,7 +4,7 @@
 
 -- 메모 원문. source: app(Claude 앱 대화 정리) | cli(Claude Code 대화 정리) | manual(직접 입력)
 -- file_name 은 파일로 올렸거나 NAS 폴더에서 가져온 경우. 같은 날짜·출처·파일명은 한 번만 들어간다(폴더 재스캔 중복 방지).
-CREATE TABLE IF NOT EXISTS `diary_note` (
+CREATE TABLE IF NOT EXISTS `journal_db`.`diary_note` (
     `id`         BIGINT       NOT NULL AUTO_INCREMENT,
     `note_date`  DATE         NOT NULL,
     `source`     VARCHAR(16)  NOT NULL DEFAULT 'manual',
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `diary_note` (
 -- 초안·게시본. kind: diary(그날 일기) | book(독서 글, 메모에 책 내용이 있을 때만)
 -- status: draft | published. 게시하면 post_id 에 journal_post.id 를 남기고 더는 다시 만들지 않는다.
 -- input_hash: 초안을 만들 때 쓴 메모·기록의 해시. 배치는 해시가 같으면 건너뛴다(수정한 초안을 덮어쓰지 않도록).
-CREATE TABLE IF NOT EXISTS `diary_entry` (
+CREATE TABLE IF NOT EXISTS `journal_db`.`diary_entry` (
     `id`           BIGINT       NOT NULL AUTO_INCREMENT,
     `entry_date`   DATE         NOT NULL,
     `kind`         VARCHAR(16)  NOT NULL DEFAULT 'diary',
