@@ -125,6 +125,8 @@ typecast:
 persona:
   blog:
     base-url: https://tho881.tistory.com
+    # 블로그 글·사진 보관 폴더(data_pipeline/persona/blog_archive.py) — 활동 지도 사진(ActivityPhotoService)이 읽음
+    archive-path: /mnt/200gb/NAS/persona/blog
     sitemap-path: /sitemap.xml
     content-selectors: "#article-view .tt_article_useless_p_margin,.tt_article_useless_p_margin,.area_view_content,.article_view"
   # 본인이 직접 작성한 PDF 문서 자동 스캔. 서버 디렉터리의 *.pdf 전부 로드(파일시스템 = file: 접두사).
