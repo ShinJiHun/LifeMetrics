@@ -97,6 +97,21 @@
     background: #eef1f6; /* 로딩 중 빈 자리 */
 }
 
+/* 옮겨 온 블로그 글의 '라이딩 기록 보기' 버튼 (data_pipeline/persona/blog_to_journal.py) */
+.md-body a.ride-link-btn {
+    display: inline-block;
+    padding: 0.5em 1em;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+}
+.md-body a.ride-link-btn:hover {
+    background: #1d4ed8;
+    color: #fff;
+}
+
 .md-body hr {
     border: none;
     border-top: 1px solid #eceef3;
