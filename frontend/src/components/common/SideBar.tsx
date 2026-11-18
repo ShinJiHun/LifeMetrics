@@ -125,6 +125,9 @@ export default function SideBar({ open = false }: { open?: boolean }) {
 function HumanHandlerMenu({ accent }: { accent: string }) {
     return (
         <div style={{ marginTop: 24 }}>
+            <NavLink to="/human/diary" style={subLinkStyle(accent)}>
+                📔 일기
+            </NavLink>
             <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
                 💼 핸들러
             </div>

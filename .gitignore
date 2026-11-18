@@ -86,8 +86,9 @@ backend/bootrun.log
 backend/src/main/resources/sql/local/*
 !backend/src/main/resources/sql/local/README.md
 
-### Claude Code 로컬 설정 ###
-.claude/
+### Claude Code 로컬 설정 (스킬은 저장소에 포함 — 개발 요청함 워커와 맥에서 같이 쓴다) ###
+.claude/*
+!.claude/skills/
 
 ### macOS ###
 .DS_Store

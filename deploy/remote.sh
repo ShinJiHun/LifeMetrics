@@ -49,6 +49,7 @@ run_container() {   # $1 = 이미지 태그
         -v /mnt/200gb/NAS/data/permanent:/mnt/200gb/NAS/data/permanent
         -v /mnt/200gb/NAS/data/lotto:/mnt/200gb/NAS/data/lotto
         -v /mnt/200gb/NAS/exercise-gifs:/mnt/200gb/NAS/exercise-gifs   # 운동 GIF (/api/exercise/gif/** 가 여기서 읽음, 업로드도 여기로)
+        -v /mnt/200gb/NAS/diary:/mnt/200gb/NAS/diary   # 휴먼 일기 메모 폴더 (inbox/YYYY-MM-DD/*.md, 서버 Claude Code 가 저장)
         --restart unless-stopped
     )
 

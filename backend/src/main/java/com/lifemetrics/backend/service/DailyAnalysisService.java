@@ -143,7 +143,7 @@ public class DailyAnalysisService {
 
     // ── 입력 수집 ────────────────────────────────────
 
-    Map<String, Object> collectInput(long userId, LocalDate date) {
+    public Map<String, Object> collectInput(long userId, LocalDate date) {
         DateRange day = new DateRange(date, date);
         Map<String, Object> input = new LinkedHashMap<>();
         input.put("dailyActivity", healthData.dailyActivity(userId, day));
