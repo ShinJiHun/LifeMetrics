@@ -52,6 +52,7 @@ export default function DiaryPage() {
     const [day, setDay] = useState<DiaryDay | null>(null);
     const [recent, setRecent] = useState<DiaryRecent[]>([]);
     const [subs, setSubs] = useState<DiarySubMenu[]>([]);
+    const [diaryDefault, setDiaryDefault] = useState<number | undefined>(undefined);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
     const [showGuide, setShowGuide] = useState(false);
@@ -73,7 +74,12 @@ export default function DiaryPage() {
     }, [load]);
 
     useEffect(() => {
-        fetchDiarySubMenus().then(setSubs).catch(() => setSubs([]));
+        fetchDiarySubMenus()
+            .then((r) => {
+                setSubs(r.subs);
+                setDiaryDefault(r.diaryDefault);
+            })
+            .catch(() => setSubs([]));
     }, []);
 
     const run = async (label: string, fn: () => Promise<unknown>) => {
@@ -157,7 +163,7 @@ export default function DiaryPage() {
                                 매일 밤 10시에 그날 메모와 운동 기록으로 초안을 만듭니다. 그 뒤에 올린 메모는 [다시 만들기]로 반영하세요.
                             </p>
                         )}
-                        {day.diary && <EntryCard entry={day.diary} subs={subs} busy={!!busy} run={run} />}
+                        {day.diary && <EntryCard entry={day.diary} subs={subs} defaultSub={diaryDefault} busy={!!busy} run={run} />}
                         {day.book && <EntryCard entry={day.book} subs={subs} busy={!!busy} run={run} />}
                     </section>
                 </div>
@@ -274,11 +280,13 @@ function NoteForm({ date, busy, onAdd }: { date: string; busy: boolean; onAdd: (
 function EntryCard({
     entry,
     subs,
+    defaultSub,
     busy,
     run,
 }: {
     entry: DiaryEntry;
     subs: DiarySubMenu[];
+    defaultSub?: number;
     busy: boolean;
     run: (label: string, fn: () => Promise<unknown>) => void;
 }) {
@@ -286,8 +294,10 @@ function EntryCard({
     const [title, setTitle] = useState(entry.title);
     const [content, setContent] = useState(entry.content);
     const [visibility, setVisibility] = useState<"public" | "private">("public");
-    const bookSubs = subs.filter((s) => s.category === "독서");
-    const [subId, setSubId] = useState<number | undefined>(undefined);
+    // 일기는 휴먼 소메뉴 전체에서(기본: 서버가 정한 일기 소메뉴), 독서 글은 독서 소메뉴에서 고른다.
+    const choices = entry.kind === "book" ? subs.filter((s) => s.category === "독서") : subs;
+    const [picked, setPicked] = useState<number | undefined>(undefined);
+    const subId = picked ?? (entry.kind === "diary" ? defaultSub : undefined);
     const published = entry.status === "published";
 
     useEffect(() => {
@@ -297,10 +307,11 @@ function EntryCard({
     }, [entry]);
 
     const publish = () => {
-        if (entry.kind === "book" && !subId) return;
-        const where = entry.kind === "diary" ? "일상 > 일기" : bookSubs.find((s) => s.id === subId)?.name;
+        if (!subId) return;
+        const s = subs.find((x) => x.id === subId);
+        const where = s ? `${s.category} > ${s.name}` : "블로그";
         if (!window.confirm(`'${entry.title}'을(를) ${where}에 ${visibility === "public" ? "공개" : "비공개"}로 게시할까요?`)) return;
-        run("publish", () => publishDiaryEntry(entry.id, visibility, entry.kind === "book" ? subId : undefined));
+        run("publish", () => publishDiaryEntry(entry.id, visibility, subId));
     };
 
     return (
@@ -367,21 +378,19 @@ function EntryCard({
                         버리기
                     </button>
                     <span className="spacer" />
-                    {entry.kind === "book" && (
-                        <select value={subId ?? ""} onChange={(e) => setSubId(e.target.value ? Number(e.target.value) : undefined)}>
-                            <option value="">독서 소메뉴 선택</option>
-                            {bookSubs.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.name}
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                    <select value={subId ?? ""} onChange={(e) => setPicked(e.target.value ? Number(e.target.value) : undefined)}>
+                        <option value="">{entry.kind === "book" ? "독서 소메뉴 선택" : "소메뉴 선택"}</option>
+                        {choices.map((s) => (
+                            <option key={s.id} value={s.id}>
+                                {s.category} &gt; {s.name}
+                            </option>
+                        ))}
+                    </select>
                     <select value={visibility} onChange={(e) => setVisibility(e.target.value as "public" | "private")}>
                         <option value="public">공개</option>
                         <option value="private">비공개</option>
                     </select>
-                    <button className="primary" onClick={publish} disabled={busy || (entry.kind === "book" && !subId)}>
+                    <button className="primary" onClick={publish} disabled={busy || !subId}>
                         게시
                     </button>
                 </div>

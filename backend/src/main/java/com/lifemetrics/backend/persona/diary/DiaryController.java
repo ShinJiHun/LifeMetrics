@@ -32,7 +32,7 @@ public class DiaryController {
     }
 
     @GetMapping("/sub-menus")
-    public List<DiaryService.SubMenu> subMenus(HttpServletRequest req) {
+    public DiaryService.SubMenus subMenus(HttpServletRequest req) {
         requireAdmin(req);
         return service.subMenus();
     }

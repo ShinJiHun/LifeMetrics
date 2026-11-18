@@ -47,7 +47,8 @@ export interface DiaryRecent {
 
 export const fetchDiaryDay = (date: string) => api.get<DiaryDay>(`/diary/${date}`).then((r) => r.data);
 export const fetchDiaryRecent = () => api.get<DiaryRecent[]>("/diary/recent").then((r) => r.data);
-export const fetchDiarySubMenus = () => api.get<DiarySubMenu[]>("/diary/sub-menus").then((r) => r.data);
+export const fetchDiarySubMenus = () =>
+    api.get<{ subs: DiarySubMenu[]; diaryDefault: number }>("/diary/sub-menus").then((r) => r.data);
 
 export const addDiaryNote = (date: string, source: NoteSource, content: string, fileName?: string) =>
     api.post<DiaryNote>(`/diary/${date}/notes`, { source, content, fileName: fileName ?? null }).then((r) => r.data);

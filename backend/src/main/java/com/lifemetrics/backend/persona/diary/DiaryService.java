@@ -49,6 +49,7 @@ public class DiaryService {
                         String status, boolean edited, Long postId, String generatedAt, String publishedAt) {}
     public record Day(String date, List<Note> notes, Entry diary, Entry book, Map<String, Object> records) {}
     public record SubMenu(long id, String category, String name) {}
+    public record SubMenus(List<SubMenu> subs, long diaryDefault) {}
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ClaudeChatClient claude;
@@ -210,9 +211,13 @@ public class DiaryService {
 
     // ── 게시 ────────────────────────────────────────
 
-    /** 게시할 수 있는 휴먼 소메뉴. 일기용 '일상 > 일기'가 없으면 만든다. */
-    public List<SubMenu> subMenus() {
-        diarySubId();
+    /** 게시할 수 있는 휴먼 소메뉴와 일기의 기본 소메뉴. */
+    public SubMenus subMenus() {
+        long diaryDefault = diarySubId();
+        return new SubMenus(humanSubs(), diaryDefault);
+    }
+
+    private List<SubMenu> humanSubs() {
         return jdbc.query("""
                 SELECT s.id, c.name AS category, s.name FROM journal_sub_menu s
                 JOIN journal_category c ON c.id = s.category_id
@@ -225,7 +230,7 @@ public class DiaryService {
         if ("published".equals(e.status())) throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 게시했습니다.");
         long sub = subId != null ? subId : "diary".equals(e.kind()) ? diarySubId() : -1;
         if (sub < 0) throw bad("독서 글은 올릴 소메뉴를 골라 주세요.");
-        if (subMenus().stream().noneMatch(s -> s.id() == sub)) throw bad("휴먼 페르소나의 소메뉴가 아닙니다.");
+        if (humanSubs().stream().noneMatch(s -> s.id() == sub)) throw bad("휴먼 페르소나의 소메뉴가 아닙니다.");
         String vis = "private".equals(visibility) ? "private" : "public";
 
         LocalDateTime t = now();
@@ -240,15 +245,21 @@ public class DiaryService {
         return entryById(id);
     }
 
+    /**
+     * 일기를 올릴 기본 소메뉴. 휴먼에 '일기' 카테고리가 있으면 그 아래 올해 소메뉴(예: "26년", 없으면 첫 소메뉴),
+     * 없으면 '일상 > 일기'(없으면 만든다).
+     */
     private long diarySubId() {
-        List<Long> found = jdbc.queryForList("""
-                SELECT s.id FROM journal_sub_menu s JOIN journal_category c ON c.id = s.category_id
-                WHERE c.persona = 'human' AND c.name = '일상' AND s.name = '일기' ORDER BY s.id LIMIT 1
-                """, new MapSqlParameterSource(), Long.class);
-        if (!found.isEmpty()) return found.get(0);
+        String yy = String.format("%02d년", LocalDate.now(DailyAnalysisService.KST).getYear() % 100);
+        List<SubMenu> diaryCat = humanSubs().stream().filter(s -> "일기".equals(s.category())).toList();
+        if (!diaryCat.isEmpty()) {
+            return diaryCat.stream().filter(s -> s.name().contains(yy)).findFirst().orElse(diaryCat.get(0)).id();
+        }
+        Optional<SubMenu> daily = humanSubs().stream().filter(s -> "일상".equals(s.category()) && "일기".equals(s.name())).findFirst();
+        if (daily.isPresent()) return daily.get().id();
         List<Long> cat = jdbc.queryForList("SELECT id FROM journal_category WHERE persona = 'human' AND name = '일상' ORDER BY id LIMIT 1",
                 new MapSqlParameterSource(), Long.class);
-        if (cat.isEmpty()) throw bad("휴먼 페르소나에 '일상' 카테고리가 없습니다.");
+        if (cat.isEmpty()) throw bad("휴먼 페르소나에 '일기' 또는 '일상' 카테고리가 없습니다.");
         GeneratedKeyHolder key = new GeneratedKeyHolder();
         jdbc.update("""
                 INSERT INTO journal_sub_menu (category_id, name, sort_order)
