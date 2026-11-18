@@ -36,7 +36,7 @@ public class ExerciseItemController {
     private final com.lifemetrics.backend.service.CardioService cardioService;
     private final com.lifemetrics.backend.service.CardioRecommendService cardioRecommendService;
 
-    @Value("${exercise.gif.path:/mnt/200gb/NAS/exercise-gifs/}")
+    @Value("${exercise.gif.path:/mnt/200gb/NAS/health/exercise-gifs/}")
     private String gifBasePath;
 
     // ── 카테고리 목록 ─────────────────────────────────────────────

@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 @Service
 public class BrevetGpxService {
 
-    @Value("${brevet.nas-path:/data/home/tho881/project/NAS/brevet}")
+    @Value("${brevet.nas-path:/mnt/200gb/NAS/riding/brevet}")
     private String nasPath;
 
     private static final Pattern DIST_PATTERN =

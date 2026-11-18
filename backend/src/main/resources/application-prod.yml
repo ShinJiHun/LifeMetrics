@@ -89,16 +89,16 @@ logging:
 
 inbody:
   upload:
-    path: /mnt/200gb/NAS/inbody/raw/
+    path: /mnt/200gb/NAS/health/inbody/raw/
 
 career:
   media:
-    path: /mnt/200gb/NAS/career-media/
+    path: /mnt/200gb/NAS/persona/career-media/
 
 # 인간 페르소나 - 핸들러 월별 정산서 PDF 보관 폴더 (HandlerSettlementController)
 handler:
   settlement:
-    path: /mnt/200gb/NAS/handler-settlement/
+    path: /mnt/200gb/NAS/persona/handler-settlement/
 
 # application-gcp.yml
 exercise:
@@ -130,7 +130,7 @@ persona:
   # 본인이 직접 작성한 PDF 문서 자동 스캔. 서버 디렉터리의 *.pdf 전부 로드(파일시스템 = file: 접두사).
   # PERSONA_DOCS_DIR 로 폴더만 바꾸면 되고, 그 폴더에 PDF 를 두기만 하면 추가/삭제됨.
   docs:
-    location: "file:${PERSONA_DOCS_DIR:/mnt/200gb/NAS/jihoon_info}/*.pdf"
+    location: "file:${PERSONA_DOCS_DIR:/mnt/200gb/NAS/persona/jihoon_info}/*.pdf"
 
 # 파일 끝에 추가
 google:
@@ -138,15 +138,15 @@ google:
     api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
 
 brevet:
-  nas-path: /data/home/tho881/project/NAS/brevet
+  nas-path: /mnt/200gb/NAS/riding/brevet
 
 permanent:
-  nas-path: /mnt/200gb/NAS/data/permanent
+  nas-path: /mnt/200gb/NAS/riding/permanent
 
 lotto:
   datasource:
     enabled: true
-  nas-path: /mnt/200gb/NAS/data/lotto
+  nas-path: /mnt/200gb/NAS/lotto
 
 app:
   base-url: https://ride.tho881.me

@@ -25,10 +25,10 @@ public class BodyService {
     private final UserBodyRecordRepository bodyRecordRepo;
 
     // BodyService.java - uploadInbodyImage 수정
-    @Value("${inbody.upload.path:/mnt/200gb/NAS/inbody/}")
+    @Value("${inbody.upload.path:/mnt/200gb/NAS/health/inbody/}")
     private String inbodyUploadPath;
 
-    @Value("${fitdays.upload.path:/mnt/200gb/NAS/fitdays/}")
+    @Value("${fitdays.upload.path:/mnt/200gb/NAS/health/fitdays/}")
     private String fitdaysUploadPath;
 
     public BodyRecordsResponse getBodyRecords(Long userId) {

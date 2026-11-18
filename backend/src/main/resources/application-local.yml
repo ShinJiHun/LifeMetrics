@@ -135,7 +135,7 @@ google:
 lotto:
   datasource:
     enabled: true
-  nas-path: ${LOTTO_NAS_PATH:/mnt/200gb/NAS/data/lotto}
+  nas-path: ${LOTTO_NAS_PATH:/mnt/200gb/NAS/lotto}
 
 brevet:
   nas-path: ${BREVET_NAS_PATH:}

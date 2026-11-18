@@ -51,7 +51,7 @@ public class LottoTicketOcrService {
     @Value("${anthropic.api-key}")
     private String anthropicApiKey;
 
-    @Value("${lotto.nas-path:/mnt/200gb/NAS/data/lotto}")
+    @Value("${lotto.nas-path:/mnt/200gb/NAS/lotto}")
     private String nasPath;
 
     private static final String ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
