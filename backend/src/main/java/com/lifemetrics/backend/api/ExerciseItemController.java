@@ -34,7 +34,7 @@ public class ExerciseItemController {
     private final ExerciseService exerciseService;
     private final AiAnalysisService analysisService;
 
-    @Value("${exercise.gif.path:/mnt/200gb/NAS/exercise-gifs/}")
+    @Value("${exercise.gif.path:/mnt/200gb/NAS/health/exercise-gifs/}")
     private String gifBasePath;
 
     // ── 카테고리 목록 ─────────────────────────────────────────────

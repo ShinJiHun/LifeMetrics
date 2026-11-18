@@ -68,7 +68,7 @@ public class InbodyReExtractService {
     private static final double CONTROL_TOLERANCE_KG = 0.25;
 
     /** 재추출 대상 이미지 디렉터리. prod 는 NAS, 로컬은 샘플 복사본을 가리킨다. */
-    @Value("${inbody.processed.path:/mnt/200gb/NAS/inbody/processed/}")
+    @Value("${inbody.processed.path:/mnt/200gb/NAS/health/inbody/processed/}")
     private String processedPath;
 
     private final UserBodyRecordRepository bodyRecordRepository;

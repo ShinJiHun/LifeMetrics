@@ -30,7 +30,7 @@ public class ExerciseService {
     private final ExerciseItemRepository exerciseItemRepository;
     private final ExerciseCategoryRepository exerciseCategoryRepository;
 
-    @Value("${exercise.gif.path:/mnt/200gb/NAS/exercise-gifs/}")
+    @Value("${exercise.gif.path:/mnt/200gb/NAS/health/exercise-gifs/}")
     private String gifBasePath;
 
     // 로컬: /gif/  → /gif/chest/CHEST_PRESS.gif  (public 폴더 직접)

@@ -55,7 +55,7 @@ if errorlevel 1 (
 
 :: 4. Docker 재시작
 echo [4/5] Docker 재시작 중...
-ssh -i %SSH_KEY% %USER%@%SERVER% "cd /mnt/200gb/apps && docker stop lifemetrics 2>/dev/null; docker rm lifemetrics 2>/dev/null; docker build -t lifemetrics . && docker run -d --name lifemetrics -p 8080:8080 --env-file /mnt/200gb/apps/.env -v /mnt/200gb/NAS/inbody/raw:/mnt/200gb/NAS/inbody/raw -v /data/home/tho881/project/NAS/brevet:/data/home/tho881/project/NAS/brevet -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped lifemetrics"
+ssh -i %SSH_KEY% %USER%@%SERVER% "cd /mnt/200gb/apps && docker stop lifemetrics 2>/dev/null; docker rm lifemetrics 2>/dev/null; docker build -t lifemetrics . && docker run -d --name lifemetrics -p 8080:8080 --env-file /mnt/200gb/apps/.env -v /mnt/200gb/NAS/health/inbody/raw:/mnt/200gb/NAS/health/inbody/raw -v /mnt/200gb/NAS/riding/brevet:/mnt/200gb/NAS/riding/brevet -e SPRING_PROFILES_ACTIVE=prod --restart unless-stopped lifemetrics"
 if errorlevel 1 (
     echo ❌ Docker 재시작 실패
     exit /b 1

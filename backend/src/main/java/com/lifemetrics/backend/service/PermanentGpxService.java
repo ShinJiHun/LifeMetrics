@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 @Service
 public class PermanentGpxService {
 
-    @Value("${permanent.nas-path:/mnt/200gb/NAS/data/permanent}")
+    @Value("${permanent.nas-path:/mnt/200gb/NAS/riding/permanent}")
     private String nasPath;
 
     /** 특정 permanentNo 폴더 안의 gpx 파일명 목록 (정렬됨, 없으면 빈 리스트) */
