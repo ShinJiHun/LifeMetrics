@@ -179,7 +179,8 @@ public class DiaryService {
             return Optional.empty();
         }
 
-        String raw = claude.chat(systemPrompt(), List.of(new ClaudeChatClient.Message("user", userPrompt(date, notes, records))), 4000)
+        // 한국어 일기 + 독서 글이 JSON 문자열로 들어가면 4000 토큰을 넘을 수 있다(첫 시험에서 잘림). 클라이언트 읽기 제한(90초) 안에 끝나도록 8000.
+        String raw = claude.chat(systemPrompt(), List.of(new ClaudeChatClient.Message("user", userPrompt(date, notes, records))), 8000)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답을 받지 못했습니다."));
         JsonNode out = parseJson(raw);
         List<String> warnings = new ArrayList<>();
@@ -307,7 +308,8 @@ public class DiaryService {
                 {"diary": {"title": "...", "content": "마크다운 본문(제목 줄 없이)"},
                  "book": null 또는 {"title": "책 제목 — 한 줄 부제", "content": "마크다운 본문"},
                  "warnings": ["게시 전에 확인할 점. 실명·회사 내부 정보·부고·건강·돈 이야기가 들어갔으면 무엇인지 한 줄씩. 없으면 빈 배열"]}
-                - book 은 메모에 책 내용(읽은 책, 인상 깊은 문장, 생각)이 있을 때만 쓴다.
+                - book 은 그날 메모에 읽은 내용(읽은 범위, 인상 깊은 문장, 생각)이 있을 때만 쓴다. 책 이름이 언급됐다는 것만으로는 쓰지 않고 null.
+                - content 안의 줄바꿈은 \\n 으로 이스케이프한다.
                 - 메모끼리 내용이 겹치면 한 번만 쓴다. 메모 사이에 시간 순서가 보이면 그 순서를 따른다.
                 """;
     }
@@ -392,14 +394,20 @@ public class DiaryService {
         }
     }
 
+    /** 모델이 문자열 안에 줄바꿈을 그대로 넣는 경우가 있어 제어 문자를 허용해 읽는다. */
     private JsonNode parseJson(String raw) {
         String s = raw.trim();
         int a = s.indexOf('{'), b = s.lastIndexOf('}');
-        if (a < 0 || b <= a) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답 형식이 올바르지 않습니다.");
         try {
-            return objectMapper.readTree(s.substring(a, b + 1));
+            if (a < 0 || b <= a) throw new IllegalArgumentException("JSON 객체 없음");
+            return objectMapper.reader()
+                    .with(com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
+                    .readTree(s.substring(a, b + 1));
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답 형식이 올바르지 않습니다.");
+            log.warn("일기 AI 응답 파싱 실패 ({}자): {} … {}", s.length(), s.substring(0, Math.min(300, s.length())),
+                    s.substring(Math.max(0, s.length() - 300)));
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "AI 응답 형식이 올바르지 않습니다. 다시 만들기를 한 번 더 눌러 주세요.");
         }
     }
 
