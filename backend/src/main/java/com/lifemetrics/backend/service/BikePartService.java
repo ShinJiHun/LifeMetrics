@@ -124,6 +124,72 @@ public class BikePartService {
         });
     }
 
+    /**
+     * 순정 소모품 일괄 등록. 장착일 = 구입일 → 등록일 → 첫 라이딩일 순으로 정한다.
+     * 이미 사용 중인 같은 종류 부품이 있으면 그 종류는 건너뛴다(여러 번 눌러도 중복 없음).
+     * 전자식 변속(Di2/AXS/eTap)이면 변속 케이블은 넣지 않는다.
+     */
+    @Transactional
+    public List<BikePart> registerStock(Long bikeId) {
+        Bike bike = bikeRepository.findById(bikeId)
+                .orElseThrow(() -> new IllegalArgumentException("자전거를 찾을 수 없습니다."));
+        LocalDate installedOn = bike.getPurchaseDate();
+        if (installedOn == null && bike.getCreatedAt() != null) installedOn = bike.getCreatedAt().toLocalDate();
+        if (installedOn == null) {
+            installedOn = activityCoreRepository.findRideDistancesByBikeIds(List.of(bikeId)).stream()
+                    .map(r -> r.getStartTime().toLocalDate()).min(Comparator.naturalOrder())
+                    .orElse(LocalDate.now());
+        }
+
+        Set<String> activeTypes = partRepository.findByBikeIdInOrderByInstalledOnDesc(List.of(bikeId)).stream()
+                .filter(p -> p.getRemovedOn() == null).map(BikePart::getPartType)
+                .collect(Collectors.toSet());
+
+        List<BikePart> created = new ArrayList<>();
+        for (StockPart s : stockParts(bike)) {
+            if (activeTypes.contains(s.type())) continue;
+            BikePart p = new BikePart();
+            p.setBikeId(bikeId);
+            p.setPartType(s.type());
+            p.setName(s.name());
+            p.setInstalledOn(installedOn);
+            p.setInitialKm(0.0);
+            p.setIntervalKm(s.km());
+            p.setIntervalMonths(s.months());
+            p.setNote("순정 (자전거 구입일 기준 자동 등록)");
+            created.add(partRepository.save(p));
+        }
+        return created;
+    }
+
+    record StockPart(String type, String name, Integer km, Integer months) {}
+
+    static List<StockPart> stockParts(Bike bike) {
+        String group = bike.getGroupset() != null && !bike.getGroupset().isBlank() ? bike.getGroupset().trim() : null;
+        String speeds = bike.getSpeeds() != null ? " " + bike.getSpeeds() + "단" : "";
+        String wheel = bike.getWheelSize() != null ? " " + bike.getWheelSize() : "";
+        String rings = bike.getChainringOuter() != null
+                ? " " + bike.getChainringOuter() + (bike.getChainringInner() != null ? "/" + bike.getChainringInner() : "") + "T"
+                : "";
+        String cassette = bike.getCassetteLabel() != null ? " " + bike.getCassetteLabel() : "";
+        String prefix = "순정" + (group != null ? " " + group : "");
+
+        List<StockPart> list = new ArrayList<>(List.of(
+                new StockPart("CHAIN", prefix + " 체인" + speeds, 3000, null),
+                new StockPart("TIRE_REAR", "순정 뒷타이어" + wheel, 4000, null),
+                new StockPart("TIRE_FRONT", "순정 앞타이어" + wheel, 6000, null),
+                new StockPart("CASSETTE", prefix + " 카세트" + cassette + speeds, 10000, null),
+                new StockPart("CHAINRING", prefix + " 체인링" + rings, 20000, null),
+                new StockPart("BRAKE_PAD", prefix + " 브레이크 패드", 3000, null),
+                new StockPart("BAR_TAPE", "순정 바테이프", null, 12)));
+        String shifting = ((group != null ? group : "") + " " + (bike.getShiftingType() != null ? bike.getShiftingType() : ""))
+                .toLowerCase();
+        boolean electronic = shifting.contains("di2") || shifting.contains("axs") || shifting.contains("etap")
+                || shifting.contains("electr") || shifting.contains("전자");
+        if (!electronic) list.add(new StockPart("CABLE", "순정 변속·브레이크 케이블", null, 12));
+        return list;
+    }
+
     /** 교체: 기존 부품을 date 로 탈거하고 같은 종류·주기의 새 부품을 date 에 장착한다. */
     @Transactional
     public Optional<BikePart> replace(Long id, LocalDate date, String newName, String note) {

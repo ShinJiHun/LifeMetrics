@@ -46,6 +46,16 @@ public class BikePartController {
         }
     }
 
+    /** 순정 소모품 일괄 등록 (구입일 기준). 이미 사용 중인 종류는 건너뛴다. */
+    @PostMapping("/bike/{bikeId}/stock")
+    public ResponseEntity<?> registerStock(@PathVariable Long bikeId) {
+        try {
+            return ResponseEntity.ok(service.registerStock(bikeId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     public record ReplaceRequest(LocalDate date, String name, String note) {}
 
     @PostMapping("/{id}/replace")

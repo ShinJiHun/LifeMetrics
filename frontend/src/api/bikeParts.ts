@@ -98,6 +98,13 @@ export async function savePart(part: PartInput): Promise<void> {
     if (!res.ok) throw await errorOf(res, "저장 실패");
 }
 
+/** 순정 소모품 일괄 등록(구입일 기준). 등록된 개수를 돌려준다. */
+export async function registerStockParts(bikeId: number): Promise<number> {
+    const res = await fetch(`/api/bike-parts/bike/${bikeId}/stock`, {method: "POST"});
+    if (!res.ok) throw await errorOf(res, "순정 소모품 등록 실패");
+    return (await res.json()).length;
+}
+
 export async function replacePart(id: number, body: { date: string; name: string | null; note: string | null }): Promise<void> {
     const res = await fetch(`/api/bike-parts/${id}/replace`, {
         method: "POST",

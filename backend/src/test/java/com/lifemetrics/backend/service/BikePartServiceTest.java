@@ -98,6 +98,20 @@ class BikePartServiceTest {
     }
 
     @Test
+    void 순정_소모품_이름은_스펙으로_만들고_전자식이면_케이블_제외() {
+        var bike = new com.lifemetrics.backend.entity.Bike();
+        bike.setGroupset("시마노 울테그라 Di2 8170");
+        bike.setSpeeds(12);
+        bike.setChainringOuter(50);
+        bike.setChainringInner(34);
+        bike.setCassetteLabel("11-34T");
+        var parts = BikePartService.stockParts(bike);
+        assertThat(parts).extracting(BikePartService.StockPart::type).doesNotContain("CABLE").contains("CHAIN", "CASSETTE");
+        assertThat(parts).extracting(BikePartService.StockPart::name)
+                .contains("순정 시마노 울테그라 Di2 8170 카세트 11-34T 12단", "순정 시마노 울테그라 Di2 8170 체인링 50/34T");
+    }
+
+    @Test
     void 최근_90일_평균_주행거리() {
         List<BikeRideDistance> rides = List.of(
                 ride(TODAY.minusDays(10), 450),

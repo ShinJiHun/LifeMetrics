@@ -4,7 +4,7 @@
 import {useEffect, useState} from "react";
 import type {CSSProperties} from "react";
 import AdminOnly from "@/components/common/AdminOnly";
-import {fetchGearPlan, partMeta, PART_TYPES, replacePart, savePart} from "@/api/bikeParts";
+import {fetchGearPlan, partMeta, PART_TYPES, registerStockParts, replacePart, savePart} from "@/api/bikeParts";
 import type {BikePlan, PartInput, PartStatus, PartType, PartUsage} from "@/api/bikeParts";
 
 const today = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD (로컬)
@@ -106,6 +106,22 @@ export default function GearPlanPage() {
 function BikeSection({plan, onChanged}: { plan: BikePlan; onChanged: () => void }) {
     const [adding, setAdding] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
+    const [stocking, setStocking] = useState(false);
+
+    const registerStock = async () => {
+        if (!window.confirm(`${plan.bikeName}의 순정 소모품(체인·타이어·카세트·체인링·패드·바테이프)을 `
+            + `자전거 구입일 기준으로 등록할까요?\n이미 사용 중으로 등록된 종류는 건너뜁니다.`)) return;
+        setStocking(true);
+        try {
+            const n = await registerStockParts(plan.bikeId);
+            window.alert(n > 0 ? `${n}개 등록했습니다.` : "새로 등록할 종류가 없습니다(이미 모두 등록됨).");
+            onChanged();
+        } catch (e) {
+            window.alert(e instanceof Error ? e.message : "등록 실패");
+        } finally {
+            setStocking(false);
+        }
+    };
 
     return (
         <section style={{marginBottom: 28, opacity: plan.retired ? 0.7 : 1}}>
@@ -139,6 +155,9 @@ function BikeSection({plan, onChanged}: { plan: BikePlan; onChanged: () => void 
             <div style={{display: "flex", gap: 8, marginTop: 10}}>
                 <AdminOnly>
                     {!adding && <button style={S.ghostBtn} onClick={() => setAdding(true)}>➕ 소모품 추가</button>}
+                    <button style={S.ghostBtn} disabled={stocking} onClick={registerStock}>
+                        {stocking ? "등록 중…" : "🏭 순정 소모품 한 번에 등록"}
+                    </button>
                 </AdminOnly>
                 {plan.history.length > 0 && (
                     <button style={S.ghostBtn} onClick={() => setShowHistory((v) => !v)}>
