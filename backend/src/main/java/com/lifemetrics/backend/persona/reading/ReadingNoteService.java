@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.text.Normalizer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -146,7 +147,8 @@ public class ReadingNoteService {
 
     /** 원본 파일명에서 확장자를 떼고 경로·특수문자를 정리한다. 한글은 유지. */
     static String safeBaseName(String original, String ext) {
-        String name = original == null ? "" : original.replace('\\', '/');
+        // 맥에서 올린 파일명은 한글이 자모로 풀린 NFD 라 서버에서 이름으로 찾기 어렵다 → NFC 로 합친다.
+        String name = original == null ? "" : Normalizer.normalize(original, Normalizer.Form.NFC).replace('\\', '/');
         name = name.substring(name.lastIndexOf('/') + 1);
         if (!ext.isEmpty() && name.toLowerCase(Locale.ROOT).endsWith("." + ext)) {
             name = name.substring(0, name.length() - ext.length() - 1);
