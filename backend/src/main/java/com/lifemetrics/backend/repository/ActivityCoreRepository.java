@@ -76,6 +76,11 @@ public interface ActivityCoreRepository extends JpaRepository<ActivityCore, Long
             "FROM ActivityCore a WHERE a.bikeId IS NOT NULL GROUP BY a.bikeId")
     List<BikeTotals> sumTotalsByBike();
 
+    /** 지정한 자전거들의 라이딩별 시작 시각·거리. 장비 변경 계획에서 소모품별 사용 거리를 합산할 때 쓴다. */
+    @Query("SELECT a.bikeId AS bikeId, a.startTime AS startTime, a.totalDistance AS totalDistance " +
+            "FROM ActivityCore a WHERE a.bikeId IN :bikeIds AND a.startTime IS NOT NULL")
+    List<BikeRideDistance> findRideDistancesByBikeIds(@Param("bikeIds") List<Long> bikeIds);
+
     /**
      * 파워미터가 달린 라이드만 모아 소비열량 추정에 쓸 통계를 낸다.
      *
