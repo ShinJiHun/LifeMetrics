@@ -68,6 +68,7 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                     <PersonaContentMenu persona={persona} accent={meta.accent} />
                 )}
 
+                {persona === "human" && isAdmin && <HumanReadingMenu accent={meta.accent} />}
                 {persona === "human" && isAdmin && <HumanHandlerMenu accent={meta.accent} />}
                 {persona === "human" && isAdmin && <HumanLottoMenu accent={meta.accent} />}
 
@@ -119,6 +120,21 @@ export default function SideBar({ open = false }: { open?: boolean }) {
                 </NavLink>
             )}
         </aside>
+    );
+}
+
+function HumanReadingMenu({ accent }: { accent: string }) {
+    return (
+        <div style={{ marginTop: 24 }}>
+            <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
+                📚 독서
+            </div>
+            <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <NavLink to="/human/reading-notes" style={subLinkStyle(accent)}>
+                    📤 독서 노트 기록(CSV)
+                </NavLink>
+            </nav>
+        </div>
     );
 }
 

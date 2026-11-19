@@ -110,6 +110,10 @@ handler:
   settlement:
     path: /tmp/handler-settlement/
 
+reading:
+  note:
+    path: /tmp/reading/
+
 exercise:
   gif:
     path: /tmp/exercise-gifs/   # 로컬은 안 씀

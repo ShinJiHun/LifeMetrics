@@ -100,6 +100,11 @@ handler:
   settlement:
     path: /mnt/200gb/NAS/persona/handler-settlement/
 
+# 인간 페르소나 - 독서 노트 파일(앱 기록) 보관 폴더 (ReadingNoteController) — uploads/ 에 저장, samples/ 는 예시 파일
+reading:
+  note:
+    path: /mnt/200gb/NAS/persona/reading/
+
 # application-gcp.yml
 exercise:
   gif:
