@@ -41,13 +41,25 @@ export interface PartUsage {
     expectedReplaceOn: string | null;
 }
 
+export interface GearKm {
+    teeth: number;
+    km: number;
+}
+
 export interface BikePlan {
     bikeId: number;
     bikeName: string;
     retired: boolean;
+    totalKm: number;
     recentKmPerDay: number;
     parts: PartUsage[];
     history: PartUsage[];
+    /** 사용 중인 체인링 부품 장착일. null 이면 전체 기간 */
+    frontSince: string | null;
+    frontGears: GearKm[];
+    /** 사용 중인 카세트 부품 장착일. null 이면 전체 기간 */
+    rearSince: string | null;
+    rearGears: GearKm[];
 }
 
 export interface PartInput {

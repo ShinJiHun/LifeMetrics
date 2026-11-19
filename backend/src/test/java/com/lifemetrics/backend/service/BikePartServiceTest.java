@@ -2,6 +2,7 @@ package com.lifemetrics.backend.service;
 
 import com.lifemetrics.backend.entity.BikePart;
 import com.lifemetrics.backend.repository.BikeRideDistance;
+import com.lifemetrics.backend.repository.GearDistanceRow;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -71,6 +72,29 @@ class BikePartServiceTest {
         var u = BikePartService.usage(part(LocalDate.of(2026, 1, 1), null, null, null), List.of(), TODAY, 5);
         assertThat(u.status()).isEqualTo("NONE");
         assertThat(u.ratio()).isNull();
+    }
+
+    private static GearDistanceRow gear(LocalDate date, int front, int rear, double km) {
+        return new GearDistanceRow() {
+            public Long getBikeId() { return 1L; }
+            public LocalDateTime getRideStart() { return date.atTime(7, 0); }
+            public Integer getFrontGear() { return front; }
+            public Integer getRearGear() { return rear; }
+            public Double getDistance() { return km * 1000; }
+        };
+    }
+
+    @Test
+    void 톱니수별_거리는_장착일_이후만_1km_미만은_제외() {
+        List<GearDistanceRow> rows = List.of(
+                gear(LocalDate.of(2026, 5, 1), 50, 17, 300),  // 카세트 장착 전
+                gear(LocalDate.of(2026, 6, 1), 50, 17, 100),
+                gear(LocalDate.of(2026, 6, 2), 34, 17, 50),
+                gear(LocalDate.of(2026, 6, 2), 34, 28, 0.4)); // 센서 튐
+        var rear = BikePartService.gearKm(rows, LocalDate.of(2026, 6, 1), false);
+        assertThat(rear).containsExactly(new BikePartService.GearKm(17, 150.0));
+        var front = BikePartService.gearKm(rows, null, true);
+        assertThat(front).containsExactly(new BikePartService.GearKm(34, 50.4), new BikePartService.GearKm(50, 400.0));
     }
 
     @Test

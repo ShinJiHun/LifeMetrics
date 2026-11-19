@@ -6,6 +6,8 @@ import com.lifemetrics.backend.repository.ActivityCoreRepository;
 import com.lifemetrics.backend.repository.BikePartRepository;
 import com.lifemetrics.backend.repository.BikeRepository;
 import com.lifemetrics.backend.repository.BikeRideDistance;
+import com.lifemetrics.backend.repository.GearDistanceRow;
+import com.lifemetrics.backend.repository.GearUsageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ public class BikePartService {
     private final BikePartRepository partRepository;
     private final BikeRepository bikeRepository;
     private final ActivityCoreRepository activityCoreRepository;
+    private final GearUsageRepository gearUsageRepository;
 
     public record PartUsage(
             Long id, Long bikeId, String partType, String name,
@@ -50,8 +53,17 @@ public class BikePartService {
             /** 거리·기간 기준 중 더 이른 교체 예상일. 추정 불가면 null */
             LocalDate expectedReplaceOn) {}
 
-    public record BikePlan(Long bikeId, String bikeName, boolean retired, double recentKmPerDay,
-                           List<PartUsage> parts, List<PartUsage> history) {}
+    /** 톱니수별 주행 거리 */
+    public record GearKm(int teeth, double km) {}
+
+    /**
+     * frontGears/rearGears: 체인링·스프라켓(코그) 톱니수별 거리. 사용 중인 CHAINRING/CASSETTE 부품이 등록돼 있으면
+     * 그 장착일(frontSince/rearSince) 이후만, 없으면 전체 기간을 합산한다. 기어 기록이 있는 라이딩만 포함된다.
+     */
+    public record BikePlan(Long bikeId, String bikeName, boolean retired, double totalKm, double recentKmPerDay,
+                           List<PartUsage> parts, List<PartUsage> history,
+                           LocalDate frontSince, List<GearKm> frontGears,
+                           LocalDate rearSince, List<GearKm> rearGears) {}
 
     @Transactional(readOnly = true)
     public List<BikePlan> plan(boolean includeRetired) {
@@ -63,6 +75,8 @@ public class BikePartService {
 
         Map<Long, List<BikeRideDistance>> ridesByBike = activityCoreRepository.findRideDistancesByBikeIds(ids)
                 .stream().collect(Collectors.groupingBy(BikeRideDistance::getBikeId));
+        Map<Long, List<GearDistanceRow>> gearsByBike = gearUsageRepository.findGearDistancesByBikeIds(ids)
+                .stream().collect(Collectors.groupingBy(GearDistanceRow::getBikeId));
         Map<Long, List<BikePart>> partsByBike = partRepository.findByBikeIdInOrderByInstalledOnDesc(ids)
                 .stream().collect(Collectors.groupingBy(BikePart::getBikeId));
 
@@ -78,8 +92,15 @@ public class BikePartService {
                 (p.getRemovedOn() == null ? active : history).add(u);
             }
             active.sort(Comparator.comparing((PartUsage u) -> u.ratio() == null ? -1 : u.ratio()).reversed());
+            LocalDate frontSince = activeInstalledOn(active, "CHAINRING");
+            LocalDate rearSince = activeInstalledOn(active, "CASSETTE");
+            List<GearDistanceRow> gears = gearsByBike.getOrDefault(bike.getId(), List.of());
+            double totalKm = rides.stream()
+                    .mapToDouble(r -> r.getTotalDistance() == null ? 0 : r.getTotalDistance()).sum() / 1000.0;
             result.add(new BikePlan(bike.getId(), bike.getName(), Boolean.TRUE.equals(bike.getIsRetired()),
-                    round1(kmPerDay), active, history));
+                    round1(totalKm), round1(kmPerDay), active, history,
+                    frontSince, gearKm(gears, frontSince, true),
+                    rearSince, gearKm(gears, rearSince, false)));
         }
         return result;
     }
@@ -151,6 +172,26 @@ public class BikePartService {
     }
 
     // ───────────── 계산 (테스트 대상) ─────────────
+
+    private static LocalDate activeInstalledOn(List<PartUsage> active, String type) {
+        return active.stream().filter(u -> type.equals(u.partType()))
+                .map(PartUsage::installedOn).max(Comparator.naturalOrder()).orElse(null);
+    }
+
+    /** 톱니수별 거리 합(km, 톱니수 오름차순). since 가 있으면 그날 이후 라이딩만. 1km 미만(센서 튐)은 뺀다. */
+    static List<GearKm> gearKm(List<GearDistanceRow> rows, LocalDate since, boolean front) {
+        Map<Integer, Double> meters = new TreeMap<>();
+        for (GearDistanceRow r : rows) {
+            Integer teeth = front ? r.getFrontGear() : r.getRearGear();
+            if (teeth == null || teeth <= 0 || r.getDistance() == null) continue;
+            if (since != null && (r.getRideStart() == null || r.getRideStart().toLocalDate().isBefore(since))) continue;
+            meters.merge(teeth, r.getDistance(), Double::sum);
+        }
+        return meters.entrySet().stream()
+                .filter(e -> e.getValue() >= 1000)
+                .map(e -> new GearKm(e.getKey(), round1(e.getValue() / 1000.0)))
+                .toList();
+    }
 
     static double recentKmPerDay(List<BikeRideDistance> rides, LocalDate today) {
         LocalDate from = today.minusDays(RECENT_DAYS);

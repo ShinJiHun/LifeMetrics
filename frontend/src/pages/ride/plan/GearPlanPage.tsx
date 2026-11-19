@@ -72,8 +72,13 @@ export default function GearPlanPage() {
             {error && <p style={{color: "#dc3545"}}>{error}</p>}
 
             <div style={{...S.card, marginBottom: 20, borderColor: urgent.length ? "#fca5a5" : "#bbf7d0"}}>
-                {urgent.length === 0 ? (
-                    <span style={{color: "#15803d"}}>✅ 지금 교체가 필요한 소모품이 없습니다.</span>
+                {active.length === 0 ? (
+                    <span style={{color: "#64748b"}}>
+                        ℹ️ 아직 등록된 소모품이 없어 교체 시기를 계산할 수 없습니다. 아래 자전거에서
+                        <b> ➕ 소모품 추가</b>로 체인·타이어 등의 장착일을 넣어 주세요.
+                    </span>
+                ) : urgent.length === 0 ? (
+                    <span style={{color: "#15803d"}}>✅ 등록된 소모품 {active.length}개 모두 교체 시기 전입니다.</span>
                 ) : (
                     <>
                         <strong>⚠️ 교체 확인 필요 {urgent.length}건</strong>
@@ -108,8 +113,17 @@ function BikeSection({plan, onChanged}: { plan: BikePlan; onChanged: () => void 
                 <h3 style={{margin: 0, fontSize: 16}}>
                     🚲 {plan.bikeName} {plan.retired && <span style={S.badge}>종료</span>}
                 </h3>
-                <span style={{fontSize: 12, color: "#64748b"}}>최근 90일 하루 평균 {plan.recentKmPerDay}km</span>
+                <span style={{fontSize: 12, color: "#64748b"}}>
+                    총 {km(plan.totalKm)} · 최근 90일 하루 평균 {plan.recentKmPerDay}km
+                </span>
             </div>
+
+            {(plan.frontGears.length > 0 || plan.rearGears.length > 0) && (
+                <div style={{...S.grid, marginTop: 10}}>
+                    <GearBars title="체인링(앞)" since={plan.frontSince} gears={plan.frontGears}/>
+                    <GearBars title="스프라켓(뒤)" since={plan.rearSince} gears={plan.rearGears}/>
+                </div>
+            )}
 
             {plan.parts.length === 0 && !adding && (
                 <p style={{...S.empty, marginTop: 8}}>등록된 소모품이 없습니다.</p>
@@ -150,6 +164,36 @@ function BikeSection({plan, onChanged}: { plan: BikePlan; onChanged: () => void 
                 </table>
             )}
         </section>
+    );
+}
+
+/** 톱니수별 주행 거리 — 한 계열 가로 막대. 가장 많이 쓴 톱니가 닳는 순서의 기준이 된다. */
+function GearBars({title, since, gears}: { title: string; since: string | null; gears: { teeth: number; km: number }[] }) {
+    if (gears.length === 0) return null;
+    const max = Math.max(...gears.map((g) => g.km));
+    const total = gears.reduce((s, g) => s + g.km, 0);
+    return (
+        <div style={S.card}>
+            <strong style={{fontSize: 14}}>⚙️ {title} 톱니별 거리</strong>
+            <div style={{...S.meta, marginTop: 2, fontSize: 12}}>
+                {since ? `현재 부품 장착(${since}) 이후` : "전체 기간"} · 기어 기록 {km(total)}
+            </div>
+            <div style={{display: "grid", gridTemplateColumns: "36px 1fr 64px", gap: "4px 8px", alignItems: "center", marginTop: 8}}>
+                {gears.map((g) => (
+                    <div key={g.teeth} style={{display: "contents"}}
+                         title={`${g.teeth}T · ${g.km.toLocaleString()}km (${Math.round((g.km / total) * 100)}%)`}>
+                        <span style={{fontSize: 12, color: "#475569", textAlign: "right"}}>{g.teeth}T</span>
+                        <div style={{height: 10, display: "flex", alignItems: "center"}}>
+                            <div style={{
+                                height: 8, width: `${Math.max(1, (g.km / max) * 100)}%`,
+                                background: "#2563eb", borderRadius: "0 4px 4px 0",
+                            }}/>
+                        </div>
+                        <span style={{fontSize: 12, color: "#334155", textAlign: "right"}}>{km(g.km)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }
 
