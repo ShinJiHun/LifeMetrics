@@ -105,6 +105,11 @@ reading:
   note:
     path: /mnt/200gb/NAS/persona/reading/
 
+# 블로그 글 본문 이미지 — 글쓰기 에디터 업로드 (BlogImageController)
+blog:
+  image:
+    path: /mnt/200gb/NAS/persona/blog-images/
+
 # application-gcp.yml
 exercise:
   gif:

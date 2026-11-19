@@ -46,6 +46,7 @@ run_container() {   # $1 = 이미지 태그
         -v /mnt/200gb/NAS/persona/career-media:/mnt/200gb/NAS/persona/career-media
         -v /mnt/200gb/NAS/persona/handler-settlement:/mnt/200gb/NAS/persona/handler-settlement   # 핸들러 월별 정산서 PDF
         -v /mnt/200gb/NAS/persona/reading:/mnt/200gb/NAS/persona/reading   # 독서 노트 기록 파일(ReadingNoteController, uploads/·samples/)
+        -v /mnt/200gb/NAS/persona/blog-images:/mnt/200gb/NAS/persona/blog-images   # 블로그 글 본문 이미지(BlogImageController, 에디터 업로드)
         -v /mnt/200gb/NAS/persona/jihoon_info:/mnt/200gb/NAS/persona/jihoon_info:ro   # 페르소나 문서 PDF(persona.docs.location, PersonaDocService)
         -v /mnt/200gb/NAS/persona/blog:/mnt/200gb/NAS/persona/blog:ro   # 블로그 글·사진 보관 — 활동 지도 사진(ActivityPhotoService)
         -v /mnt/200gb/NAS/riding/brevet:/mnt/200gb/NAS/riding/brevet

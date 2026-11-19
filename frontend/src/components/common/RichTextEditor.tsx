@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,17 +8,22 @@ import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import "@/styles/richtext.css";
+import "@/styles/post-body.css";
+import { uploadBlogImage } from "@/api/blogImages";
 
 export default function RichTextEditor({
     value,
     onChange,
     accent,
     placeholder,
+    variant,
 }: {
     value: string;
     onChange: (html: string) => void;
     accent: string;
     placeholder?: string;
+    /** "post": 블로그 글 — 글 보기와 같은 스타일 + 이미지 파일 업로드(버튼·붙여넣기·끌어다 놓기) */
+    variant?: "post";
 }) {
     // extensions는 매 렌더마다 새 인스턴스로 만들면 안 된다 — useEditor가 매 렌더 options를 diff해서
     // "바뀌었다"고 판단하면 editor.setOptions()로 뷰를 강제 동기화하는데, 이게 한글 IME 조합 중에
@@ -45,11 +50,57 @@ export default function RichTextEditor({
     // 아래 useEffect(setContent)가 "외부에서 바뀐 경우"에만 반영한다.
     const initialContent = useRef(value).current;
 
+    // 이미지 파일 붙여넣기·끌어다 놓기 → 업로드 후 삽입. editorProps 도 매 렌더 새로 만들지 않는다(위 IME 이슈).
+    const uploadRef = useRef<(files: File[]) => void>(() => {});
+    const editorProps = useMemo(() => {
+        if (variant !== "post") return undefined;
+        const images = (list: FileList | null | undefined) =>
+            [...(list ?? [])].filter((f) => f.type.startsWith("image/"));
+        return {
+            handlePaste: (_view: unknown, event: ClipboardEvent) => {
+                const files = images(event.clipboardData?.files);
+                if (files.length === 0) return false;
+                event.preventDefault();
+                uploadRef.current(files);
+                return true;
+            },
+            handleDrop: (_view: unknown, event: DragEvent) => {
+                const files = images(event.dataTransfer?.files);
+                if (files.length === 0) return false;
+                event.preventDefault();
+                uploadRef.current(files);
+                return true;
+            },
+        };
+    }, [variant]);
+
     const editor = useEditor({
         extensions,
         content: initialContent,
+        editorProps,
         onUpdate: ({ editor }) => onChangeRef.current(editor.getHTML()),
     });
+
+    const [uploading, setUploading] = useState(false);
+    uploadRef.current = async (files: File[]) => {
+        if (!editor) return;
+        setUploading(true);
+        try {
+            for (const f of files) {
+                const url = await uploadBlogImage(f);
+                editor.chain().focus().setImage({ src: url, alt: f.name.replace(/\.[^.]+$/, "") }).run();
+            }
+        } catch (e) {
+            const anyErr = e as { response?: { status?: number; data?: { message?: string } } };
+            window.alert(
+                anyErr.response?.status === 403
+                    ? "관리자 로그인이 필요합니다."
+                    : anyErr.response?.data?.message || "이미지를 올리지 못했습니다."
+            );
+        } finally {
+            setUploading(false);
+        }
+    };
 
     // 편집 중이 아닌 외부 변경(예: 글 불러오기)만 반영. 타이핑 중 커서 튐 방지.
     useEffect(() => {
@@ -64,13 +115,29 @@ export default function RichTextEditor({
 
     return (
         <div style={S.wrap}>
-            <Toolbar editor={editor} accent={accent} />
-            <EditorContent editor={editor} className="md-body rte-content" />
+            <Toolbar
+                editor={editor}
+                accent={accent}
+                onUploadImages={variant === "post" ? (files) => uploadRef.current(files) : undefined}
+                uploading={uploading}
+            />
+            <EditorContent editor={editor} className={variant === "post" ? "md-body post-body rte-content" : "md-body rte-content"} />
         </div>
     );
 }
 
-function Toolbar({ editor, accent }: { editor: NonNullable<ReturnType<typeof useEditor>>; accent: string }) {
+function Toolbar({
+    editor,
+    accent,
+    onUploadImages,
+    uploading,
+}: {
+    editor: NonNullable<ReturnType<typeof useEditor>>;
+    accent: string;
+    onUploadImages?: (files: File[]) => void;
+    uploading?: boolean;
+}) {
+    const fileRef = useRef<HTMLInputElement>(null);
     const setLink = () => {
         const prev = editor.getAttributes("link").href as string | undefined;
         const url = window.prompt("링크 주소", prev ?? "https://");
@@ -108,9 +175,29 @@ function Toolbar({ editor, accent }: { editor: NonNullable<ReturnType<typeof use
             <Btn active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} accent={accent} title="글머리 기호">•</Btn>
             <Btn active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()} accent={accent} title="인용">"</Btn>
             <Btn active={editor.isActive("codeBlock")} onClick={() => editor.chain().focus().toggleCodeBlock().run()} accent={accent} title="코드블록">{"</>"}</Btn>
+            <Btn active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} accent={accent} title="구분선">―</Btn>
             <Sep />
             <Btn active={editor.isActive("link")} onClick={setLink} accent={accent} title="링크">🔗</Btn>
-            <Btn active={false} onClick={addImage} accent={accent} title="이미지">🖼</Btn>
+            {onUploadImages && (
+                <>
+                    <Btn active={false} onClick={() => fileRef.current?.click()} accent={accent} title="사진 올리기 (붙여넣기·끌어다 놓기도 됨)">
+                        {uploading ? "⏳" : "📷"}
+                    </Btn>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        multiple
+                        hidden
+                        onChange={(e) => {
+                            const files = [...(e.target.files ?? [])];
+                            e.target.value = "";
+                            if (files.length) onUploadImages(files);
+                        }}
+                    />
+                </>
+            )}
+            <Btn active={false} onClick={addImage} accent={accent} title="이미지 주소로 넣기">🖼</Btn>
             <Sep />
             <Btn active={false} onClick={() => editor.chain().focus().undo().run()} accent={accent} title="실행 취소">↺</Btn>
             <Btn active={false} onClick={() => editor.chain().focus().redo().run()} accent={accent} title="다시 실행">↻</Btn>

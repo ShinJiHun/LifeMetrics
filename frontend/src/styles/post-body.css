@@ -1,0 +1,114 @@
+/*
+ * 블로그 글 본문 (journal_post) — 글 보기·미리보기·글쓰기 에디터가 같은 모양이 되도록 함께 쓴다.
+ * 티스토리처럼 "한 줄 = 한 문단, 빈 문단 = 한 줄 간격" 으로 쓴 글이 그대로 읽히게 문단 여백은 두지 않는다.
+ * markdown.css(.md-body) 위에 덮어쓴다.
+ */
+.post-body {
+    font-size: 16.5px;
+    line-height: 1.85;
+    color: #333a47;
+    letter-spacing: -0.01em;
+    white-space: normal; /* 글 화면의 pre-wrap 을 끈다 — 태그 사이 공백이 빈 줄로 보이지 않게 */
+}
+
+.post-body p {
+    margin: 0;
+}
+/* 빈 문단(에디터에서 Enter 두 번) = 한 줄 간격 */
+.post-body p:empty::before {
+    content: "\00a0";
+}
+
+.post-body h1,
+.post-body h2,
+.post-body h3,
+.post-body h4 {
+    color: #1b2236;
+    font-weight: 800;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+.post-body h1 {
+    font-size: 1.6em;
+    margin: 1.8em 0 0.8em;
+}
+.post-body h2 {
+    font-size: 1.4em;
+    margin: 1.6em 0 0.7em;
+}
+.post-body h3 {
+    font-size: 1.18em;
+    margin: 1.4em 0 0.5em;
+}
+.post-body h4 {
+    font-size: 1.05em;
+    margin: 1.2em 0 0.4em;
+}
+
+.post-body ul,
+.post-body ol {
+    margin: 0.4em 0 0.8em;
+}
+.post-body li > p {
+    margin: 0;
+}
+
+.post-body blockquote {
+    margin: 1.2em 0;
+    padding: 0.6em 1.1em;
+    border-left: 4px solid #c7cbd6;
+    background: #f7f8fa;
+    color: #4b5162;
+    border-radius: 0 8px 8px 0;
+}
+
+.post-body hr {
+    border: none;
+    border-top: 1px solid #d5d9e2;
+    margin: 2.2em 0;
+}
+
+/* 이미지는 가운데, 본문 폭 안에서 */
+.post-body img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 1.4em auto;
+    border-radius: 6px;
+}
+.post-body figure {
+    margin: 1.4em 0;
+    text-align: center;
+}
+.post-body figure img {
+    margin: 0 auto;
+}
+.post-body figcaption {
+    margin-top: 0.5em;
+    font-size: 0.85em;
+    color: #8a90a0;
+}
+
+/* 코드 블록 — 밝은 바탕 */
+.post-body pre {
+    background: #f7f8fa;
+    color: #2f3545;
+    border: 1px solid #e6e8ee;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 1.2em 0;
+    overflow-x: auto;
+    line-height: 1.6;
+}
+.post-body pre code {
+    font-size: 0.86em;
+}
+
+@media (max-width: 640px) {
+    .post-body {
+        font-size: 16px;
+        line-height: 1.8;
+    }
+}

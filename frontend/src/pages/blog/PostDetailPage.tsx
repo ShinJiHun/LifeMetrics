@@ -62,7 +62,7 @@ export default function PostDetailPage() {
             <h1 style={S.title}>{post.title || "(제목 없음)"}</h1>
 
             <div style={S.body}>
-                {post.body ? <RichText>{post.body}</RichText> : <span style={S.muted}>(내용 없음)</span>}
+                {post.body ? <RichText variant="post">{post.body}</RichText> : <span style={S.muted}>(내용 없음)</span>}
             </div>
 
             <AdminOnly>
