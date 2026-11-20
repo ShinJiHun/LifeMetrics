@@ -41,7 +41,15 @@ interface SelectedExercise {
     sets: ExerciseSet[];
     restTime: string;
     memo: string;
+    // 유산소 (카테고리 '유산소')
+    cardio: { durationMin: string; distanceKm: string; kcal: string; avgHr: string };
 }
+
+const CARDIO_CATEGORY = "유산소";
+const EMPTY_CARDIO = { durationMin: "", distanceKm: "", kcal: "", avgHr: "" };
+
+const numOrNull = (v: string) => (v.trim() === "" ? null : parseFloat(v));
+const intOrNull = (v: string) => (v.trim() === "" ? null : Math.round(parseFloat(v)));
 
 export default function ExerciseInputPage() {
     const { isAdmin } = useAdmin();
@@ -123,6 +131,7 @@ export default function ExerciseInputPage() {
             sets: [{ setNumber: 1, weight: "", reps: "" }],
             restTime: "60",
             memo: "",
+            cardio: { ...EMPTY_CARDIO },
         });
         setIsPanelExpanded(true);
     };
@@ -165,7 +174,12 @@ export default function ExerciseInputPage() {
             return;
         }
 
-        for (const set of selectedExercise.sets) {
+        const cardio = isCardio(selectedExercise.item);
+        if (cardio && !selectedExercise.cardio.durationMin) {
+            alert("운동 시간을 입력해주세요!");
+            return;
+        }
+        if (!cardio) for (const set of selectedExercise.sets) {
             if (!set.weight || !set.reps) {
                 alert(`모든 세트에 무게와 횟수를 입력해주세요!`);
                 return;
@@ -179,7 +193,15 @@ export default function ExerciseInputPage() {
                 sessionDate: today,
                 userId: 1,
                 isPT,
-                exercises: [{
+                exercises: [cardio ? {
+                    exerciseItemId: selectedExercise.item.id,
+                    memo: selectedExercise.memo,
+                    sets: [],
+                    durationMin: parseFloat(selectedExercise.cardio.durationMin),
+                    distanceKm: numOrNull(selectedExercise.cardio.distanceKm),
+                    kcal: intOrNull(selectedExercise.cardio.kcal),
+                    avgHr: intOrNull(selectedExercise.cardio.avgHr),
+                } : {
                     exerciseItemId: selectedExercise.item.id,
                     restTimeSec: parseInt(selectedExercise.restTime) || 60,
                     memo: selectedExercise.memo,
@@ -214,6 +236,11 @@ export default function ExerciseInputPage() {
 
     const getCategoryName = (categoryId: number) =>
         categories.find((c) => c.id === categoryId)?.name || "";
+    const isCardio = (item: ExerciseItem) => getCategoryName(item.categoryId) === CARDIO_CATEGORY;
+    const updateCardio = (field: keyof SelectedExercise["cardio"], value: string) => {
+        if (!selectedExercise) return;
+        setSelectedExercise({ ...selectedExercise, cardio: { ...selectedExercise.cardio, [field]: value } });
+    };
 
     const getEquipmentName = (equipmentType: string) => {
         const map: Record<string, string> = {
@@ -361,7 +388,8 @@ export default function ExerciseInputPage() {
                     <div className="panel-header" onClick={() => setIsPanelExpanded(!isPanelExpanded)}>
                         <h3>
                             📝 오늘의 운동
-                            {selectedExercise && ` (${selectedExercise.sets.length}세트)`}
+                            {selectedExercise && !isCardio(selectedExercise.item) && ` (${selectedExercise.sets.length}세트)`}
+                            {selectedExercise && isCardio(selectedExercise.item) && " 🫀"}
                             {isPT && " 🏆PT"}
                         </h3>
                         <button className="toggle-btn">{isPanelExpanded ? "▼" : "▲"}</button>
@@ -385,6 +413,7 @@ export default function ExerciseInputPage() {
                                         </div>
 
                                         <div className="exercise-options">
+                                            {!isCardio(selectedExercise.item) && (
                                             <div className="option-row">
                                                 <label>⏱️ 휴식</label>
                                                 <input
@@ -401,6 +430,7 @@ export default function ExerciseInputPage() {
                                                 />
                                                 <span>초</span>
                                             </div>
+                                            )}
                                             <div className="option-row memo-row">
                                                 <label>📝 메모</label>
                                                 <input
@@ -415,6 +445,31 @@ export default function ExerciseInputPage() {
                                             </div>
                                         </div>
 
+                                        {isCardio(selectedExercise.item) ? (
+                                            <div className="exercise-options cardio-inputs">
+                                                {([
+                                                    ["durationMin", "⏱️ 운동 시간", "분", "30", "0.5"],
+                                                    ["distanceKm", "📏 거리", "km", "3.0", "0.01"],
+                                                    ["kcal", "🔥 칼로리", "kcal", "250", "1"],
+                                                    ["avgHr", "❤️ 평균 심박", "bpm", "130", "1"],
+                                                ] as const).map(([field, label, unit, ph, step]) => (
+                                                    <div key={field} className="option-row">
+                                                        <label>{label}</label>
+                                                        <input
+                                                            type="number"
+                                                            inputMode="decimal"
+                                                            step={step}
+                                                            placeholder={ph}
+                                                            value={selectedExercise.cardio[field]}
+                                                            onChange={(e) => updateCardio(field, e.target.value)}
+                                                            className="rest-input"
+                                                        />
+                                                        <span>{unit}</span>
+                                                    </div>
+                                                ))}
+                                                <p className="cardio-hint">속도·경사도는 메모에 적어주세요 (예: 경사도 6%, 속도 6.5)</p>
+                                            </div>
+                                        ) : (<>
                                         <div className="sets-table">
                                             <div className="sets-header">
                                                 <span>세트</span>
@@ -452,6 +507,7 @@ export default function ExerciseInputPage() {
                                         <button className="add-set-btn" onClick={addSet}>
                                             + 세트 추가
                                         </button>
+                                        </>)}
                                     </div>
 
                                     <button className="save-btn" onClick={handleSave} disabled={saving}>

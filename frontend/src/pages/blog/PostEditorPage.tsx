@@ -114,7 +114,7 @@ export default function PostEditorPage() {
             </div>
             {mode === "preview" ? (
                 <div style={S.previewBox}>
-                    {body.trim() ? <RichText>{body}</RichText> : <span style={S.muted}>미리볼 내용이 없습니다.</span>}
+                    {body.trim() ? <RichText variant="post">{body}</RichText> : <span style={S.muted}>미리볼 내용이 없습니다.</span>}
                 </div>
             ) : mode === "html" ? (
                 <textarea
@@ -129,6 +129,7 @@ export default function PostEditorPage() {
                     onChange={setBody}
                     accent={accent}
                     placeholder="내용을 입력하세요"
+                    variant="post"
                 />
             )}
 

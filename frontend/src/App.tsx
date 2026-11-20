@@ -12,12 +12,15 @@ import HealthCheckupPage from "@/pages/ride/body/HealthCheckupPage";
 import HealthTreatmentPage from "@/pages/ride/body/HealthTreatmentPage";
 import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
 import HandlerTripsPage from "@/pages/human/HandlerTripsPage";
+import ReadingNotesPage from "@/pages/human/ReadingNotesPage";
 import DevRequestsPage from "@/pages/DevRequestsPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
 import FittingDataPage from "@/pages/ride/plan/FittingDataPage";
+import GearPlanPage from "@/pages/ride/plan/GearPlanPage";
 import ExerciseItemPage from "@/pages/ride/health/ExerciseItemPage";
 import ExerciseLogPage from "@/pages/ride/health/ExerciseInputPage";
 import ExerciseHistoryPage from "@/pages/ride/health/ExerciseHistoryPage";
+import CardioPage from "@/pages/ride/health/CardioPage";
 import RidingRecordPage from "@/pages/ride/riding/RidingRecordPage";
 import GlossaryPage from "@/pages/ride/guide/GlossaryPage";
 import RidingMapPage from "@/pages/ride/riding/RidingMapPage";
@@ -75,6 +78,7 @@ export default function App() {
                 <Route path="/records/health/items" element={<ExerciseItemPage />} />
                 <Route path="/records/health/log" element={<ExerciseLogPage />} />
                 <Route path="/records/health/history" element={<ExerciseHistoryPage />} />
+                <Route path="/records/health/cardio" element={<CardioPage />} />
                 <Route path="/records/riding" element={<RidingRecordPage />} />
                 <Route path="/records/riding-map" element={<RidingMapPage />} />
                 <Route path="/records/randonneuring" element={<RandonneuringRecordPage />} />
@@ -86,7 +90,7 @@ export default function App() {
                 <Route path="/plan/body-goal" element={<BodyGoalPage />} />
                 <Route path="/guide/glossary" element={<GlossaryPage />} />
                 <Route path="/plan/fitting" element={<FittingDataPage />} />
-                <Route path="/plan/gear" element={<div style={{ padding: 24 }}>🔧 장비 변경 계획 (준비중)</div>} />
+                <Route path="/plan/gear" element={<GearPlanPage />} />
                 <Route path="/records/riding/:id" element={<ActivityDetailPage />} />
                 <Route path="/records/riding/:id/live" element={<RideLivePage />} />
                 <Route path="/persona" element={<Navigate to="/" replace />} />
@@ -117,6 +121,8 @@ export default function App() {
                 {/* 인간 페르소나 - 핸들러 월별 정산 PDF (관리자 전용) */}
                 <Route path="/human/handler-settlement" element={<RequireAdmin><HandlerSettlementPage /></RequireAdmin>} />
                 <Route path="/human/handler-trips" element={<RequireAdmin><HandlerTripsPage /></RequireAdmin>} />
+                {/* 인간 페르소나 - 독서 노트 기록 CSV 업로드 (관리자 전용) */}
+                <Route path="/human/reading-notes" element={<RequireAdmin><ReadingNotesPage /></RequireAdmin>} />
 
                 {/* 개발 요청함 (관리자 전용) — 서버 워커가 Claude 로 작업해 개발 서버에 배포 */}
                 <Route path="/dev-requests" element={<RequireAdmin><DevRequestsPage /></RequireAdmin>} />

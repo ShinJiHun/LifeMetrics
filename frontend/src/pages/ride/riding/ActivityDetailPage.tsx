@@ -6,6 +6,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import * as polylineLib from "@mapbox/polyline";
 import ActivityChatPopover from "@/components/riding/ActivityChatPopover";
 import ActivityAnalyticsPanel from "@/components/riding/ActivityAnalyticsPanel";
+import {ActivityPhotoGallery, addPhotoMarkers, hasLocation, useActivityPhotos} from "@/components/riding/ActivityPhotos";
+import type {ActivityPhoto} from "@/components/riding/ActivityPhotos";
 import {fetchPermanentCourses} from "@/api/permanent";
 import type {PermanentCourse} from "@/api/permanent";
 import {RIDE_TYPES, RIDE_TYPE_LABEL, RIDE_TYPE_COLOR} from "@/constants/rideType";
@@ -143,13 +145,20 @@ const rideTypeLabel = (distanceM: number) => {
 };
 
 // ── 지도 컴포넌트 (변경 없음) ─────────────────────────────────────
-function ActivityMap({activity, segments, selectedSegId, onSelectSeg}: {
+function ActivityMap({activity, segments, selectedSegId, onSelectSeg, photos, selectedPhotoId, onSelectPhoto}: {
     activity: ActivitySummary;
     segments: SegmentEffort[];
     selectedSegId: number | null;
     onSelectSeg: (id: number | null) => void;
+    photos: ActivityPhoto[];
+    selectedPhotoId: number | null;
+    onSelectPhoto: (p: ActivityPhoto | null) => void;
 }) {
     const mapRef = useRef<mapboxgl.Map | null>(null);
+    const [mapObj, setMapObj] = useState<mapboxgl.Map | null>(null);
+    const photoMarkersRef = useRef<ReturnType<typeof addPhotoMarkers> | null>(null);
+    const onSelectPhotoRef = useRef(onSelectPhoto);
+    onSelectPhotoRef.current = onSelectPhoto;
     const containerRef = useRef<HTMLDivElement>(null);
     const loadedRef = useRef(false);
 
@@ -166,6 +175,7 @@ function ActivityMap({activity, segments, selectedSegId, onSelectSeg}: {
             zoom: 9,
         });
         mapRef.current = map;
+        setMapObj(map);
         loadedRef.current = false;
 
         map.on("load", () => {
@@ -228,9 +238,29 @@ function ActivityMap({activity, segments, selectedSegId, onSelectSeg}: {
 
         return () => {
             map.remove();
+            setMapObj(null);
             loadedRef.current = false;
         };
     }, [activity.polyline, segments]);
+
+    // 블로그 사진 마커 (지도가 새로 만들어지면 다시 단다)
+    useEffect(() => {
+        if (!mapObj || !photos.length) return;
+        const handle = addPhotoMarkers(mapObj, photos, p => onSelectPhotoRef.current(p));
+        photoMarkersRef.current = handle;
+        return () => {
+            handle.remove();
+            photoMarkersRef.current = null;
+        };
+    }, [mapObj, photos]);
+
+    // 선택한 사진 → 마커 강조 + 그 지점으로 이동
+    useEffect(() => {
+        photoMarkersRef.current?.highlight(selectedPhotoId);
+        const p = photos.find(x => x.id === selectedPhotoId);
+        if (!mapObj || !p || !hasLocation(p)) return;
+        mapObj.flyTo({center: [p.lon!, p.lat!], zoom: Math.max(mapObj.getZoom(), 12), duration: 700});
+    }, [selectedPhotoId, photos, mapObj]);
 
     useEffect(() => {
         const map = mapRef.current;
@@ -293,6 +323,8 @@ export default function ActivityDetailPage() {
     const [permanentNoInput, setPermanentNoInput] = useState("");
     const [permanentCourses, setPermanentCourses] = useState<PermanentCourse[]>([]);
     const [coursesLoading, setCoursesLoading] = useState(false);
+    const photos = useActivityPhotos(id);
+    const [selectedPhotoId, setSelectedPhotoId] = useState<number | null>(null);
 
     useEffect(() => {
         if (!id) return;
@@ -693,15 +725,26 @@ export default function ActivityDetailPage() {
                         segments={segments}
                         selectedSegId={selectedSegId}
                         onSelectSeg={setSelectedSegId}
+                        photos={photos}
+                        selectedPhotoId={selectedPhotoId}
+                        onSelectPhoto={p => setSelectedPhotoId(p?.id ?? null)}
                     />
                     <div style={S.mapLegend}>
                         <span style={{color: "#ef4444"}}>━</span> 전체 경로 &nbsp;
                         <span style={{color: "#3b82f6"}}>━</span> 세그먼트 &nbsp;
                         <span style={{color: "#a855f7"}}>━</span> PR &nbsp;
                         <span style={{color: "#f59e0b"}}>━</span> 선택됨
+                        {photos.some(hasLocation) && <> &nbsp;📷 블로그 사진</>}
                     </div>
                 </div>
             )}
+
+            {/* ═══ 블로그 사진 (지도 마커와 연동) ═══ */}
+            <ActivityPhotoGallery
+                photos={photos}
+                selectedId={selectedPhotoId}
+                onSelect={p => setSelectedPhotoId(p?.id ?? null)}
+            />
 
             {/* ═══ 라이딩 분석: 그래프 / 존 / 파워커브 / 인터벌 ═══ */}
             <ActivityAnalyticsPanel activityId={activity.id}/>

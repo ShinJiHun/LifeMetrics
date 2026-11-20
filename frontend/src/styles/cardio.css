@@ -1,0 +1,654 @@
+/* cardio.css — 유산소 모아보기 */
+
+.cardio-page {
+    --gym: #ef4444;
+    --ride: #3b82f6;
+    --walk: #10b981;
+    padding: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cardio-page h2 {
+    margin-bottom: 1rem;
+}
+
+/* 주 이동 */
+.cardio-week-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.cardio-week-nav button {
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+}
+
+.cardio-week-nav button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.cardio-week-label {
+    font-weight: 600;
+    font-size: 1.05rem;
+}
+
+.cardio-week-label small {
+    font-weight: 400;
+    color: #6b7280;
+    margin-left: 0.35rem;
+}
+
+.cardio-error {
+    padding: 0.75rem 1rem;
+    background: #fef2f2;
+    color: #b91c1c;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+/* 요약 카드 */
+.cardio-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 560px) {
+    .cardio-summary {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cardio-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem;
+    min-width: 0;
+}
+
+.cardio-card-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-bottom: 0.35rem;
+}
+
+.cardio-card-sub {
+    font-size: 0.85rem;
+    color: #4b5563;
+    margin-top: 0.5rem;
+}
+
+.cardio-goal-value {
+    display: flex;
+    align-items: baseline;
+    gap: 0.15rem;
+}
+
+.cardio-goal-value strong {
+    font-size: 2rem;
+    color: var(--gym);
+}
+
+.cardio-goal-value span {
+    color: #6b7280;
+}
+
+.cardio-goal-done {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+    color: #059669 !important;
+    font-weight: 600;
+}
+
+.cardio-progress {
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 0.4rem;
+}
+
+.cardio-progress > div {
+    height: 100%;
+    background: var(--gym);
+    border-radius: 999px;
+    transition: width 0.3s;
+}
+
+.cardio-total {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.cardio-stack {
+    display: flex;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    gap: 2px;
+    background: #f3f4f6;
+}
+
+.cardio-stack .seg.gym { background: var(--gym); }
+.cardio-stack .seg.ride { background: var(--ride); }
+.cardio-stack .seg.walk { background: var(--walk); }
+
+.cardio-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #374151;
+}
+
+.cardio-legend .muted {
+    color: #9ca3af;
+}
+
+.cardio-legend .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.dot.gym { background: var(--gym); }
+.dot.ride { background: var(--ride); }
+.dot.walk { background: var(--walk); }
+
+/* 요일 줄 */
+.cardio-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+}
+
+.cardio-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem 0.2rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    min-width: 0;
+}
+
+.cardio-day.today {
+    border-color: var(--gym);
+}
+
+.cardio-day .dow {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.cardio-day .dnum {
+    font-weight: 600;
+}
+
+.cardio-day .icons {
+    font-size: 0.85rem;
+    min-height: 1.2em;
+    letter-spacing: -2px;
+    color: #d1d5db;
+}
+
+/* 최근 8주 */
+.cardio-trend {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.cardio-section-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+}
+
+.cardio-section-title small {
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.cardio-trend-plot {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.35rem;
+    height: 100px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.cardio-trend-plot .goal-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #9ca3af;
+    pointer-events: none;
+}
+
+.cardio-trend-plot .goal-line span {
+    position: absolute;
+    right: 0;
+    top: -1.1rem;
+    font-size: 0.68rem;
+    color: #6b7280;
+    background: white;
+    padding-left: 0.25rem;
+}
+
+.bar-col {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.bar-col .bar {
+    width: 60%;
+    max-width: 28px;
+    background: #fca5a5;
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+}
+
+.bar-col .bar.met {
+    background: var(--gym);
+}
+
+.bar-col.current .bar {
+    outline: 2px solid #111827;
+    outline-offset: 1px;
+}
+
+.bar-col .bar-n {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #374151;
+}
+
+.cardio-trend-labels {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+}
+
+.cardio-trend-labels span {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.cardio-trend-labels span.current {
+    color: #111827;
+    font-weight: 600;
+}
+
+/* 목록 */
+.cardio-date-group {
+    margin-bottom: 1rem;
+}
+
+.cardio-date {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+}
+
+.weights-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    text-decoration: none;
+}
+
+.cardio-entry {
+    display: block;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-left: 4px solid #d1d5db;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.cardio-entry.gym { border-left-color: var(--gym); }
+.cardio-entry.ride { border-left-color: var(--ride); }
+.cardio-entry.walk { border-left-color: var(--walk); }
+
+.cardio-entry.link:hover {
+    background: #f9fafb;
+}
+
+.cardio-entry-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.src-badge {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.src-badge.gym { background: #fee2e2; color: #b91c1c; }
+.src-badge.ride { background: #dbeafe; color: #1d4ed8; }
+.src-badge.walk { background: #d1fae5; color: #047857; }
+
+.cardio-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.cardio-time {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.cardio-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin-top: 0.4rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.cardio-memo {
+    margin-top: 0.35rem;
+    font-size: 0.82rem;
+    color: #6b7280;
+}
+
+@media (max-width: 560px) {
+    .cardio-page {
+        padding: 1rem;
+    }
+}
+
+/* ── 유산소 추천 카드 ─────────────────────────────────────────── */
+.reco-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.25rem;
+}
+
+.reco-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.reco-days {
+    display: flex;
+    gap: 0.3rem;
+    margin-top: 0.35rem;
+}
+
+.reco-days button,
+.reco-edit,
+.reco-cancel,
+.reco-save,
+.reco-toggle {
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 999px;
+    padding: 0.2rem 0.7rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.reco-days button.active {
+    background: #111827;
+    border-color: #111827;
+    color: white;
+}
+
+.reco-target {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+    text-align: right;
+}
+
+.reco-target-value {
+    font-size: 0.95rem;
+}
+
+.reco-target-edit {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.reco-target-edit input {
+    width: 4.5rem;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    text-align: right;
+}
+
+.reco-save {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: white;
+}
+
+.reco-save:disabled {
+    opacity: 0.6;
+}
+
+.reco-muted {
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.reco-main {
+    background: #fff7ed;
+    border-left: 4px solid var(--gym);
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+}
+
+.reco-main.done {
+    background: #ecfdf5;
+    border-left-color: var(--walk);
+}
+
+.reco-headline {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.reco-hr {
+    margin-top: 0.3rem;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.reco-note {
+    margin-top: 0.4rem;
+    font-size: 0.82rem;
+    color: #92400e;
+}
+
+.reco-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.reco-option {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.5rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.reco-option:first-child {
+    border-color: var(--gym);
+}
+
+.reco-option-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.reco-option-min {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.reco-balance {
+    margin-top: 0.85rem;
+}
+
+.reco-balance-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+}
+
+.reco-balance-row strong.neg {
+    color: #b91c1c;
+}
+
+.reco-toggle {
+    margin-top: 0.5rem;
+    border: none;
+    padding: 0;
+    color: #2563eb;
+}
+
+.reco-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0.5rem;
+    font-size: 0.83rem;
+}
+
+.reco-table td {
+    padding: 0.3rem 0.25rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.reco-table td:nth-child(2) {
+    color: #6b7280;
+}
+
+.reco-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.reco-table em {
+    font-style: normal;
+    font-size: 0.72rem;
+    color: #b45309;
+    background: #fef3c7;
+    border-radius: 4px;
+    padding: 0 0.3rem;
+    margin-left: 0.25rem;
+}
+
+.reco-table tr.in td {
+    font-weight: 600;
+}
+
+.reco-table tr.sum td {
+    font-weight: 600;
+    border-bottom: none;
+}
+
+.reco-week {
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #374151;
+}
+
+.reco-week .ok {
+    color: #047857;
+}
+
+.reco-week .warn {
+    color: #b45309;
+}
+
+.reco-notes {
+    margin: 0.6rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.78rem;
+    color: #6b7280;
+}
+
+@media (max-width: 560px) {
+    .reco-options {
+        grid-template-columns: 1fr;
+    }
+
+    .reco-target {
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    .reco-target-edit {
+        justify-content: flex-start;
+    }
+}

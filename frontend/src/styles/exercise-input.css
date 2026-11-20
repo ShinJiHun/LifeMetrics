@@ -548,3 +548,18 @@
     padding: 6px 0;
     margin: 0;
 }
+
+/* 유산소 입력 */
+.exercise-options.cardio-inputs label {
+    min-width: 92px;
+}
+
+.exercise-options.cardio-inputs .rest-input {
+    width: 80px;
+}
+
+.cardio-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.78rem;
+    color: #6b7280;
+}
