@@ -248,9 +248,9 @@ function WeeklyView({ weekStart }: { weekStart: string }) {
 }
 
 interface Upload { id: number; fileName: string; sizeBytes: number; uploadedAt: string; }
-interface ParseResult { inserted: number; updated: number; unchanged: number; skipped: string[]; }
+interface ParseResult { inserted: number; updated: number; unchanged: number; skipped: string[]; entriesSynced?: number; }
 const parseMsg = (p: ParseResult) =>
-    `보고서 새로 ${p.inserted} · 변경 ${p.updated} · 동일 ${p.unchanged}` + (p.skipped.length ? ` · 건너뜀 ${p.skipped.length}` : "");
+    `보고서 새로 ${p.inserted} · 변경 ${p.updated} · 동일 ${p.unchanged}` + (p.skipped.length ? ` · 건너뜀 ${p.skipped.length}` : "") + (p.entriesSynced ? ` · 업무 일지 ${p.entriesSynced}건 반영` : "");
 
 function UploadView() {
     const [uploads, setUploads] = useState<Upload[]>([]);

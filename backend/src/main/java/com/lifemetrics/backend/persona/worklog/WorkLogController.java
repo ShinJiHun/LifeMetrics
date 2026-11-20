@@ -63,6 +63,14 @@ public class WorkLogController {
         return reportService.list(kind);
     }
 
+    /** 저장된 보고서 → 업무 일지(일자별)·주간보고 칸 반영. force=false 면 빈 날만 채운다. */
+    @PostMapping("/reports/sync-entries")
+    public java.util.Map<String, Integer> syncEntries(@RequestParam(defaultValue = "false") boolean force,
+                                                      HttpServletRequest req) {
+        requireAdmin(req);
+        return java.util.Map.of("synced", reportService.syncAllEntries(force));
+    }
+
     @GetMapping("/reports/topics")
     public List<WorkLogReportService.TopicGroup> reportTopics(HttpServletRequest req) {
         requireAdmin(req);

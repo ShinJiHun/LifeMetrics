@@ -29,7 +29,7 @@ public class WorkLogReportService {
     private static final Pattern FULL_DATE = Pattern.compile("(\\d{4})-(\\d{1,2})-(\\d{1,2})");
     private static final Pattern MONTH_DAY = Pattern.compile("(\\d{1,2})-(\\d{1,2})");
 
-    public record ParseResult(int inserted, int updated, int unchanged, List<String> skipped) {}
+    public record ParseResult(int inserted, int updated, int unchanged, List<String> skipped, int entriesSynced) {}
     public record ReportSummary(String kind, String reportDate, String periodEnd, String category, String title,
                                 int taskCount, String updatedAt) {}
     public record ReportDetail(String kind, String reportDate, String periodEnd, String category, String title,
@@ -41,10 +41,13 @@ public class WorkLogReportService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
+    private final WorkLogService workLogService;
 
-    public WorkLogReportService(@Qualifier("journalDataSource") DataSource dataSource, ObjectMapper objectMapper) {
+    public WorkLogReportService(@Qualifier("journalDataSource") DataSource dataSource, ObjectMapper objectMapper,
+                                WorkLogService workLogService) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.objectMapper = objectMapper;
+        this.workLogService = workLogService;
     }
 
     // ── 파싱 ──
@@ -60,7 +63,7 @@ public class WorkLogReportService {
         List<JsonNode[]> items = new ArrayList<>(); // [kindHint(text node or null), item]
         collect(root, null, items);
 
-        int ins = 0, upd = 0, same = 0;
+        int ins = 0, upd = 0, same = 0, synced = 0;
         List<String> skipped = new ArrayList<>();
         for (JsonNode[] pair : items) {
             JsonNode item = pair[1];
@@ -78,13 +81,16 @@ public class WorkLogReportService {
                 if (start == null) { skipped.add(label + ": 기간(period) 없음"); continue; }
                 end = periodEnd(period, start);
             }
-            switch (upsert(kind, start, end, item, uploadId)) {
+            int r = upsert(kind, start, end, item, uploadId);
+            switch (r) {
                 case 1 -> ins++;
                 case 2 -> upd++;
                 default -> same++;
             }
+            // 업무 일지(일자별)·주간보고 칸에도 반영 — 보고서가 바뀌었거나 아직 비어 있을 때만 (손으로 고친 내용 보호)
+            if (syncEntry(kind, start, item, r != 0)) synced++;
         }
-        return new ParseResult(ins, upd, same, skipped);
+        return new ParseResult(ins, upd, same, skipped, synced);
     }
 
     private void collect(JsonNode node, String kindHint, List<JsonNode[]> out) {
@@ -175,6 +181,96 @@ public class WorkLogReportService {
                 WHERE kind = :k AND report_date = :d
                 """, p);
         return 2;
+    }
+
+    // ── 업무 일지 반영 ──
+
+    /** 저장된 보고서 전체를 업무 일지에 다시 반영 (비어 있는 날만, force 면 덮어씀). */
+    @Transactional(transactionManager = "journalTransactionManager")
+    public int syncAllEntries(boolean force) {
+        int[] n = {0};
+        jdbc.query("SELECT kind, report_date, raw_json FROM work_log_report ORDER BY report_date",
+                new MapSqlParameterSource(), rs -> {
+                    JsonNode item = node(rs.getString("raw_json"));
+                    if (item != null && syncEntry(rs.getString("kind"), rs.getDate("report_date").toLocalDate(), item, force)) n[0]++;
+                });
+        return n[0];
+    }
+
+    private boolean syncEntry(String kind, LocalDate date, JsonNode item, boolean overwrite) {
+        if (kind.equals("daily")) {
+            if (!overwrite && exists("SELECT COUNT(*) FROM work_log_entry WHERE log_date = :d", date)) return false;
+            Sections s = sections(item);
+            workLogService.save(date, s.done(), s.plan(), s.issues());
+        } else {
+            LocalDate ws = WorkLogService.mondayOf(date);
+            if (!overwrite && exists("SELECT COUNT(*) FROM work_log_weekly WHERE week_start = :d", ws)) return false;
+            Sections s = sections(item);
+            workLogService.saveWeekly(ws, s.done(), s.plan(), s.issues());
+        }
+        return true;
+    }
+
+    private boolean exists(String sql, LocalDate d) {
+        Integer c = jdbc.queryForObject(sql, new MapSqlParameterSource("d", d), Integer.class);
+        return c != null && c > 0;
+    }
+
+    record Sections(String done, String plan, String issues) {}
+
+    private static final Pattern PLAN_HEADING = Pattern.compile("다음\\s*작업|명일|계획|예정 작업|할 일");
+    private static final Pattern ISSUE_HEADING = Pattern.compile("이슈|확인\\s*필요|미해결|문의|리스크|보류");
+
+    /**
+     * 보고서 JSON → 금일 실적 / 명일 계획 / 이슈 텍스트.
+     * summary[{task,content,status}] 와 plan[] 은 각각 실적·계획, details 는 제목(heading)으로 나눈다.
+     */
+    static Sections sections(JsonNode item) {
+        StringBuilder done = new StringBuilder(), plan = new StringBuilder(), issues = new StringBuilder();
+        for (JsonNode t : iter(item.get("summary"))) {
+            String line = taskLine(t);
+            if (line != null) done.append("- ").append(line).append('\n');
+        }
+        for (JsonNode t : iter(item.get("plan"))) {
+            String line = taskLine(t);
+            if (line != null) plan.append("- ").append(line).append('\n');
+        }
+        for (JsonNode d : iter(item.get("details"))) {
+            String heading = text(d, "heading");
+            List<String> lines = new ArrayList<>();
+            for (JsonNode it : iter(d.get("items"))) {
+                String v = it.isTextual() ? it.asText().trim() : it.toString();
+                if (!v.isEmpty()) lines.add(v);
+            }
+            if (heading == null && lines.isEmpty()) continue;
+            boolean isPlan = heading != null && PLAN_HEADING.matcher(heading).find();
+            boolean isIssue = !isPlan && heading != null && ISSUE_HEADING.matcher(heading).find();
+            if (isPlan) {
+                for (String l : lines) plan.append("- ").append(l).append('\n');
+            } else if (isIssue) {
+                for (String l : lines) issues.append("- ").append(l).append('\n');
+            } else {
+                if (done.length() > 0 && done.charAt(done.length() - 1) == '\n' && !done.toString().endsWith("\n\n")) done.append('\n');
+                if (heading != null) done.append("[").append(heading).append("]\n");
+                for (String l : lines) done.append("  · ").append(l).append('\n');
+            }
+        }
+        return new Sections(done.toString().strip(), plan.toString().strip(), issues.toString().strip());
+    }
+
+    private static String taskLine(JsonNode t) {
+        if (t.isTextual()) return t.asText().trim().isEmpty() ? null : t.asText().trim();
+        String task = text(t, "task"), content = text(t, "content"), status = text(t, "status");
+        if (task == null && content == null) return null;
+        StringBuilder b = new StringBuilder();
+        if (task != null) b.append(task);
+        if (content != null) b.append(task != null ? ": " : "").append(content);
+        if (status != null) b.append(" (").append(status).append(")");
+        return b.toString();
+    }
+
+    private static Iterable<JsonNode> iter(JsonNode n) {
+        return n != null && n.isArray() ? n : List.of();
     }
 
     // ── 조회 ──
