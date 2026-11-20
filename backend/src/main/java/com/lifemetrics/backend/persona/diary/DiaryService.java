@@ -29,7 +29,7 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * 휴먼 일기: 하루 메모(diary_note) + 그날 운동·라이딩 기록 → 문체 가이드(resources/diary/style-guide.md)대로 일기 초안(diary_entry).
+ * 휴먼 일기: 하루 메모(diary_note) + 그날 운동·라이딩·식단·걸음 수 기록 + 업무 일지 →문체 가이드(resources/diary/style-guide.md)대로 일기 초안(diary_entry).
  * 초안은 관리자가 확인·수정하고 게시해야 journal_post(휴먼 블로그)에 올라간다.
  * <p>
  * 메모가 들어오는 길: 화면에서 붙여넣기·파일 올리기, 또는 NAS 폴더({@code diary.inbox-dir}/YYYY-MM-DD/*.md) —
@@ -42,10 +42,16 @@ public class DiaryService {
     static final long USER_ID = 1L;
     private static final int MAX_NOTE_BYTES = 1024 * 1024;
     /**
-     * 일기에 넣는 기록. 식단·치료는 블로그 글감이 아니라서 넣지 않는다.
-     * 폰 일일 활동(걸음 수 등)은 자정에 동기화돼서 밤 10시엔 늘 거의 0 → "하루 종일 집에 있었다" 같은 오해를 만들어 뺀다.
+     * 일기에 넣는 앱 기록. 치료는 블로그 글감이 아니라서 넣지 않는다.
+     * 배치가 새벽에 전날 것을 쓰므로 자정 동기화되는 폰 일일 활동(걸음 수 등)과 식단도 넣는다.
+     * (같은 날 [지금 만들기]를 누르면 걸음 수가 덜 들어 있을 수 있다 — 문체 가이드에서 "적다"고 해석하지 않게 한다.)
      */
-    private static final List<String> RECORD_KEYS = List.of("fitness", "rides", "bodyRecords", "phoneExercises");
+    private static final List<String> RECORD_KEYS =
+            List.of("fitness", "rides", "bodyRecords", "phoneExercises", "dailyActivity", "meals");
+    /** 업무 일지(work_log_entry)를 일기 재료로 넣을 때 쓰는 키. */
+    static final String WORK_LOG_KEY = "workLog";
+    /** 업로드 원본을 NAS 에 둘 때 쓰는 하위 폴더. 메모를 지우면 원본은 여기로 옮겨 다시 가져오지 않게 한다. */
+    private static final String DELETED_DIR = "deleted";
 
     public record Note(long id, String noteDate, String source, String fileName, String content, String createdAt) {}
     public record Entry(long id, String entryDate, String kind, String title, String content, List<String> warnings,
@@ -62,7 +68,7 @@ public class DiaryService {
 
     public DiaryService(@Qualifier("journalDataSource") DataSource dataSource, ClaudeChatClient claude,
                         DailyAnalysisService dailyAnalysis, ObjectMapper objectMapper,
-                        @Value("${diary.inbox-dir:/mnt/200gb/NAS/persona/diary/inbox}") String inboxDir) {
+                        @Value("${diary.inbox-dir:${DIARY_INBOX_DIR:/mnt/200gb/NAS/persona/diary/inbox}}") String inboxDir) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.claude = claude;
         this.dailyAnalysis = dailyAnalysis;
@@ -109,8 +115,12 @@ public class DiaryService {
             case "app", "cli", "manual" -> source;
             default -> "manual";
         };
-        String name = fileName == null || fileName.isBlank() ? null
-                : fileName.length() > 255 ? fileName.substring(0, 255) : fileName;
+        String name = inboxFileName(fileName, src);
+        if (name != null && jdbc.queryForObject("""
+                SELECT COUNT(*) FROM diary_note WHERE note_date = :d AND source = :s AND file_name = :f
+                """, new MapSqlParameterSource("d", date).addValue("s", src).addValue("f", name), Integer.class) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 올린 파일입니다: " + name);
+        }
         GeneratedKeyHolder key = new GeneratedKeyHolder();
         jdbc.update("""
                 INSERT INTO diary_note (note_date, source, file_name, content, created_at)
@@ -118,11 +128,60 @@ public class DiaryService {
                 """, new MapSqlParameterSource("d", date).addValue("s", src).addValue("f", name)
                 .addValue("c", content.strip()).addValue("t", now()), key, new String[]{"id"});
         long id = key.getKey().longValue();
+        if (name != null) saveToInbox(date, name, content.strip());
         return notes(date).stream().filter(n -> n.id() == id).findFirst().orElseThrow();
     }
 
     public void deleteNote(long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT note_date, file_name FROM diary_note WHERE id = :id",
+                new MapSqlParameterSource("id", id));
         jdbc.update("DELETE FROM diary_note WHERE id = :id", new MapSqlParameterSource("id", id));
+        if (rows.isEmpty() || rows.get(0).get("file_name") == null) return;
+        // 폴더에 원본이 남아 있으면 다음 화면 열기 때 다시 가져온다 → deleted/ 로 옮겨 보관만 한다(지우지 않음).
+        LocalDate date = ((java.sql.Date) rows.get(0).get("note_date")).toLocalDate();
+        String name = (String) rows.get(0).get("file_name");
+        Path dir = inboxDir.resolve(date.toString());
+        Path src = dir.resolve(name).normalize();
+        if (!src.startsWith(dir) || !Files.isRegularFile(src)) return;
+        try {
+            Path trash = Files.createDirectories(dir.resolve(DELETED_DIR));
+            Files.move(src, trash.resolve(System.currentTimeMillis() + "-" + name));
+        } catch (IOException e) {
+            log.warn("일기 메모 원본 옮기기 실패 {}: {}", src, e.getMessage());
+        }
+    }
+
+    /** 폴더에서 가져올 때 파일 이름으로 정하는 출처. app* → Claude 앱, manual* → 직접 입력, 나머지 → Claude Code. */
+    static String folderSource(String name) {
+        return name.startsWith("app") ? "app" : name.startsWith("manual") ? "manual" : "cli";
+    }
+
+    /**
+     * 화면에서 올린 파일을 NAS 에 둘 이름. 경로 문자를 없애고 .md/.txt 로 끝나게 하며,
+     * 폴더 재스캔 때 같은 출처로 잡히도록(중복 방지) 이름이 가리키는 출처가 다르면 "출처-" 를 앞에 붙인다.
+     */
+    static String inboxFileName(String fileName, String source) {
+        if (fileName == null || fileName.isBlank()) return null;
+        String base = fileName.replace('\\', '/');
+        base = base.substring(base.lastIndexOf('/') + 1).replaceAll("[\\p{Cntrl}:*?\"<>|]", "_").strip();
+        if (base.startsWith(".")) base = "_" + base.substring(1);
+        if (base.isBlank()) base = "note";
+        if (!base.endsWith(".md") && !base.endsWith(".txt")) base = base + ".md";
+        if (!folderSource(base).equals(source)) base = source + "-" + base;
+        if (base.length() > 200) base = base.substring(0, 196) + base.substring(base.lastIndexOf('.'));
+        return base;
+    }
+
+    /** 업로드 원본을 NAS inbox/날짜/ 에 보관. 실패해도 메모(DB)는 이미 저장됐으므로 로그만 남긴다. */
+    private void saveToInbox(LocalDate date, String name, String content) {
+        try {
+            Path dir = Files.createDirectories(inboxDir.resolve(date.toString()));
+            Path file = dir.resolve(name).normalize();
+            if (!file.startsWith(dir) || Files.exists(file)) return;
+            Files.writeString(file, content, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("일기 메모 원본 NAS 보관 실패 {}/{}: {}", date, name, e.getMessage());
+        }
     }
 
     /**
@@ -137,7 +196,7 @@ public class DiaryService {
             for (Path p : files.sorted().toList()) {
                 String name = p.getFileName().toString();
                 if (!Files.isRegularFile(p) || !(name.endsWith(".md") || name.endsWith(".txt"))) continue;
-                String source = name.startsWith("app") ? "app" : name.startsWith("manual") ? "manual" : "cli";
+                String source = folderSource(name);
                 if (Files.size(p) > MAX_NOTE_BYTES) continue;
                 String content = Files.readString(p, StandardCharsets.UTF_8);
                 if (content.isBlank()) continue;
@@ -277,20 +336,38 @@ public class DiaryService {
     // ── 내부 ────────────────────────────────────────
 
     private Map<String, Object> records(LocalDate date) {
-        Map<String, Object> all;
+        Map<String, Object> out = new LinkedHashMap<>();
         try {
-            all = dailyAnalysis.collectInput(USER_ID, date);
+            Map<String, Object> all = dailyAnalysis.collectInput(USER_ID, date);
+            for (String k : RECORD_KEYS) {
+                Object v = all.get(k);
+                if (v == null || (v instanceof Collection<?> c && c.isEmpty()) || (v instanceof Map<?, ?> m && m.isEmpty())) continue;
+                out.put(k, v);
+            }
         } catch (Exception e) {
             log.warn("일기용 기록 조회 실패 {}: {}", date, e.getMessage());
+        }
+        Map<String, Object> work = workLog(date);
+        if (!work.isEmpty()) out.put(WORK_LOG_KEY, work);
+        return out;
+    }
+
+    /** 그날 업무 일지(금일 실적·이슈). 명일 계획은 일기 마지막 줄 "내일 할 일" 재료. 없으면 빈 맵. */
+    private Map<String, Object> workLog(LocalDate date) {
+        try {
+            List<Map<String, Object>> rows = jdbc.queryForList("""
+                    SELECT today_done, tomorrow_plan, issues FROM work_log_entry WHERE log_date = :d
+                    """, new MapSqlParameterSource("d", date));
+            if (rows.isEmpty()) return Map.of();
+            Map<String, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> e : rows.get(0).entrySet()) {
+                if (e.getValue() instanceof String s && !s.isBlank()) out.put(e.getKey(), s.strip());
+            }
+            return out;
+        } catch (Exception e) {
+            log.warn("일기용 업무 일지 조회 실패 {}: {}", date, e.getMessage());
             return Map.of();
         }
-        Map<String, Object> out = new LinkedHashMap<>();
-        for (String k : RECORD_KEYS) {
-            Object v = all.get(k);
-            if (v == null || (v instanceof Collection<?> c && c.isEmpty()) || (v instanceof Map<?, ?> m && m.isEmpty())) continue;
-            out.put(k, v);
-        }
-        return out;
     }
 
     private String systemPrompt() {
@@ -324,8 +401,13 @@ public class DiaryService {
             if (n.fileName() != null) sb.append(" · ").append(n.fileName());
             sb.append('\n').append(n.content()).append('\n');
         }
-        sb.append("\n# 그날 기록 (앱 데이터)\n");
-        sb.append(records.isEmpty() ? "(기록 없음)" : toJson(records)).append('\n');
+        Map<String, Object> app = new LinkedHashMap<>(records);
+        Object work = app.remove(WORK_LOG_KEY);
+        sb.append("\n# 그날 기록 (앱 데이터: fitness=헬스, rides=라이딩, phoneExercises=폰 운동, bodyRecords=체성분, ")
+                .append("dailyActivity=걸음 수 등, meals=식단)\n");
+        sb.append(app.isEmpty() ? "(기록 없음)" : toJson(app)).append('\n');
+        sb.append("\n# 그날 업무 일지 (회사에 낸 일일 보고: today_done=금일 실적, issues=이슈, tomorrow_plan=명일 계획)\n");
+        sb.append(work == null ? "(없음)" : toJson(work)).append('\n');
         return sb.toString();
     }
 

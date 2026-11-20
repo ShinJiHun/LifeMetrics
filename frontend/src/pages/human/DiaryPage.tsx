@@ -142,7 +142,8 @@ export default function DiaryPage() {
                             메모 <span className="diary-count">{day.notes.length}</span>
                         </h2>
                         {recordSummary && <div className="diary-records">오늘 기록: {recordSummary}</div>}
-                        {day.notes.length === 0 && <p className="diary-muted">아직 메모가 없습니다. 아래에 붙여넣거나 파일을 올리세요.</p>}
+                        <UploadZone date={date} busy={busy === "note"} onAdd={(fn) => run("note", fn)} />
+                        {day.notes.length === 0 && <p className="diary-muted">아직 메모가 없습니다. 위에 .md 파일을 올리거나 아래에 붙여넣으세요.</p>}
                         {day.notes.map((n) => (
                             <NoteCard key={n.id} note={n} onDelete={() => run("note", () => deleteDiaryNote(n.id))} />
                         ))}
@@ -160,7 +161,7 @@ export default function DiaryPage() {
                         </div>
                         {!day.diary && (
                             <p className="diary-muted">
-                                매일 밤 10시에 그날 메모와 운동 기록으로 초안을 만듭니다. 그 뒤에 올린 메모는 [다시 만들기]로 반영하세요.
+                                매일 새벽 1시 30분에 전날 메모·운동·식단·업무 일지로 초안을 만듭니다(메모가 있는 날만). 바로 보려면 [지금 만들기].
                             </p>
                         )}
                         {day.diary && <EntryCard entry={day.diary} subs={subs} defaultSub={diaryDefault} busy={!!busy} run={run} />}
@@ -178,7 +179,7 @@ function Guide() {
         <div className="diary-guide">
             <ol>
                 <li>
-                    <b>Claude 앱</b>: '일기' 프로젝트를 만들고 아래 지침을 넣어 두세요. 대화 끝에 "메모 정리해줘" → 받은 내용을 여기 붙여넣거나 파일로 올립니다.
+                    <b>Claude 앱</b>: '일기' 프로젝트를 만들고 아래 지침을 넣어 두세요. 대화 끝에 "메모 정리해줘" → 받은 .md 파일을 [📎 .md 파일 올리기]로 올리거나(끌어다 놓아도 됨) 내용을 붙여넣습니다. 올린 파일 원본은 NAS 일기 폴더에도 보관됩니다.
                 </li>
                 <li>
                     <b>Claude Code (이 서버)</b>: "일기 메모 저장해줘" → <code>/mnt/200gb/NAS/persona/diary/inbox/날짜/</code>에 저장되고, 이 화면을 열면 자동으로 들어옵니다.
@@ -187,7 +188,7 @@ function Guide() {
                     <b>Claude Code (맥)</b>: 맥 폴더에 저장된 .md 파일을 여기서 올리거나 scp로 위 폴더에 보냅니다.
                 </li>
                 <li>
-                    <b>밤 10시</b>: 초안이 만들어집니다. 자기 전에 확인·수정하고 [게시]하세요. 게시 전에는 블로그에 나가지 않습니다.
+                    <b>새벽 1시 30분</b>: 전날 메모 + 운동·식단·걸음 수 기록 + 업무 일지(금일 실적·이슈)로 전날 일기 초안이 만들어집니다. 아침에 확인·수정하고 [게시]하세요. 게시 전에는 블로그에 나가지 않습니다.
                 </li>
             </ol>
             <div className="diary-guide-box">
@@ -239,18 +240,6 @@ function NoteForm({ date, busy, onAdd }: { date: string; busy: boolean; onAdd: (
         });
     };
 
-    const onFiles = (e: ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files ?? []);
-        e.target.value = "";
-        if (!files.length) return;
-        onAdd(async () => {
-            for (const f of files) {
-                const src: NoteSource = f.name.startsWith("app") ? "app" : f.name.startsWith("cli") ? "cli" : source;
-                await addDiaryNote(date, src, await f.text(), f.name);
-            }
-        });
-    };
-
     return (
         <div className="diary-form">
             <textarea
@@ -265,14 +254,76 @@ function NoteForm({ date, busy, onAdd }: { date: string; busy: boolean; onAdd: (
                     <option value="app">Claude 앱 정리</option>
                     <option value="cli">Claude Code 정리</option>
                 </select>
-                <label className="diary-file">
-                    파일 올리기
-                    <input type="file" accept=".md,.txt,text/markdown,text/plain" multiple onChange={onFiles} hidden />
-                </label>
                 <button className="primary" onClick={submit} disabled={busy || !text.trim()}>
                     {busy ? "저장 중…" : "메모 추가"}
                 </button>
             </div>
+        </div>
+    );
+}
+
+/** 파일 이름으로 출처를 정한다(서버 폴더 규칙과 같음). 접두어가 없으면 Claude 앱 정리로 본다 — 앱에서 받은 .md 를 올리는 게 주 용도. */
+function fileSource(name: string): NoteSource {
+    if (name.startsWith("cli")) return "cli";
+    if (name.startsWith("manual")) return "manual";
+    return "app";
+}
+
+/** .md/.txt 업로드 — 버튼 또는 끌어다 놓기. 여러 개를 한 번에 올리고, 실패한 파일은 이름과 이유를 모아 보여준다. */
+function UploadZone({ date, busy, onAdd }: { date: string; busy: boolean; onAdd: (fn: () => Promise<unknown>) => void }) {
+    const [over, setOver] = useState(false);
+    const [result, setResult] = useState<string | null>(null);
+
+    const upload = (list: FileList | null) => {
+        const files = Array.from(list ?? []).filter((f) => /\.(md|txt|markdown)$/i.test(f.name));
+        if (!files.length) {
+            setResult(".md 또는 .txt 파일만 올릴 수 있어요.");
+            return;
+        }
+        setResult(null);
+        onAdd(async () => {
+            const failed: string[] = [];
+            let ok = 0;
+            for (const f of files) {
+                try {
+                    await addDiaryNote(date, fileSource(f.name), await f.text(), f.name.normalize("NFC"));
+                    ok++;
+                } catch (e) {
+                    failed.push(`${f.name}: ${errorMessage(e)}`);
+                }
+            }
+            setResult(failed.length ? `${ok}개 올림, ${failed.length}개 실패 — ${failed.join(" / ")}` : `${ok}개 올림`);
+        });
+    };
+
+    const onPick = (e: ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        upload(files);
+        e.target.value = "";
+    };
+
+    return (
+        <div
+            className={`diary-drop ${over ? "over" : ""}`}
+            onDragOver={(e) => {
+                e.preventDefault();
+                setOver(true);
+            }}
+            onDragLeave={() => setOver(false)}
+            onDrop={(e) => {
+                e.preventDefault();
+                setOver(false);
+                upload(e.dataTransfer.files);
+            }}
+        >
+            <label className={`diary-drop-btn ${busy ? "disabled" : ""}`}>
+                {busy ? "올리는 중…" : "📎 .md 파일 올리기"}
+                <input type="file" accept=".md,.txt,.markdown,text/markdown,text/plain" multiple onChange={onPick} disabled={busy} hidden />
+            </label>
+            <span className="diary-drop-hint">
+                Claude 대화 정리 파일을 여기로 끌어다 놓아도 됩니다 · {date} 메모로 저장, 원본은 NAS 에도 보관
+            </span>
+            {result && <div className="diary-drop-result">{result}</div>}
         </div>
     );
 }
@@ -413,5 +464,9 @@ function summarizeRecords(records?: Record<string, unknown>) {
     }
     if (arr("bodyRecords").length) parts.push("체성분 측정");
     if (arr("phoneExercises").length) parts.push(`폰 운동 ${arr("phoneExercises").length}건`);
+    const steps = arr("dailyActivity").reduce((s, a) => s + (Number(a.steps) || 0), 0);
+    if (steps > 0) parts.push(`걸음 ${steps.toLocaleString()}보`);
+    if (arr("meals").length) parts.push(`식단 ${arr("meals").length}건`);
+    if (records.workLog) parts.push("업무 일지");
     return parts.length ? parts.join(" · ") : null;
 }
