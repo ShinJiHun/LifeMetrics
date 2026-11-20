@@ -63,7 +63,30 @@ export const discardDiaryEntry = (id: number) => api.delete(`/diary/entries/${id
 export const publishDiaryEntry = (id: number, visibility: "public" | "private", subId?: number) =>
     api.post<DiaryEntry>(`/diary/entries/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => r.data);
 
-export const errorMessage = (e: unknown) => {
+/** PT 운동일지 구글 시트 → 운동 기록 동기화 결과 (PtSheetSyncService.Result). */
+export interface PtSheetSyncResult {
+    syncedAt: string;
+    sessionsImported: number;
+    skippedSessionNos: string[];
+    logs: number;
+    sets: number;
+    newCategories: string[];
+    newItems: string[];
+    filledNames: number;
+    cardioRows: number | null;
+    cardioNew: number;
+    cardioUpdated: number;
+    cardioDeleted: number;
+    anomalies: string[];
+    warnings: string[];
+    touchedDates: string[];
+}
+
+/** 시트 받기 + DB 반영이라 수십 초 걸릴 수 있다. */
+export const syncPtSheet = () =>
+    api.post<PtSheetSyncResult>("/exercise/pt-sheet/sync", null, { timeout: 120_000 }).then((r) => r.data);
+
+export const errorMessage =(e: unknown) => {
     const err = e as { response?: { data?: { message?: string; error?: string } }; message?: string };
     return err.response?.data?.message ?? err.response?.data?.error ?? err.message ?? "요청을 처리하지 못했습니다.";
 };

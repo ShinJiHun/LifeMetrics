@@ -57,6 +57,15 @@ run_container() {   # $1 = 이미지 태그
         --restart unless-stopped
     )
 
+    # PT 운동일지 구글 시트 읽기용 서비스 계정 키(drive.readonly) — PtSheetSyncService. 없으면 마운트하지 않는다
+    # (-v 는 없는 파일 경로에 빈 디렉터리를 만들어 버리므로).
+    local pt_sa=/mnt/200gb/project/data_pipeline/health/scripts/service_account.json
+    if [ -f "$pt_sa" ]; then
+        args+=(-v "$pt_sa:/run/secrets/pt_sheet_service_account.json:ro")
+    else
+        echo "⚠ $pt_sa 없음 — PT 시트 동기화가 동작하지 않습니다"
+    fi
+
     if [ "$TARGET" = dev ]; then
         args+=(
             -e APP_SCHEDULING_ENABLED=false          # 로또/연금복권 자동 동기화 끔(운영과 중복 실행 방지)

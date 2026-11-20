@@ -11,6 +11,7 @@ import {
     deleteDiaryNote,
     discardDiaryEntry,
     errorMessage,
+    syncPtSheet,
     fetchDiaryDay,
     fetchDiaryRecent,
     fetchDiarySubMenus,
@@ -161,7 +162,7 @@ export default function DiaryPage() {
                         </div>
                         {!day.diary && (
                             <p className="diary-muted">
-                                매일 새벽 1시 30분에 전날 메모·운동·식단·업무 일지로 초안을 만듭니다(메모가 있는 날만). 바로 보려면 [지금 만들기].
+                                매일 새벽 1시에 운동 시트를 가져오고, 1시 10분에 전날 메모·운동·식단·업무 일지로 초안을 만듭니다(메모가 있는 날만). 바로 보려면 [기록 불러오기]로 메모를 쓰고 [지금 만들기].
                             </p>
                         )}
                         {day.diary && <EntryCard entry={day.diary} subs={subs} defaultSub={diaryDefault} busy={!!busy} run={run} />}
@@ -188,7 +189,10 @@ function Guide() {
                     <b>Claude Code (맥)</b>: 맥 폴더에 저장된 .md 파일을 여기서 올리거나 scp로 위 폴더에 보냅니다.
                 </li>
                 <li>
-                    <b>새벽 1시 30분</b>: 전날 메모 + 운동·식단·걸음 수 기록 + 업무 일지(금일 실적·이슈)로 전날 일기 초안이 만들어집니다. 아침에 확인·수정하고 [게시]하세요. 게시 전에는 블로그에 나가지 않습니다.
+                    <b>[기록 불러오기]</b>: 운동 시트(PT·유산소)를 바로 가져온 뒤 그날 운동·식단·걸음 수·업무 일지를 메모 칸에 틀로 채웁니다. 느낌을 덧붙여 [메모 추가] → [지금 만들기].
+                </li>
+                <li>
+                    <b>새벽 1시</b>: 운동 시트 자동 동기화 → <b>1시 10분</b>: 전날 메모 + 운동·식단·걸음 수 기록 + 업무 일지(금일 실적·이슈)로 전날 일기 초안이 만들어집니다. 아침에 확인·수정하고 [게시]하세요. 게시 전에는 블로그에 나가지 않습니다.
                 </li>
             </ol>
             <div className="diary-guide-box">
@@ -231,6 +235,30 @@ function NoteCard({ note, onDelete }: { note: DiaryDay["notes"][number]; onDelet
 function NoteForm({ date, busy, onAdd }: { date: string; busy: boolean; onAdd: (fn: () => Promise<unknown>) => void }) {
     const [text, setText] = useState("");
     const [source, setSource] = useState<NoteSource>("manual");
+    const [loadMsg, setLoadMsg] = useState<string | null>(null);
+
+    /** 운동 시트를 바로 동기화한 뒤 그날 기록으로 메모 틀을 만들어 입력칸에 채운다(시트 실패해도 DB 기록으로 계속). */
+    const loadRecords = () => {
+        setLoadMsg("운동 시트 가져오는 중…");
+        onAdd(async () => {
+            let syncNote: string;
+            try {
+                const r = await syncPtSheet();
+                const added = r.sessionsImported + r.cardioNew + r.cardioUpdated;
+                syncNote = added > 0 ? `시트에서 PT ${r.sessionsImported}회·유산소 ${r.cardioNew + r.cardioUpdated}건 반영` : "시트에 새 기록 없음";
+                if (r.warnings.length) syncNote += ` (${r.warnings.join(" / ")})`;
+            } catch (e) {
+                syncNote = `시트 동기화 실패 — 이미 들어온 기록만 불러옴: ${errorMessage(e)}`;
+            }
+            const day = await fetchDiaryDay(date);
+            const tpl = recordTemplate(day.records);
+            if (tpl) {
+                setText((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${tpl}` : tpl));
+                setSource("manual");
+            }
+            setLoadMsg(`${syncNote} · ${tpl ? "아래 틀의 '느낌:' 칸을 채운 뒤 [메모 추가]" : "이 날짜의 기록이 없습니다"}`);
+        });
+    };
 
     const submit = () => {
         if (!text.trim()) return;
@@ -254,12 +282,77 @@ function NoteForm({ date, busy, onAdd }: { date: string; busy: boolean; onAdd: (
                     <option value="app">Claude 앱 정리</option>
                     <option value="cli">Claude Code 정리</option>
                 </select>
+                <button onClick={loadRecords} disabled={busy} title="운동 시트를 바로 가져와 그날 운동·식단·걸음 수·업무 일지로 메모 틀을 채웁니다">
+                    🏋️ 기록 불러오기
+                </button>
                 <button className="primary" onClick={submit} disabled={busy || !text.trim()}>
-                    {busy ? "저장 중…" : "메모 추가"}
+                    {busy ? "처리 중…" : "메모 추가"}
                 </button>
             </div>
+            {loadMsg && <div className="diary-drop-result">{loadMsg}</div>}
         </div>
     );
+}
+
+type Rec = Record<string, unknown>;
+
+/** 시트 마커([sheet#12], [cardio#…])는 메모에서 뺀다. */
+const stripMarker = (s: unknown) =>
+    typeof s === "string" ? s.replace(/\[(sheet|cardio)#[^\]]*\]\s*/g, "").trim() : "";
+
+/** 그날 기록 → 사람이 느낌을 덧붙일 메모 틀. 기록이 하나도 없으면 빈 문자열. */
+function recordTemplate(records?: Rec): string {
+    if (!records) return "";
+    const arr = (k: string) => (Array.isArray(records[k]) ? (records[k] as Rec[]) : []);
+    const lines: string[] = [];
+
+    for (const s of arr("fitness")) {
+        lines.push(`## 헬스${s.isPT ? " (PT)" : ""}`);
+        for (const ex of (Array.isArray(s.exercises) ? s.exercises : []) as Rec[]) {
+            const sets = Array.isArray(ex.sets) ? (ex.sets as string[]) : [];
+            const cardio = ex.durationMin != null || ex.distanceKm != null;
+            const detail = cardio
+                ? [ex.durationMin != null && `${ex.durationMin}분`, ex.distanceKm != null && `${ex.distanceKm}km`, ex.kcal != null && `${ex.kcal}kcal`]
+                      .filter(Boolean)
+                      .join(" ")
+                : sets.join(", ");
+            const memo = stripMarker(ex.memo);
+            lines.push(`- ${ex.name ?? "?"}${detail ? `: ${detail}` : ""}${memo ? ` (${memo})` : ""}`);
+        }
+        lines.push("느낌: ");
+    }
+    for (const r of arr("rides")) {
+        const km = ((Number(r.distanceM) || 0) / 1000).toFixed(1);
+        const min = Math.round((Number(r.movingTimeSec) || 0) / 60);
+        lines.push(`## 라이딩`, `- ${r.name ?? "라이딩"}: ${km}km, ${min}분${r.ascentM ? `, 상승 ${Math.round(Number(r.ascentM))}m` : ""}`, "느낌: ");
+    }
+    const phone = arr("phoneExercises");
+    if (phone.length) {
+        lines.push("## 폰 운동 기록");
+        for (const p of phone) {
+            const km = p.distanceM ? `, ${((Number(p.distanceM) || 0) / 1000).toFixed(1)}km` : "";
+            lines.push(`- ${p.title || p.type}: ${p.durationMin}분${km}`);
+        }
+        lines.push("느낌: ");
+    }
+    const steps = arr("dailyActivity").reduce((s, a) => s + (Number(a.steps) || 0), 0);
+    if (steps > 0) lines.push(`걸음 수: ${steps.toLocaleString()}보`);
+    const meals = arr("meals");
+    if (meals.length) {
+        const names = meals.map((m) => m.name).filter(Boolean).slice(0, 8).join(", ");
+        lines.push(`## 식단`, `- ${names}`, "한 줄 (외식·과식 등 있으면): ");
+    }
+    const work = records.workLog as Rec | undefined;
+    if (work) {
+        lines.push("## 회사 (업무 일지)");
+        if (work.today_done) lines.push(`금일 실적:\n${work.today_done}`);
+        if (work.issues) lines.push(`이슈:\n${work.issues}`);
+        lines.push("느낌: ");
+        if (work.tomorrow_plan) lines.push(`내일: ${String(work.tomorrow_plan).split("\n")[0]}`);
+    }
+    if (!lines.length) return "";
+    lines.push("", "## 오늘의 생각", "");
+    return lines.join("\n");
 }
 
 /** 파일 이름으로 출처를 정한다(서버 폴더 규칙과 같음). 접두어가 없으면 Claude 앱 정리로 본다 — 앱에서 받은 .md 를 올리는 게 주 용도. */

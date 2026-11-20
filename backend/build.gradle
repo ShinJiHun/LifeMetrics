@@ -55,6 +55,9 @@ dependencies {
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.47.0'
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
+    // PT 운동일지 구글 시트(xlsx export) 읽기 — PtSheetSyncService (data_pipeline sync_pt_sheet.py 이식)
+    implementation 'org.apache.poi:poi-ooxml:5.3.0'
+
 }
 
 bootJar {
