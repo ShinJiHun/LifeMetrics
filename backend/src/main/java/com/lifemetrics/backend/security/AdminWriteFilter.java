@@ -54,7 +54,9 @@ public class AdminWriteFilter extends OncePerRequestFilter {
             // 개발 요청함 서버 워커: DevRequestController 가 Bearer DEV_WORKER_TOKEN 을 검사한다
             "/api/dev-requests/worker/**",
             // 애슐리트 파인튜닝 데이터셋 생성(data_pipeline 스크립트): AthleteDatasetController 가 Bearer ATHLETE_DATASET_TOKEN 을 검사한다
-            "/api/athlete/dataset/sample"
+            "/api/athlete/dataset/sample",
+            // 휴먼 일기: DiaryController 가 관리자 쿠키 또는 Bearer HEALTH_SYNC_TOKEN 을 검사한다(조회 포함, 모든 엔드포인트)
+            "/api/diary/**"
     );
 
     private final AdminAuthService adminAuthService;
