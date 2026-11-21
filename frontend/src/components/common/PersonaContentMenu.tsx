@@ -4,6 +4,18 @@ import type { Persona } from "@/types/content";
 import { categoriesOf, subMenusOf, useContent } from "@/lib/contentStore";
 import { useAdmin } from "@/lib/admin";
 
+// 관리자 전용 작성 도구. 같은 이름의 카테고리 맨 위에 붙이고,
+// 그 카테고리가 없으면 아래 "작성 도구" 묶음으로 보여 준다(메뉴가 사라지지 않게).
+interface ToolLink {
+    to: string;
+    label: string;
+}
+
+const HUMAN_TOOLS: Record<string, ToolLink> = {
+    일기: { to: "/human/diary", label: "✍️ 일기 쓰기" },
+    독서: { to: "/human/reading-notes", label: "📤 독서 노트 올리기" },
+};
+
 const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({
     padding: "8px 14px 8px 28px",
     textDecoration: "none",
@@ -24,6 +36,11 @@ export default function PersonaContentMenu({
     const { isAdmin } = useAdmin();
     const categories = categoriesOf(data, persona);
     const base = `/${persona}`;
+    const tools: Record<string, ToolLink> = persona === "human" && isAdmin ? HUMAN_TOOLS : {};
+    const catNames = new Set(categories.map((c) => c.name));
+    const orphanTools = Object.entries(tools)
+        .filter(([cat]) => !catNames.has(cat))
+        .map(([, t]) => t);
 
     return (
         <>
@@ -93,8 +110,22 @@ export default function PersonaContentMenu({
                         accent={accent}
                         base={base}
                         data={data}
+                        tool={tools[cat.name]}
                     />
                 ))
+            )}
+
+            {orphanTools.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                    <div style={{ padding: "8px 6px", fontWeight: 700, color: "#1b2236" }}>🛠 작성 도구</div>
+                    <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {orphanTools.map((t) => (
+                            <NavLink key={t.to} to={t.to} style={linkStyle(accent)}>
+                                {t.label}
+                            </NavLink>
+                        ))}
+                    </nav>
+                </div>
             )}
         </>
     );
@@ -192,12 +223,14 @@ function CategoryBlock({
     accent,
     base,
     data,
+    tool,
 }: {
     categoryId: string;
     name: string;
     accent: string;
     base: string;
     data: ReturnType<typeof useContent>;
+    tool?: ToolLink;
 }) {
     const [open, setOpen] = useState(true);
     const subs = subMenusOf(data, categoryId);
@@ -227,7 +260,12 @@ function CategoryBlock({
             </button>
             {open && (
                 <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {subs.length === 0 ? (
+                    {tool && (
+                        <NavLink to={tool.to} style={linkStyle(accent)}>
+                            {tool.label}
+                        </NavLink>
+                    )}
+                    {subs.length === 0 && !tool ? (
                         <span style={{ padding: "4px 14px 4px 28px", fontSize: 13, color: "#bcc1cf" }}>
                             (소메뉴 없음)
                         </span>
