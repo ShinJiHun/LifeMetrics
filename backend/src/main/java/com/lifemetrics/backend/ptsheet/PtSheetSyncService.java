@@ -158,6 +158,7 @@ public class PtSheetSyncService {
         final Map<String, Long> categories = new HashMap<>();
         final Map<String, Long> itemsByKo = new HashMap<>(), itemsByEn = new HashMap<>(), itemsByName = new HashMap<>();
         final Map<Long, String[]> itemNames = new HashMap<>();   // id → {ko, en}
+        final Map<Long, Long> mergedInto = new HashMap<>();        // 병합된 종목 id → 대표 종목 id
         final List<String> newCategories = new ArrayList<>(), newItems = new ArrayList<>();
         final List<String> skipped = new ArrayList<>(), anomalies = new ArrayList<>(), warnings = new ArrayList<>();
         final SortedSet<String> touched = new TreeSet<>();
@@ -185,14 +186,25 @@ public class PtSheetSyncService {
             jdbc.query("SELECT id, name FROM exercise_category", rs -> {
                 categories.put(rs.getString("name"), rs.getLong("id"));
             });
+            // 병합된 종목(merged_into)은 대표 종목 id 로 바꿔 넣는다 — 시트의 오타 이름도 대표 종목에 기록되게.
+            jdbc.query("SELECT id, merged_into FROM exercise_item WHERE merged_into IS NOT NULL", rs -> {
+                mergedInto.put(rs.getLong("id"), rs.getLong("merged_into"));
+            });
             jdbc.query("SELECT id, name, name_ko, name_en FROM exercise_item ORDER BY id", rs -> {
-                long id = rs.getLong("id");
+                long raw = rs.getLong("id"), id = canonical(raw);
                 String ko = rs.getString("name_ko"), en = rs.getString("name_en"), name = rs.getString("name");
                 if (ko != null && !ko.isEmpty()) itemsByKo.putIfAbsent(PtSheetParser.normName(ko), id);
                 if (en != null && !en.isEmpty()) itemsByEn.putIfAbsent(PtSheetParser.normName(en), id);
                 if (name != null && !name.isEmpty()) itemsByName.putIfAbsent(PtSheetParser.normName(name), id);
-                itemNames.put(id, new String[]{ko, en});
+                if (raw == id) itemNames.put(id, new String[]{ko, en});
             });
+        }
+
+        /** 병합 사슬(merged_into)을 끝까지 따라가 대표 종목 id 를 돌려준다. */
+        long canonical(long id) {
+            long cur = id;
+            for (int i = 0; i < 10 && mergedInto.containsKey(cur); i++) cur = mergedInto.get(cur);
+            return cur;
         }
 
         void applySession(SessionEntry s) {
@@ -349,7 +361,7 @@ public class PtSheetSyncService {
                     new MapSqlParameterSource("c", cid).addValue("n", display), Long.class);
             long id;
             if (!same.isEmpty()) {
-                id = same.get(0);
+                id = canonical(same.get(0));
             } else {
                 GeneratedKeyHolder key = new GeneratedKeyHolder();
                 jdbc.update("""
