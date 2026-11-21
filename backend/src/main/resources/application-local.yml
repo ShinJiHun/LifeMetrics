@@ -82,8 +82,6 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
-              - https://www.googleapis.com/auth/fitness.nutrition.read
-              - https://www.googleapis.com/auth/fitness.body.read
               - email
               - profile
         provider:
@@ -131,10 +129,6 @@ typecast:
   voice:
     persona: ${TYPECAST_VOICE_PERSONA:}   # GET /v2/voices 에서 고른 tc_xxxx
     riding:  ${TYPECAST_VOICE_RIDING:}    # tc_xxxx
-
-google:
-  fitness:
-    api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
 
 lotto:
   datasource:

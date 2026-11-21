@@ -72,8 +72,6 @@ spring:
             client-secret: ${GOOGLE_CLIENT_SECRET}
             redirect-uri: "https://ride.tho881.me/login/oauth2/code/google"
             scope:
-              - https://www.googleapis.com/auth/fitness.nutrition.read
-              - https://www.googleapis.com/auth/fitness.body.read
               - email
               - profile
         provider:
@@ -143,11 +141,6 @@ persona:
   # PERSONA_DOCS_DIR 로 폴더만 바꾸면 되고, 그 폴더에 PDF 를 두기만 하면 추가/삭제됨.
   docs:
     location: "file:${PERSONA_DOCS_DIR:/mnt/200gb/NAS/persona/jihoon_info}/*.pdf"
-
-# 파일 끝에 추가
-google:
-  fitness:
-    api-url: https://www.googleapis.com/fitness/v1/users/me/dataset:aggregate
 
 brevet:
   nas-path: /mnt/200gb/NAS/riding/brevet
