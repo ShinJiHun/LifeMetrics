@@ -34,6 +34,13 @@ class DiaryMarkdownTest {
     }
 
     @Test
+    void blockquote() {
+        assertThat(DiaryMarkdown.toHtml("## 인상 깊은 문장\n> AI는 다른 지능이다\n> 둘째 <줄>"))
+                .isEqualTo("<h2>인상 깊은 문장</h2><blockquote><p>AI는 다른 지능이다</p></blockquote>"
+                        + "<blockquote><p>둘째 &lt;줄&gt;</p></blockquote>");
+    }
+
+    @Test
     void starRatingIsNotItalic() {
         assertThat(DiaryMarkdown.toHtml("별점: ★★★★☆ (4.0)")).isEqualTo("<p>별점: ★★★★☆ (4.0)</p>");
     }

@@ -39,10 +39,20 @@ export interface Lecture {
     id: number;
     sourceNoteId: number | null;
     noteFileName: string | null;
+    /** note: 일기 메모에서 AI 가 찾음, manual: 직접 기록 */
+    origin: "note" | "manual";
     lectureDate: string;
+    lectureTime: string | null;
     title: string;
     speaker: string | null;
+    venue: string | null;
+    host: string | null;
+    series: string | null;
+    books: string[];
+    memo: string | null;
+    /** 직접 기록은 [요약 만들기] 전까지 빈 문자열 */
     content: string;
+    files: LectureFile[];
     tags: string[];
     warnings: string[];
     status: "draft" | "published";
@@ -51,6 +61,70 @@ export interface Lecture {
     generatedAt: string;
     publishedAt: string | null;
 }
+
+export interface LectureFile {
+    id: number;
+    kind: "text" | "pdf" | "image" | "audio";
+    fileName: string;
+    sizeBytes: number;
+    /** ready: 요약에 씀, none: 글 없음, pending: 받아쓰기 전, transcribing: 받아쓰는 중, failed: 받아쓰기 실패 */
+    textStatus: "ready" | "none" | "pending" | "transcribing" | "failed";
+    textNote: string | null;
+    textChars: number;
+    createdAt: string;
+}
+
+/** 강연 정보 입력. date 가 비면 오늘. */
+export interface LectureInfo {
+    title: string;
+    speaker: string;
+    date: string;
+    time: string;
+    venue: string;
+    host: string;
+    series: string;
+    books: string[];
+    memo: string;
+}
+
+export const lectureInfoOf = (l: Lecture): LectureInfo => ({
+    title: l.title,
+    speaker: l.speaker ?? "",
+    date: l.lectureDate,
+    time: l.lectureTime ?? "",
+    venue: l.venue ?? "",
+    host: l.host ?? "",
+    series: l.series ?? "",
+    books: l.books ?? [],
+    memo: l.memo ?? "",
+});
+
+export interface LectureNasFile {
+    path: string;
+    sizeBytes: number;
+    modifiedAt: string;
+}
+
+export const createLecture = (info: LectureInfo) => api.post<Lecture>("/diary/lectures", info).then((r) => r.data);
+export const updateLectureInfo = (id: number, info: LectureInfo) =>
+    api.put<Lecture>(`/diary/lectures/${id}/info`, info).then((r) => r.data);
+/** 받아쓰기가 길면 AI 호출이 오래 걸린다. */
+export const summarizeLecture = (id: number) =>
+    api.post<Lecture>(`/diary/lectures/${id}/summarize`, null, { timeout: 180_000 }).then((r) => r.data);
+export const uploadLectureFiles = (id: number, files: File[]) => {
+    const form = new FormData();
+    for (const f of files) form.append("files", f, f.name.normalize("NFC"));
+    return api
+        .post<LectureFile[]>(`/diary/lectures/${id}/files`, form, { headers: { "Content-Type": "multipart/form-data" }, timeout: 600_000 })
+        .then((r) => r.data);
+};
+export const importLectureFiles = (id: number, paths: string[]) =>
+    api.post<LectureFile[]>(`/diary/lectures/${id}/files/import`, { paths }, { timeout: 300_000 }).then((r) => r.data);
+export const fetchLectureNasFiles = () => api.get<LectureNasFile[]>("/diary/lectures/nas-files").then((r) => r.data);
+export const transcribeLectureFile = (fileId: number) =>
+    api.post<LectureFile>(`/diary/lectures/files/${fileId}/transcribe`).then((r) => r.data);
+export const deleteLectureFile = (fileId: number) => api.delete(`/diary/lectures/files/${fileId}`);
+export const lectureFileUrl = (fileId: number) => `/api/diary/lectures/files/${fileId}`;
 
 export interface LectureScanResult {
     scanned: number;

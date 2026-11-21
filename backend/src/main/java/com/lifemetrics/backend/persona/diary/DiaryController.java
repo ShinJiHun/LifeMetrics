@@ -4,8 +4,14 @@ import com.lifemetrics.backend.security.AdminWriteFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -28,6 +34,7 @@ public class DiaryController {
 
     private final DiaryService service;
     private final LectureService lectures;
+    private final LectureFileService lectureFiles;
     private final AdminWriteFilter adminWriteFilter;
 
     @Value("${HEALTH_SYNC_TOKEN:}")
@@ -35,6 +42,7 @@ public class DiaryController {
 
     public record LectureRequest(String title, String speaker, String content) {}
     public record TagsRequest(List<String> tags) {}
+    public record ImportRequest(List<String> paths) {}
     public record NoteRequest(String source, String fileName, String content) {}
     public record EntryRequest(String title, String content) {}
     public record PublishRequest(Long subId, String visibility) {}
@@ -156,6 +164,70 @@ public class DiaryController {
     public LectureService.Lecture publishLecture(@PathVariable long id, @RequestBody PublishRequest body, HttpServletRequest req) {
         requireAdmin(req);
         return service.publishLecture(id, body.subId(), body.visibility());
+    }
+
+    // ── 강연 직접 기록·자료 ──────────────────────────
+
+    @PostMapping("/lectures")
+    public LectureService.Lecture createLecture(@RequestBody LectureService.Info body, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.createManual(body);
+    }
+
+    /** 강연 정보 칸(강연명·연사·일시·장소·주최·시리즈·관련 책·내 메모) 고치기. */
+    @PutMapping("/lectures/{id}/info")
+    public LectureService.Lecture updateLectureInfo(@PathVariable long id, @RequestBody LectureService.Info body, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.updateInfo(id, body);
+    }
+
+    /** 직접 기록의 [요약 만들기] — 내 메모 + 받아쓰기·PDF 글로 요약. */
+    @PostMapping("/lectures/{id}/summarize")
+    public LectureService.Lecture summarizeLecture(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.summarizeManual(id);
+    }
+
+    @PostMapping(value = "/lectures/{id}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public List<LectureService.LectureFile> uploadLectureFiles(@PathVariable long id, @RequestParam("files") List<MultipartFile> files,
+                                                               HttpServletRequest req) {
+        requireAdmin(req);
+        return lectureFiles.upload(id, files);
+    }
+
+    /** NAS 강연 폴더의 예전 자료를 복사해 가져오기(원본은 그대로). */
+    @PostMapping("/lectures/{id}/files/import")
+    public List<LectureService.LectureFile> importLectureFiles(@PathVariable long id, @RequestBody ImportRequest body, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectureFiles.importNas(id, body.paths());
+    }
+
+    @GetMapping("/lectures/nas-files")
+    public List<LectureFileService.NasFile> lectureNasFiles(HttpServletRequest req) {
+        requireAdmin(req);
+        return lectureFiles.listNas();
+    }
+
+    @GetMapping("/lectures/files/{fileId}")
+    public ResponseEntity<Resource> downloadLectureFile(@PathVariable long fileId, HttpServletRequest req) {
+        requireAdmin(req);
+        LectureFileService.Download d = lectureFiles.download(fileId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(d.fileName(), StandardCharsets.UTF_8).build().toString())
+                .contentType(MediaType.parseMediaType(d.contentType()))
+                .body(new FileSystemResource(d.path()));
+    }
+
+    @PostMapping("/lectures/files/{fileId}/transcribe")
+    public LectureService.LectureFile transcribeLectureFile(@PathVariable long fileId, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectureFiles.transcribe(fileId);
+    }
+
+    @DeleteMapping("/lectures/files/{fileId}")
+    public void deleteLectureFile(@PathVariable long fileId, HttpServletRequest req) {
+        requireAdmin(req);
+        lectureFiles.delete(fileId);
     }
 
     private static LocalDate parseDate(String s) {

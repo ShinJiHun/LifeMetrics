@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
+    createLecture,
     errorMessage,
     fetchDiarySubMenus,
     fetchLectureFacets,
@@ -10,8 +11,10 @@ import {
     type Lecture,
     type LectureFacets,
     type LectureFilter,
+    type LectureInfo,
 } from "@/api/diary";
 import LectureCard from "./LectureCard";
+import LectureInfoForm, { EMPTY_INFO } from "./LectureInfoForm";
 import "@/styles/markdown.css";
 import "@/styles/diary.css";
 
@@ -69,12 +72,34 @@ export default function LecturesPage() {
             if (label === "publish") loadSubs();
         } catch (e) {
             setError(errorMessage(e));
+            window.scrollTo({ top: 0, behavior: "smooth" }); // 오류는 맨 위에 보인다
         } finally {
             setBusy(null);
         }
     };
 
     const hasFilter = KEYS.some((k) => filter[k]);
+    const [creating, setCreating] = useState(false);
+    const [openId, setOpenId] = useState<number | null>(null);
+
+    const create = (info: LectureInfo) =>
+        run("create", async () => {
+            const l = await createLecture(info);
+            setCreating(false);
+            setOpenId(l.id);
+            setParams({}, { replace: true }); // 새 기록이 필터에 가려지지 않게
+            setSpeakerInput("");
+        });
+
+    // 녹음 받아쓰기가 도는 동안은 30초마다 상태를 새로 읽는다.
+    const transcribing = lectures?.some((l) => l.files.some((f) => f.textStatus === "transcribing")) ?? false;
+    useEffect(() => {
+        if (!transcribing) return;
+        const t = setInterval(() => {
+            if (!busy) load();
+        }, 30_000);
+        return () => clearInterval(t);
+    }, [transcribing, busy, load]);
 
     return (
         <div className="diary-page">
@@ -83,7 +108,29 @@ export default function LecturesPage() {
                 <Link className="diary-link" to="/human/diary">
                     ← 일기
                 </Link>
+                <span className="spacer" style={{ flex: 1 }} />
+                {!creating && (
+                    <button className="primary" onClick={() => setCreating(true)} disabled={!!busy}>
+                        + 강연 직접 기록
+                    </button>
+                )}
             </header>
+
+            {creating && (
+                <div className="diary-entry lecture">
+                    <h3 className="diary-title">강연 직접 기록</h3>
+                    <p className="diary-muted">
+                        저장한 뒤 카드에서 자료(PDF·받아쓰기·사진·녹음)를 올리고 [요약 만들기]를 누르세요.
+                    </p>
+                    <LectureInfoForm
+                        initial={EMPTY_INFO}
+                        busy={!!busy}
+                        submitLabel={busy === "create" ? "저장 중…" : "저장"}
+                        onCancel={() => setCreating(false)}
+                        onSubmit={create}
+                    />
+                </div>
+            )}
 
             <div className="lecture-filter">
                 <label>
@@ -168,7 +215,7 @@ export default function LecturesPage() {
                                 busy={!!busy}
                                 run={run}
                                 onTagClick={(t) => setFilter({ tag: t })}
-                                collapsed
+                                collapsed={l.id !== openId}
                             />
                         </div>
                     ))}

@@ -57,3 +57,35 @@ CREATE TABLE IF NOT EXISTS `journal_db`.`lecture_note_scan` (
     `scanned_at` DATETIME   NOT NULL,
     PRIMARY KEY (`note_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- ── 강연 직접 기록 (2026-11-22) ─────────────────────────────
+-- 필기 없이 다녀온 강연도 [+ 강연 직접 기록]으로 남긴다. 새 표 대신 lecture_entry 에 강연 정보 칸을 더한다.
+-- origin: note(일기 메모에서 AI 가 찾음) | manual(직접 기록). 강연 정보 칸은 둘 다 카드에서 고칠 수 있다.
+-- 직접 기록은 [요약 만들기] 전까지 content 가 빈 문자열이다.
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `origin`       VARCHAR(16)  NOT NULL DEFAULT 'note' AFTER `seq`;
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `lecture_time` VARCHAR(32)  DEFAULT NULL AFTER `lecture_date`;  -- 시각(자유 형식, 예: 14:00)
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `venue`        VARCHAR(255) DEFAULT NULL AFTER `speaker`;        -- 장소
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `host`         VARCHAR(255) DEFAULT NULL AFTER `venue`;          -- 주최
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `series`       VARCHAR(255) DEFAULT NULL AFTER `host`;           -- 시리즈·회차
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `books`        TEXT         DEFAULT NULL AFTER `series`;         -- 관련 책(JSON 배열)
+ALTER TABLE `journal_db`.`lecture_entry` ADD COLUMN IF NOT EXISTS `memo`         MEDIUMTEXT   DEFAULT NULL AFTER `books`;          -- 내 메모(직접 기록)
+
+-- 강연 자료 파일. 원본은 NAS {lecture.files-dir}/{entry_id}/{stored_name} (운영 entries/, dev entries-dev/).
+-- kind: text(.md .txt 메모·받아쓰기) | pdf | image(.png .jpg .heic) | audio(.m4a .mp3)
+-- extracted_text: 요약 근거로 쓰는 글 — text 는 파일 내용, pdf 는 추출한 글, audio 는 STT 받아쓰기.
+-- text_status: ready | none(글 없음: 사진, 글자 없는 PDF) | pending(녹음, 받아쓰기 전) | transcribing | failed
+CREATE TABLE IF NOT EXISTS `journal_db`.`lecture_file` (
+    `id`              BIGINT       NOT NULL AUTO_INCREMENT,
+    `entry_id`        BIGINT       NOT NULL,
+    `kind`            VARCHAR(16)  NOT NULL,
+    `file_name`       VARCHAR(255) NOT NULL,       -- 올린 이름
+    `stored_name`     VARCHAR(255) NOT NULL,       -- NAS 에 둔 이름
+    `size_bytes`      BIGINT       NOT NULL DEFAULT 0,
+    `extracted_text`  MEDIUMTEXT   DEFAULT NULL,
+    `text_status`     VARCHAR(16)  NOT NULL DEFAULT 'none',
+    `text_note`       VARCHAR(255) DEFAULT NULL,   -- 받아쓰기 실패 이유 등
+    `created_at`      DATETIME     NOT NULL,
+    `text_updated_at` DATETIME     DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_lecture_file_entry` (`entry_id`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

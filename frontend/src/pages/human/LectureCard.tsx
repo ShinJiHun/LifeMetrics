@@ -5,13 +5,30 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
     discardLecture,
+    lectureInfoOf,
     publishLecture,
     regenerateLecture,
     setLectureTags,
+    summarizeLecture,
     updateLecture,
+    updateLectureInfo,
     type DiarySubMenu,
     type Lecture,
 } from "@/api/diary";
+import LectureInfoForm from "./LectureInfoForm";
+import LectureFiles from "./LectureFiles";
+
+/** 카드·게시 글 머리에 보이는 강연 정보 목록(빈 칸은 뺀다). */
+function infoRows(l: Lecture): [string, string][] {
+    const rows: [string, string][] = [];
+    if (l.speaker) rows.push(["연사", l.speaker]);
+    rows.push(["일시", `${l.lectureDate}${l.lectureTime ? ` ${l.lectureTime}` : ""}`]);
+    if (l.venue) rows.push(["장소", l.venue]);
+    if (l.host) rows.push(["주최", l.host]);
+    if (l.series) rows.push(["시리즈", l.series]);
+    if (l.books?.length) rows.push(["관련 책", l.books.map((b) => (b.startsWith("『") ? b : `『${b}』`)).join(", ")]);
+    return rows;
+}
 
 export default function LectureCard({
     lecture,
@@ -32,7 +49,11 @@ export default function LectureCard({
     collapsed?: boolean;
 }) {
     const [editing, setEditing] = useState(false);
+    const [infoEditing, setInfoEditing] = useState(false);
+    const [showMemo, setShowMemo] = useState(false);
     const [open, setOpen] = useState(!collapsed);
+    const manual = lecture.origin === "manual";
+    const hasSummary = lecture.content.trim().length > 0;
     const [title, setTitle] = useState(lecture.title);
     const [speaker, setSpeaker] = useState(lecture.speaker ?? "");
     const [content, setContent] = useState(lecture.content);
@@ -47,7 +68,14 @@ export default function LectureCard({
         setSpeaker(lecture.speaker ?? "");
         setContent(lecture.content);
         setEditing(false);
+        setInfoEditing(false);
     }, [lecture]);
+
+    const summarize = () => {
+        if (hasSummary && !window.confirm(lecture.edited ? "직접 고친 요약입니다. 다시 만들면 고친 내용이 사라집니다. 계속할까요?" : "요약을 다시 만들까요?"))
+            return;
+        run("lecture", () => summarizeLecture(lecture.id));
+    };
 
     const saveTags = (tags: string[]) => run("tags", () => setLectureTags(lecture.id, tags));
     const addTag = () => {
@@ -81,7 +109,7 @@ export default function LectureCard({
     return (
         <article className={`diary-entry lecture ${published ? "published" : ""}`} id={`lecture-${lecture.id}`}>
             <div className="diary-entry-meta">
-                <span className="kind">🎤 강연</span>
+                <span className="kind">🎤 강연{manual ? " · 직접 기록" : ""}</span>
                 <span>{lecture.lectureDate}</span>
                 {published ? (
                     <span className="status ok">게시함 {lecture.publishedAt?.slice(5, 16).replace("T", " ")}</span>
@@ -89,7 +117,7 @@ export default function LectureCard({
                     <span className="status">{lecture.edited ? "고친 초안" : "초안"} · {lecture.generatedAt.slice(5, 16).replace("T", " ")}</span>
                 )}
                 {lecture.noteFileName && <span className="fname">메모: {lecture.noteFileName}</span>}
-                {lecture.sourceNoteId == null && <span>(원본 메모 삭제됨)</span>}
+                {!manual && lecture.sourceNoteId == null && <span>(원본 메모 삭제됨)</span>}
                 {published && lecture.postId && (
                     <Link className="diary-link" to={`/human/post/${lecture.postId}`}>
                         블로그에서 보기
@@ -102,11 +130,20 @@ export default function LectureCard({
                 )}
             </div>
 
-            {editing ? (
+            {infoEditing ? (
+                <LectureInfoForm
+                    initial={lectureInfoOf(lecture)}
+                    busy={busy}
+                    submitLabel="정보 저장"
+                    showMemo={manual}
+                    onCancel={() => setInfoEditing(false)}
+                    onSubmit={(info) => run("save", () => updateLectureInfo(lecture.id, info))}
+                />
+            ) : editing ? (
                 <div className="diary-edit">
                     <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="강연 제목" />
                     <input value={speaker} onChange={(e) => setSpeaker(e.target.value)} placeholder="연사 (없으면 비움)" />
-                    <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={18} />
+                    <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={18} placeholder="요약 (마크다운)" />
                     <div className="diary-form-row">
                         <button onClick={() => setEditing(false)}>취소</button>
                         <button
@@ -121,8 +158,27 @@ export default function LectureCard({
             ) : (
                 <>
                     <h3 className="diary-title">{lecture.title}</h3>
-                    <div className="lecture-speaker">연사: {lecture.speaker || <span className="diary-muted">(필기에 없음)</span>}</div>
+                    <ul className="lecture-info">
+                        {infoRows(lecture).map(([k, v]) => (
+                            <li key={k}>
+                                <b>{k}</b> {v}
+                            </li>
+                        ))}
+                        {!lecture.speaker && <li className="diary-muted">연사 없음</li>}
+                    </ul>
                 </>
+            )}
+
+            {manual && lecture.memo && !infoEditing && (
+                <div className="lecture-memo">
+                    <button className="diary-link" onClick={() => setShowMemo((v) => !v)}>
+                        {showMemo ? "내 메모 접기" : `내 메모 보기 (${lecture.memo.length.toLocaleString()}자)`}
+                    </button>
+                    {showMemo && <div className="diary-note-body">{lecture.memo}</div>}
+                </div>
+            )}
+            {manual && (open || !hasSummary) && (
+                <LectureFiles lectureId={lecture.id} files={lecture.files} busy={busy} editable={!published} run={run} />
             )}
 
             <div className="lecture-tags">
@@ -171,18 +227,29 @@ export default function LectureCard({
                 </div>
             )}
 
-            {!editing && open && (
+            {!editing && open && hasSummary && (
                 <div className="md-body diary-body">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{lecture.content}</ReactMarkdown>
                 </div>
             )}
+            {!editing && !hasSummary && (
+                <p className="diary-muted">아직 요약이 없습니다. 내 메모를 적거나 받아쓰기·PDF 자료를 올린 뒤 [요약 만들기]를 누르세요.</p>
+            )}
 
-            {!published && !editing && (
+            {!published && !editing && !infoEditing && (
                 <div className="diary-actions">
                     <button onClick={() => setEditing(true)} disabled={busy}>
                         수정
                     </button>
-                    {lecture.sourceNoteId != null && (
+                    <button onClick={() => setInfoEditing(true)} disabled={busy}>
+                        정보 고치기
+                    </button>
+                    {manual && (
+                        <button className={hasSummary ? "" : "primary"} onClick={summarize} disabled={busy}>
+                            {hasSummary ? "요약 다시 만들기" : "요약 만들기"}
+                        </button>
+                    )}
+                    {!manual && lecture.sourceNoteId != null && (
                         <button onClick={regenerate} disabled={busy}>
                             다시 만들기
                         </button>
@@ -210,7 +277,7 @@ export default function LectureCard({
                         <option value="public">공개</option>
                         <option value="private">비공개</option>
                     </select>
-                    <button className="primary" onClick={publish} disabled={busy}>
+                    <button className="primary" onClick={publish} disabled={busy || !hasSummary} title={hasSummary ? "" : "요약을 먼저 만들어 주세요"}>
                         게시
                     </button>
                 </div>

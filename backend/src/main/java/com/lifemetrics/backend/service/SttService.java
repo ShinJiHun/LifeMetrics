@@ -32,6 +32,44 @@ public class SttService {
         this.rest = new RestTemplate(f);
     }
 
+    /** STT 서버가 떠 있는지(HTTP 응답이 오면 상태 코드와 상관없이 떠 있다고 본다). */
+    public boolean isAvailable() {
+        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(2_000);
+        f.setReadTimeout(3_000);
+        try {
+            new RestTemplate(f).getForEntity(baseUrl + "/", String.class);
+            return true;
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 강연 녹음처럼 긴 오디오 받아쓰기. 응답이 수십 분 걸릴 수 있어 백그라운드 스레드에서 부른다.
+     * @throws IllegalStateException 서버 오류·연결 실패 (메시지를 화면에 보여 준다)
+     */
+    public String transcribeLong(byte[] audioBytes, String contentType, java.time.Duration readTimeout) {
+        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(5_000);
+        f.setReadTimeout((int) readTimeout.toMillis());
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            ResponseEntity<String> res = new RestTemplate(f).postForEntity(baseUrl + "/transcribe",
+                    new HttpEntity<>(audioBytes, headers), String.class);
+            String text = om.readTree(res.getBody()).path("text").asText(null);
+            if (text == null) throw new IllegalStateException("STT 응답에 text 가 없습니다.");
+            return text;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("STT 실패: " + e.getMessage(), e);
+        }
+    }
+
     /** 오디오 바이트를 로컬 Whisper 서버로 보내 인식된 텍스트를 받는다. 실패/미기동 시 null. */
     public String transcribe(byte[] audioBytes, String contentType) {
         if (audioBytes == null || audioBytes.length == 0) return null;

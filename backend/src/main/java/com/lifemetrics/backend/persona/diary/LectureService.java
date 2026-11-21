@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lifemetrics.backend.client.ClaudeChatClient;
 import com.lifemetrics.backend.service.DailyAnalysisService;
+import com.lifemetrics.backend.service.SttService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -44,9 +45,25 @@ public class LectureService {
     /** 메모 하나에서 나눌 강연 수 상한(AI 호출 수 제한). */
     static final int MAX_LECTURES_PER_NOTE = 10;
 
-    public record Lecture(long id, Long sourceNoteId, String noteFileName, String lectureDate, String title, String speaker,
+    /**
+     * origin: note(일기 메모에서 찾음) | manual(직접 기록). lectureTime·venue·host·series·books 는 강연 정보 칸(빈 칸은 null/빈 목록),
+     * memo 는 직접 기록의 내 메모. files 는 직접 기록에 올린 자료(글 내용은 빼고).
+     */
+    public record Lecture(long id, Long sourceNoteId, String noteFileName, String origin, String lectureDate, String lectureTime,
+                          String title, String speaker, String venue, String host, String series, List<String> books, String memo,
                           String content, List<String> tags, List<String> warnings, String status, boolean edited,
-                          Long postId, String generatedAt, String publishedAt) {}
+                          Long postId, String generatedAt, String publishedAt, List<LectureFile> files) {
+        Lecture with(List<String> tags, List<LectureFile> files) {
+            return new Lecture(id, sourceNoteId, noteFileName, origin, lectureDate, lectureTime, title, speaker, venue, host,
+                    series, books, memo, content, tags, warnings, status, edited, postId, generatedAt, publishedAt, files);
+        }
+    }
+    /** 강연 정보 입력(직접 기록 만들기·카드에서 정보 고치기). date 가 비면 오늘. */
+    public record Info(String title, String speaker, String date, String time, String venue, String host, String series,
+                       List<String> books, String memo) {}
+    /** textStatus: ready | none | pending | transcribing | failed. textChars: 요약 근거로 쓸 글 길이. */
+    public record LectureFile(long id, String kind, String fileName, long sizeBytes, String textStatus, String textNote,
+                              int textChars, String createdAt) {}
     public record ScanResult(int scanned, int created, List<String> errors) {}
     public record TagCount(String name, int count) {}
     public record SpeakerCount(String name, int count) {}
@@ -63,11 +80,14 @@ public class LectureService {
     private final NamedParameterJdbcTemplate jdbc;
     private final ClaudeChatClient claude;
     private final ObjectMapper objectMapper;
+    private final SttService stt;
 
-    public LectureService(@Qualifier("journalDataSource") DataSource dataSource, ClaudeChatClient claude, ObjectMapper objectMapper) {
+    public LectureService(@Qualifier("journalDataSource") DataSource dataSource, ClaudeChatClient claude, ObjectMapper objectMapper,
+                          SttService stt) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.claude = claude;
         this.objectMapper = objectMapper;
+        this.stt = stt;
     }
 
     // ── 조회 ────────────────────────────────────────
@@ -381,7 +401,160 @@ public class LectureService {
         Lecture e = byId(id);
         if ("published".equals(e.status())) throw new ResponseStatusException(HttpStatus.CONFLICT, "게시한 글은 지울 수 없습니다.");
         jdbc.update("DELETE FROM lecture_entry_tag WHERE entry_id = :id", new MapSqlParameterSource("id", id));
+        // 자료 파일 목록도 지운다. NAS 의 파일(올린 사본)은 그대로 둔다.
+        jdbc.update("DELETE FROM lecture_file WHERE entry_id = :id", new MapSqlParameterSource("id", id));
         jdbc.update("DELETE FROM lecture_entry WHERE id = :id", new MapSqlParameterSource("id", id));
+    }
+
+    // ── 직접 기록 ────────────────────────────────────
+
+    /** 강연 직접 기록. 강연명 필수, 날짜가 비면 오늘. 요약(content)은 [요약 만들기] 전까지 비어 있다. */
+    public Lecture createManual(Info info) {
+        Info in = checkInfo(info);
+        GeneratedKeyHolder key = new GeneratedKeyHolder();
+        jdbc.update("""
+                INSERT INTO lecture_entry (source_note_id, seq, origin, lecture_date, lecture_time, title, speaker, venue, host, series,
+                                           books, memo, content, warnings, status, edited, generated_at)
+                VALUES (NULL, 0, 'manual', :d, :tm, :title, :sp, :venue, :host, :series, :books, :memo, '', '[]', 'draft', 0, :t)
+                """, infoParams(in).addValue("t", now()), key, new String[]{"id"});
+        return byId(key.getKey().longValue());
+    }
+
+    /**
+     * 강연 정보 칸 고치기(직접 기록·메모에서 나온 요약 둘 다). 게시한 글은 블로그 본문이 바뀌지 않으므로 막는다.
+     * 메모에서 나온 초안은 제목·연사를 사람이 고친 것이므로 '고친 초안'이 되어 배치가 덮어쓰지 않는다.
+     */
+    public Lecture updateInfo(long id, Info info) {
+        Lecture e = byId(id);
+        if ("published".equals(e.status())) throw new ResponseStatusException(HttpStatus.CONFLICT, "게시한 글은 블로그에서 고쳐 주세요.");
+        Info in = checkInfo(info);
+        jdbc.update("""
+                UPDATE lecture_entry SET lecture_date = :d, lecture_time = :tm, title = :title, speaker = :sp, venue = :venue,
+                    host = :host, series = :series, books = :books, memo = :memo, edited = IF(origin = 'manual', edited, 1)
+                WHERE id = :id
+                """, infoParams(in).addValue("id", id));
+        return byId(id);
+    }
+
+    private Info checkInfo(Info info) {
+        if (info == null || !notBlank(info.title())) throw bad("강연명을 입력해 주세요.");
+        String date = notBlank(info.date()) ? info.date().strip() : LocalDate.now(DailyAnalysisService.KST).toString();
+        try {
+            LocalDate.parse(date);
+        } catch (Exception ex) {
+            throw bad("날짜 형식이 올바르지 않습니다: " + date);
+        }
+        List<String> books = info.books() == null ? List.of() : info.books().stream().filter(LectureService::notBlank)
+                .map(String::strip).distinct().limit(30).toList();
+        return new Info(info.title().strip(), info.speaker(), date, info.time(), info.venue(), info.host(), info.series(), books, info.memo());
+    }
+
+    private MapSqlParameterSource infoParams(Info in) {
+        return new MapSqlParameterSource("d", LocalDate.parse(in.date())).addValue("tm", opt(in.time(), 32))
+                .addValue("title", cut(in.title(), 255)).addValue("sp", opt(in.speaker(), 255))
+                .addValue("venue", opt(in.venue(), 255)).addValue("host", opt(in.host(), 255)).addValue("series", opt(in.series(), 255))
+                .addValue("books", in.books().isEmpty() ? null : toJson(in.books()))
+                .addValue("memo", notBlank(in.memo()) ? in.memo().strip() : null);
+    }
+
+    private static String opt(String s, int max) {
+        return notBlank(s) ? cut(s.strip(), max) : null;
+    }
+
+    /** 요약 근거로 쓰는 자료 글 상한(파일 하나, 전체). 넘으면 잘라서 넣고 warnings 에 남긴다. */
+    static final int MAX_SOURCE_CHARS_PER_FILE = 120_000;
+    static final int MAX_SOURCE_CHARS_TOTAL = 200_000;
+
+    /**
+     * 직접 기록의 [요약 만들기]: 내 메모 + 텍스트 자료(받아쓰기, PDF 글)를 근거로 요약 초안을 만든다(메모 요약과 같은 형식).
+     * 녹음은 받아쓰기가 끝난 것만 쓴다. 근거가 하나도 없으면 무엇을 해야 하는지 알려 준다.
+     */
+    public Lecture summarizeManual(long id) {
+        Lecture e = byId(id);
+        if (!"manual".equals(e.origin())) throw bad("일기 메모에서 나온 요약은 [다시 만들기]를 써 주세요.");
+        if ("published".equals(e.status())) throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 게시한 강연 요약입니다.");
+        record Src(String name, String kind, String status, String text) {}
+        List<Src> files = jdbc.query("SELECT file_name, kind, text_status, extracted_text FROM lecture_file WHERE entry_id = :id ORDER BY id",
+                new MapSqlParameterSource("id", id), (rs, i) -> new Src(rs.getString("file_name"), rs.getString("kind"),
+                        rs.getString("text_status"), rs.getString("extracted_text")));
+        List<Src> texts = files.stream().filter(f -> "ready".equals(f.status()) && notBlank(f.text())).toList();
+        List<Src> audioWithoutText = files.stream().filter(f -> "audio".equals(f.kind()) && !"ready".equals(f.status())).toList();
+        if (texts.isEmpty() && !notBlank(e.memo())) {
+            if (audioWithoutText.stream().anyMatch(f -> "transcribing".equals(f.status()))) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "녹음을 받아쓰는 중입니다. 끝나면 다시 [요약 만들기]를 눌러 주세요.");
+            }
+            if (!audioWithoutText.isEmpty()) {
+                throw bad(stt.isAvailable() ? "녹음 파일의 [받아쓰기]를 먼저 눌러 주세요."
+                        : "STT 서버가 꺼져 있어 녹음을 받아쓸 수 없습니다. 받아쓰기 파일(.txt/.md)을 올려 주세요.");
+            }
+            throw bad("요약할 근거가 없습니다. 내 메모를 적거나 받아쓰기(.txt/.md)·PDF 자료를 올려 주세요.");
+        }
+
+        List<String> warnings = new ArrayList<>();
+        StringBuilder src = new StringBuilder();
+        int budget = MAX_SOURCE_CHARS_TOTAL;
+        for (Src f : texts) {
+            String t = f.text().strip();
+            int limit = Math.min(MAX_SOURCE_CHARS_PER_FILE, Math.max(0, budget));
+            if (limit == 0) {
+                warnings.add("자료가 너무 길어 '" + f.name() + "'은(는) 요약에 쓰지 않았습니다.");
+                continue;
+            }
+            if (t.length() > limit) {
+                warnings.add("'" + f.name() + "'이(가) 길어 앞부분 " + limit + "자만 썼습니다.");
+                t = t.substring(0, limit);
+            }
+            budget -= t.length();
+            src.append("\n## 자료: ").append(f.name()).append(" (").append(kindLabel(f.kind())).append(")\n").append(t).append('\n');
+        }
+        for (Src f : audioWithoutText) warnings.add("녹음 '" + f.name() + "'은(는) 받아쓰지 않아 요약에 쓰지 않았습니다.");
+
+        StringBuilder user = new StringBuilder();
+        user.append("# 강연 정보 (관리자가 직접 적음 — 그대로 믿는다)\n").append(infoLines(e));
+        user.append("\n# 기존 태그\n");
+        List<String> tags = allTagNames();
+        user.append(tags.isEmpty() ? "(아직 없음)" : String.join(", ", tags)).append('\n');
+        user.append("\n# 내 메모 (관리자가 직접 쓴 글 — '내 생각' 절의 근거)\n").append(notBlank(e.memo()) ? e.memo().strip() : "(없음)").append('\n');
+        user.append("\n# 강연 자료 (받아쓰기·강연 자료 글 — 연사가 한 말의 근거)").append(src.isEmpty() ? "\n(없음)\n" : src);
+
+        String raw = claude.chat(MANUAL_PROMPT, List.of(new ClaudeChatClient.Message("user", user.toString())), 4000)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답을 받지 못했습니다."));
+        JsonNode out = DiaryService.parseJson(objectMapper, raw);
+        String content = out.path("content").asText("").strip();
+        if (content.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 가 강연 요약을 쓰지 못했습니다.");
+        for (JsonNode w : out.path("warnings")) warnings.add(w.asText());
+        List<String> newTags = new ArrayList<>(e.tags());   // 직접 붙인 태그는 남기고 AI 제안을 더한다
+        int added = 0;
+        for (JsonNode t : out.path("tags")) if (added++ < AI_MAX_TAGS) newTags.add(t.asText());
+
+        // 강연명·연사는 사람이 적은 값을 그대로 둔다. 연사 칸이 비었을 때만 AI 가 찾은 연사를 넣는다.
+        String speaker = notBlank(e.speaker()) ? e.speaker() : text(out, "speaker");
+        jdbc.update("""
+                UPDATE lecture_entry SET content = :c, speaker = :sp, warnings = :w, edited = 0, generated_at = :t WHERE id = :id
+                """, new MapSqlParameterSource("c", content).addValue("sp", opt(speaker, 255))
+                .addValue("w", toJson(warnings)).addValue("t", now()).addValue("id", id));
+        replaceTags(id, newTags);
+        return byId(id);
+    }
+
+    private static String infoLines(Lecture e) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("- 강연명: ").append(e.title()).append('\n');
+        if (notBlank(e.speaker())) sb.append("- 연사: ").append(e.speaker()).append('\n');
+        sb.append("- 일시: ").append(e.lectureDate()).append(notBlank(e.lectureTime()) ? " " + e.lectureTime() : "").append('\n');
+        if (notBlank(e.venue())) sb.append("- 장소: ").append(e.venue()).append('\n');
+        if (notBlank(e.host())) sb.append("- 주최: ").append(e.host()).append('\n');
+        if (notBlank(e.series())) sb.append("- 시리즈·회차: ").append(e.series()).append('\n');
+        if (e.books() != null && !e.books().isEmpty()) sb.append("- 관련 책: ").append(String.join(", ", e.books())).append('\n');
+        return sb.toString();
+    }
+
+    private static String kindLabel(String kind) {
+        return switch (kind) {
+            case "audio" -> "녹음 받아쓰기";
+            case "pdf" -> "강연 자료 PDF 글";
+            default -> "글 파일";
+        };
     }
 
     /** 원본 메모를 지웠을 때. 손대지 않은 초안은 같이 치우고, 고쳤거나 게시한 요약은 남긴다(메모 연결만 끊음). */
@@ -408,6 +581,7 @@ public class LectureService {
     public Lecture publish(long id, Long subId, String visibility, List<DiaryService.SubMenu> humanSubs) {
         Lecture e = byId(id);
         if ("published".equals(e.status())) throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 게시했습니다.");
+        if (!notBlank(e.content())) throw bad("요약이 없습니다. [요약 만들기]를 누르거나 [수정]으로 내용을 적어 주세요.");
         long sub = subId != null ? subId : lectureSubId(humanSubs);
         if (subId != null && humanSubs.stream().noneMatch(s -> s.id() == sub)) throw bad("휴먼 페르소나의 소메뉴가 아닙니다.");
         String vis = "private".equals(visibility) ? "private" : "public";
@@ -424,10 +598,22 @@ public class LectureService {
         return byId(id);
     }
 
-    /** 게시 본문: 맨 위에 연사·날짜 한 줄을 붙인다. */
+    /** 게시 본문: 맨 위에 강연 정보(연사·일시·장소·주최·시리즈·관련 책)를 목록으로 붙인다. 빈 칸은 뺀다. */
     static String postMarkdown(Lecture e) {
-        String head = (e.speaker() == null || e.speaker().isBlank() ? "" : "연사: " + e.speaker() + " · ") + e.lectureDate();
-        return "*" + head + "*\n\n" + e.content();
+        List<String> rows = new ArrayList<>();
+        if (notBlank(e.speaker())) rows.add("- **연사**: " + e.speaker().strip());
+        rows.add("- **일시**: " + e.lectureDate() + (notBlank(e.lectureTime()) ? " " + e.lectureTime().strip() : ""));
+        if (notBlank(e.venue())) rows.add("- **장소**: " + e.venue().strip());
+        if (notBlank(e.host())) rows.add("- **주최**: " + e.host().strip());
+        if (notBlank(e.series())) rows.add("- **시리즈**: " + e.series().strip());
+        List<String> books = e.books() == null ? List.of() : e.books().stream().filter(LectureService::notBlank)
+                .map(s -> s.strip().startsWith("『") ? s.strip() : "『" + s.strip() + "』").toList();
+        if (!books.isEmpty()) rows.add("- **관련 책**: " + String.join(", ", books));
+        return String.join("\n", rows) + "\n\n" + e.content();
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
     }
 
     private long lectureSubId(List<DiaryService.SubMenu> humanSubs) {
@@ -506,6 +692,27 @@ public class LectureService {
             강연 필기가 없으면 {"lectures": []}
             """;
 
+    /** 직접 기록한 강연 요약: 강연 정보 + 내 메모 + 자료(받아쓰기·PDF 글). 출력 형식은 메모 요약과 같다. */
+    private static final String MANUAL_PROMPT = """
+            너는 강연 기록을 정리하는 도우미다. 입력은 관리자가 직접 적은 강연 정보, 내 메모, 강연 자료(녹음 받아쓰기, 강연 자료 PDF 의 글)다.
+            - 근거에 있는 내용만 쓴다. 연사 경력, 강연 배경, 근거에 없는 주장·예시는 지어내지 않는다. 모르면 그 절을 뺀다.
+            - 받아쓰기는 음성 인식 결과라 오타·잘못 들은 말이 있을 수 있다. 문맥으로 분명한 것만 바로잡고, 애매한 고유명사는 warnings 에 적는다.
+            - 강연 정보(강연명·연사·일시·장소 등)는 본문에 다시 쓰지 않는다(게시할 때 따로 붙는다).
+            - content 는 아래 절로 쓰고, 근거에 내용이 없는 절은 통째로 뺀다.
+              ## 핵심 주장 — 2~4문장
+              ## 구조 — 강연 흐름을 번호 목록 목차로
+              ## 인상 깊은 문장 — 받아쓰기·자료·메모에 있는 문장을 그대로 인용(> 인용). 받아쓰기에서 고르면 말투만 다듬는다
+              ## 내 생각 — "내 메모"에 내 생각·느낌이 있을 때만. 받아쓰기·자료로 내 생각을 지어내지 않는다
+            - speaker: 강연 정보에 연사가 없을 때만 근거에서 찾은 연사 이름, 없으면 null.
+            - tags: 3~7개. 주제·분야·키워드(예: AI, 인간다움, 자기결정이론). 연사 이름과 강연 제목은 태그로 쓰지 않는다.
+              "기존 태그"에 뜻이 같은 태그가 있으면 표기를 그대로 재사용한다. 짧은 명사형, '#' 없이.
+            - warnings: 게시 전 확인할 점(실명 언급, 받아쓰기에서 불확실한 고유명사 등). 없으면 빈 배열.
+
+            # 출력 형식
+            JSON 하나만 출력한다. 코드 블록 표시나 설명은 붙이지 않는다. 문자열 안의 줄바꿈은 \\n 으로 이스케이프한다.
+            {"speaker": "..." 또는 null, "content": "마크다운(제목 줄 없이)", "tags": ["..."], "warnings": ["..."]}
+            """;
+
     /** 2단계: 강연 하나 요약. */
     private static final String SUMMARY_PROMPT = """
                 너는 강연 필기를 정리하는 도우미다. 입력은 하루 일기 메모 하나와 그 안에서 요약할 "대상 강연"이다.
@@ -561,9 +768,19 @@ public class LectureService {
                 WHERE et.entry_id IN (:ids) ORDER BY t.name
                 """, new MapSqlParameterSource("ids", rows.stream().map(Lecture::id).toList()),
                 rs -> { tags.computeIfAbsent(rs.getLong("entry_id"), k -> new ArrayList<>()).add(rs.getString("name")); });
-        return rows.stream().map(l -> new Lecture(l.id(), l.sourceNoteId(), l.noteFileName(), l.lectureDate(), l.title(),
-                l.speaker(), l.content(), tags.getOrDefault(l.id(), List.of()), l.warnings(), l.status(), l.edited(),
-                l.postId(), l.generatedAt(), l.publishedAt())).toList();
+        Map<Long, List<LectureFile>> files = new HashMap<>();
+        jdbc.query("""
+                SELECT id, entry_id, kind, file_name, size_bytes, text_status, text_note, CHAR_LENGTH(extracted_text) AS chars, created_at
+                FROM lecture_file WHERE entry_id IN (:ids) ORDER BY id
+                """, new MapSqlParameterSource("ids", rows.stream().map(Lecture::id).toList()),
+                rs -> { files.computeIfAbsent(rs.getLong("entry_id"), k -> new ArrayList<>()).add(mapFile(rs)); });
+        return rows.stream().map(l -> l.with(tags.getOrDefault(l.id(), List.of()), files.getOrDefault(l.id(), List.of()))).toList();
+    }
+
+    static LectureFile mapFile(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new LectureFile(rs.getLong("id"), rs.getString("kind"), rs.getString("file_name"), rs.getLong("size_bytes"),
+                rs.getString("text_status"), rs.getString("text_note"), rs.getInt("chars"),
+                rs.getTimestamp("created_at").toLocalDateTime().toString());
     }
 
     private List<Lecture> byNote(long noteId) {
@@ -585,10 +802,22 @@ public class LectureService {
         long postId = rs.getLong("post_id");
         Long post = rs.wasNull() ? null : postId;
         java.sql.Timestamp pub = rs.getTimestamp("published_at");
-        return new Lecture(rs.getLong("id"), note, rs.getString("note_file_name"), rs.getDate("lecture_date").toLocalDate().toString(),
-                rs.getString("title"), rs.getString("speaker"), rs.getString("content"), List.of(), warnings,
+        List<String> books = List.of();
+        String b = rs.getString("books");
+        if (b != null && !b.isBlank()) {
+            try {
+                books = objectMapper.readValue(b, new TypeReference<>() {});
+            } catch (Exception ignored) {
+                books = List.of(b);
+            }
+        }
+        return new Lecture(rs.getLong("id"), note, rs.getString("note_file_name"), rs.getString("origin"),
+                rs.getDate("lecture_date").toLocalDate().toString(), rs.getString("lecture_time"),
+                rs.getString("title"), rs.getString("speaker"), rs.getString("venue"), rs.getString("host"), rs.getString("series"),
+                books, rs.getString("memo"), rs.getString("content"), List.of(), warnings,
                 rs.getString("status"), rs.getBoolean("edited"), post,
-                rs.getTimestamp("generated_at").toLocalDateTime().toString(), pub == null ? null : pub.toLocalDateTime().toString());
+                rs.getTimestamp("generated_at").toLocalDateTime().toString(), pub == null ? null : pub.toLocalDateTime().toString(),
+                List.of());
     }
 
     private String scanHash(long noteId) {

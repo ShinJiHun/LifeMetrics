@@ -30,13 +30,14 @@ class DiaryControllerTest {
 
     private final DiaryService service = mock(DiaryService.class);
     private final LectureService lectures = mock(LectureService.class);
+    private final LectureFileService lectureFiles = mock(LectureFileService.class);
     private final AdminWriteFilter adminWriteFilter = mock(AdminWriteFilter.class);
     private DiaryController controller;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        controller = new DiaryController(service, lectures, adminWriteFilter);
+        controller = new DiaryController(service, lectures, lectureFiles, adminWriteFilter);
         ReflectionTestUtils.setField(controller, "appToken", "secret");
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
         when(service.day(DAY)).thenReturn(new DiaryService.Day(DAY.toString(), List.of(), null, null, Map.of(), List.of()));

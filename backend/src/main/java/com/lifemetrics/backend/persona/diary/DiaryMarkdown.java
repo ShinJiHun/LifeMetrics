@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 /**
  * 일기 초안(마크다운)을 휴먼 블로그 본문(HTML)으로 바꾼다. 블로그 에디터(tiptap)가 읽는 태그만 쓴다.
- * 지원: ## / ### 제목, 문단, - 목록, 1. 목록, **굵게**, *기울임*, [링크](url). 그 밖의 문법은 글자 그대로 둔다.
+ * 지원: ## / ### 제목, 문단, - 목록, 1. 목록, > 인용(줄마다), **굵게**, *기울임*, [링크](url). 그 밖의 문법은 글자 그대로 둔다.
  */
 final class DiaryMarkdown {
 
@@ -29,7 +29,10 @@ final class DiaryMarkdown {
             if (list != null && !list.equals(kind)) { out.append("</").append(list).append('>'); list = null; }
 
             if (line.isEmpty()) continue;
-            if (line.startsWith("### ")) out.append("<h3>").append(inline(line.substring(4))).append("</h3>");
+            if (line.startsWith(">")) {
+                flush(out, para);
+                out.append("<blockquote><p>").append(inline(line.replaceFirst("^>\\s?", ""))).append("</p></blockquote>");
+            } else if (line.startsWith("### ")) out.append("<h3>").append(inline(line.substring(4))).append("</h3>");
             else if (line.startsWith("## ") || line.startsWith("# ")) out.append("<h2>").append(inline(line.replaceFirst("^#+\\s+", ""))).append("</h2>");
             else if (item != null) {
                 if (list == null) { out.append('<').append(kind).append('>'); list = kind; }

@@ -55,6 +55,7 @@ run_container() {   # $1 = 이미지 태그
         -v /mnt/200gb/NAS/health/exercise-gifs:/mnt/200gb/NAS/health/exercise-gifs   # 운동 GIF (/api/exercise/gif/** 가 여기서 읽음, 업로드도 여기로)
         -v /mnt/200gb/NAS/persona/diary:/mnt/200gb/NAS/persona/diary   # 휴먼 일기 메모 폴더 (inbox/YYYY-MM-DD/*.md — 서버 Claude Code 저장 + 화면 업로드 원본 보관)
         -e DIARY_INBOX_OWNER=1003:1006   # 컨테이너(root)가 inbox 에 만든 파일·폴더를 호스트 jihoon(uid 1003, gid 1006) 소유로 돌린다
+        -v /mnt/200gb/NAS/persona/lectures:/mnt/200gb/NAS/persona/lectures   # 강연 자료 (예전 자료 raw/·transcripts/ 에서 복사해 가져오기 + 직접 기록 자료 보관 entries/)
         --restart unless-stopped
     )
 
@@ -73,6 +74,7 @@ run_container() {   # $1 = 이미지 태그
             -e SLACK_WEBHOOK_URL=                    # 슬랙 알림 끔
             -e DEV_REQUESTS_ENABLED=true             # 개발 요청함(Claude 대화)은 개발 서버에서만
             -e DIARY_INBOX_DIR=/mnt/200gb/NAS/persona/diary/inbox-dev   # 일기 메모 업로드 원본: dev 에서 올린 시험 메모가 운영 inbox 로 들어가지 않게
+            -e LECTURE_FILES_DIR=/mnt/200gb/NAS/persona/lectures/entries-dev   # 강연 자료: dev 에서 올린 파일은 운영(entries/)과 따로
             -e "APP_BASE_URL=http://$SERVER_IP:$PORT"
             -e JAVA_OPTS=-Xmx512m
             --memory 900m
