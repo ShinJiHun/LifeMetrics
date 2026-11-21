@@ -32,6 +32,24 @@ class LectureTagTest {
     }
 
     @Test
+    void 같은_메모의_요약을_연사_제목_순서로_짝짓는다() {
+        var existing = List.of(new LectureService.Key("김진명", "내면의 힘"), new LectureService.Key("박태웅", "AI"),
+                new LectureService.Key(null, "확장된 표현형"));
+        var drafts = List.of(new LectureService.Key("박태웅", "AI 는 다른 지능"), new LectureService.Key("김 진명", null),
+                new LectureService.Key("최재천", "확장된 표현형"), new LectureService.Key("김대식", "직업의 압축"));
+        var m = LectureService.match(existing, drafts);
+        assertThat(m).containsEntry(0, 1).containsEntry(1, 0).containsEntry(2, 2).doesNotContainKey(3);
+    }
+
+    @Test
+    void 연사가_다르면_순서만으로_덮지_않는다() {
+        var m = LectureService.match(List.of(new LectureService.Key("박태웅", "A")), List.of(new LectureService.Key("김대식", "B")));
+        assertThat(m).isEmpty();
+        var loose = LectureService.match(List.of(new LectureService.Key(null, "A")), List.of(new LectureService.Key("김대식", "B")));
+        assertThat(loose).containsEntry(0, 0);
+    }
+
+    @Test
     void inbox_소유자_설정() {
         assertThat(DiaryService.parseOwner("1003:1006")).containsExactly(1003, 1006);
         assertThat(DiaryService.parseOwner("")).isNull();

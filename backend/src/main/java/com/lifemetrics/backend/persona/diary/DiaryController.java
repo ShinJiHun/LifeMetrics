@@ -104,11 +104,18 @@ public class DiaryController {
         return service.generateLectures(LocalDate.parse(date));
     }
 
-    /** 메모 하나를 강연 필기로 보고 요약을 (다시) 만든다. */
+    /** 메모 하나를 강연 필기로 보고 강연을 (다시) 나눠 요약한다. 고친·게시한 요약은 그대로. 그 메모의 요약 목록. */
     @PostMapping("/notes/{id}/lecture")
-    public LectureService.Lecture summarizeNote(@PathVariable long id, HttpServletRequest req) {
+    public List<LectureService.Lecture> summarizeNote(@PathVariable long id, HttpServletRequest req) {
         requireAdmin(req);
         return lectures.summarizeNote(id);
+    }
+
+    /** 요약 하나만 원본 메모로 다시 만든다. */
+    @PostMapping("/lectures/{id}/regenerate")
+    public LectureService.Lecture regenerateLecture(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.regenerate(id);
     }
 
     @GetMapping("/lectures")

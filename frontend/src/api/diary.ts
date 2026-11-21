@@ -34,7 +34,7 @@ export interface DiaryDay {
     lectures: Lecture[];
 }
 
-/** 강연 요약 (lecture_entry). 원본 메모 하나와 1:1, 메모를 지웠으면 sourceNoteId 는 null. */
+/** 강연 요약 (lecture_entry). 메모 하나에서 여러 개가 나올 수 있다. 메모를 지웠으면 sourceNoteId 는 null. */
 export interface Lecture {
     id: number;
     sourceNoteId: number | null;
@@ -73,8 +73,11 @@ export interface LectureFilter {
 /** 메모마다 AI 를 부를 수 있어 오래 걸린다. */
 export const generateLectures = (date: string) =>
     api.post<LectureScanResult>(`/diary/${date}/lectures/generate`, null, { timeout: 300_000 }).then((r) => r.data);
+/** 메모 하나에 강연이 여럿이면 강연마다 요약을 만든다(같은 메모에서 나온 요약 목록을 돌려줌). */
 export const summarizeNoteAsLecture = (noteId: number) =>
-    api.post<Lecture>(`/diary/notes/${noteId}/lecture`, null, { timeout: 180_000 }).then((r) => r.data);
+    api.post<Lecture[]>(`/diary/notes/${noteId}/lecture`, null, { timeout: 300_000 }).then((r) => r.data);
+export const regenerateLecture = (id: number) =>
+    api.post<Lecture>(`/diary/lectures/${id}/regenerate`, null, { timeout: 180_000 }).then((r) => r.data);
 export const fetchLectures = (f: LectureFilter) => {
     const params = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
     return api.get<Lecture[]>("/diary/lectures", { params }).then((r) => r.data);

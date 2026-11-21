@@ -6,8 +6,8 @@ import remarkGfm from "remark-gfm";
 import {
     discardLecture,
     publishLecture,
+    regenerateLecture,
     setLectureTags,
-    summarizeNoteAsLecture,
     updateLecture,
     type DiarySubMenu,
     type Lecture,
@@ -66,9 +66,9 @@ export default function LectureCard({
         if (lecture.sourceNoteId == null) return;
         const msg = lecture.edited
             ? "직접 고친 강연 요약입니다. 다시 만들면 고친 내용과 태그가 사라집니다. 계속할까요?"
-            : "원본 메모로 강연 요약을 다시 만들까요?";
+            : "원본 메모로 이 강연 요약을 다시 만들까요?";
         if (!window.confirm(msg)) return;
-        run("lecture", () => summarizeNoteAsLecture(lecture.sourceNoteId!));
+        run("lecture", () => regenerateLecture(lecture.id));
     };
 
     const publish = () => {

@@ -47,7 +47,7 @@ const APP_PROJECT_GUIDE = `이 프로젝트는 하루 일기 메모를 모으는
 - 파일 이름: app-YYYY-MM-DD-주제.md (날짜는 오늘)
 - 내용: 일어난 일을 시간 순으로 개조식. 내 말투와 느낌을 살리고, 대화에 없는 내용은 지어내지 않는다.
 - 책 내용이 있으면 "## 책" 아래에 제목, 읽은 범위, 인상 깊은 문장, 내 생각을 따로 정리.
-- 강연을 듣고 필기한 내용은 일기 메모와 섞지 말고 강연마다 파일을 따로 만든다(app-YYYY-MM-DD-강연-주제.md): 제목, 연사, 필기, 내 생각.
+- 강연을 듣고 필기한 내용은 일기 메모와 섞지 말고 따로 파일을 만든다(app-YYYY-MM-DD-강연-주제.md): 강연마다 연사 이름을 앞에 두고 제목, 필기, 내 생각.
 - 일기 문장으로 다듬지 않는다(일기는 사이트가 문체 가이드대로 쓴다).`;
 
 export default function DiaryPage() {
@@ -132,7 +132,11 @@ export default function DiaryPage() {
         setLectureMsg(parts.join(" · "));
     };
 
-    const lectureNoteIds = useMemo(() => new Set(day?.lectures.map((l) => l.sourceNoteId) ?? []), [day]);
+    const lecturesPerNote = useMemo(() => {
+        const m = new Map<number, number>();
+        for (const l of day?.lectures ?? []) if (l.sourceNoteId != null) m.set(l.sourceNoteId, (m.get(l.sourceNoteId) ?? 0) + 1);
+        return m;
+    }, [day]);
 
     const recordSummary = useMemo(() => summarizeRecords(day?.records), [day]);
 
@@ -184,7 +188,7 @@ export default function DiaryPage() {
                             <NoteCard
                                 key={n.id}
                                 note={n}
-                                isLecture={lectureNoteIds.has(n.id)}
+                                lectureCount={lecturesPerNote.get(n.id) ?? 0}
                                 busy={!!busy}
                                 onDelete={() => run("note", () => deleteDiaryNote(n.id))}
                                 onLecture={() => run("lecture", () => summarizeNoteAsLecture(n.id))}
@@ -222,7 +226,7 @@ export default function DiaryPage() {
                         {busy === "lecture" && <div className="diary-muted">강연 요약 쓰는 중… (1분 정도)</div>}
                         {day.lectures.length === 0 && (
                             <p className="diary-muted">
-                                메모에 강연 필기가 있으면 일기와 따로 강연 요약을 만듭니다(메모 하나 = 강연 하나). [지금 만들기]·[강연 찾기]가 확인하고, 못 찾으면 메모의 [🎤 강연으로 요약]을 누르세요.
+                                메모에 강연 필기가 있으면 일기와 따로 강연 요약을 만듭니다(한 메모에 강연이 여럿이면 연사별로 나눔). [지금 만들기]·[강연 찾기]가 확인하고, 못 찾으면 메모의 [🎤 강연으로 요약]을 누르세요.
                             </p>
                         )}
                         {day.lectures.map((l) => (
@@ -265,7 +269,7 @@ function Guide() {
                     <b>[기록 불러오기]</b>: 운동 시트(PT·유산소)를 바로 가져온 뒤 그날 운동·식단·걸음 수·업무 일지를 메모 칸에 틀로 채웁니다. 느낌을 덧붙여 [메모 추가] → [지금 만들기].
                 </li>
                 <li>
-                    <b>강연</b>: 강연 필기는 강연마다 메모 하나(.md)로 올리세요. 초안을 만들 때 강연 필기를 찾아 일기와 따로 <b>강연 요약</b>(제목·연사·핵심 주장·구조·인상 깊은 문장·내 생각·태그)을 만들고, 일기에는 한두 줄만 씁니다. 게시하면 휴먼 '강연' 소메뉴로 갑니다. 모아 보기는 [🎤 강연 목록].
+                    <b>강연</b>: 강연 필기 .md 를 올리세요. 한 파일에 여러 연사의 필기가 있어도(카톡 '나에게 보내기' 등) 연사별로 나눕니다. 초안을 만들 때 강연 필기를 찾아 일기와 따로 <b>강연 요약</b>(제목·연사·핵심 주장·구조·인상 깊은 문장·내 생각·태그)을 만들고, 일기에는 한두 줄만 씁니다. 게시하면 휴먼 '강연' 소메뉴로 갑니다. 모아 보기는 [🎤 강연 목록].
                 </li>
                 <li>
                     <b>새벽 1시</b>: 운동 시트 자동 동기화 → <b>1시 10분</b>: 전날 메모 + 운동·식단·걸음 수 기록 + 업무 일지(금일 실적·이슈)로 전날 일기 초안이 만들어집니다. 아침에 확인·수정하고 [게시]하세요. 게시 전에는 블로그에 나가지 않습니다.
@@ -290,13 +294,13 @@ function Guide() {
 
 function NoteCard({
     note,
-    isLecture,
+    lectureCount,
     busy,
     onDelete,
     onLecture,
 }: {
     note: DiaryDay["notes"][number];
-    isLecture: boolean;
+    lectureCount: number;
     busy: boolean;
     onDelete: () => void;
     onLecture: () => void;
@@ -306,19 +310,23 @@ function NoteCard({
         <div className="diary-note">
             <div className="diary-note-head">
                 <span className={`src src-${note.source}`}>{SOURCE_LABEL[note.source]}</span>
-                {isLecture && <span className="src lecture-badge">🎤 강연</span>}
+                {lectureCount > 0 && <span className="src lecture-badge">🎤 강연 {lectureCount}</span>}
                 {note.fileName && <span className="fname">{note.fileName}</span>}
                 <span className="time">{note.createdAt.slice(11, 16)}</span>
-                {!isLecture && (
-                    <button
-                        className="diary-link"
-                        disabled={busy}
-                        title="이 메모를 강연 필기로 보고 강연 요약을 만듭니다"
-                        onClick={() => window.confirm("이 메모로 강연 요약을 만들까요?") && onLecture()}
-                    >
-                        🎤 강연으로 요약
-                    </button>
-                )}
+                <button
+                    className="diary-link"
+                    disabled={busy}
+                    title="이 메모를 강연 필기로 보고 연사별로 나눠 강연 요약을 만듭니다. 고쳤거나 게시한 요약은 그대로 둡니다."
+                    onClick={() =>
+                        window.confirm(
+                            lectureCount > 0
+                                ? "이 메모의 강연을 다시 나눠 요약할까요? (고친 요약·게시한 요약은 그대로, 나머지는 새로 씁니다)"
+                                : "이 메모로 강연 요약을 만들까요? (강연이 여럿이면 연사별로 나눕니다)",
+                        ) && onLecture()
+                    }
+                >
+                    {lectureCount > 0 ? "🎤 강연 다시 찾기" : "🎤 강연으로 요약"}
+                </button>
                 <button className="diary-link" onClick={() => setOpen((v) => !v)}>
                     {open ? "접기" : "펼치기"}
                 </button>
