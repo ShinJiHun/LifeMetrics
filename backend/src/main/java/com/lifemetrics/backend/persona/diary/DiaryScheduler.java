@@ -26,6 +26,13 @@ public class DiaryScheduler {
     @Scheduled(cron = "0 10 1 * * *", zone = "Asia/Seoul")
     public void dawnDraft() {
         LocalDate yesterday = LocalDate.now(DailyAnalysisService.KST).minusDays(1);
+        // 강연 요약을 먼저 만들어야 일기가 강연을 한두 줄로만 쓴다. 실패해도 일기는 쓴다.
+        try {
+            var r = service.generateLectures(yesterday);
+            if (r.created() > 0 || !r.errors().isEmpty()) log.info("강연 요약 {}: {}건, 실패 {}", yesterday, r.created(), r.errors());
+        } catch (Exception e) {
+            log.warn("강연 요약 배치 실패 {}: {}", yesterday, e.getMessage());
+        }
         try {
             service.generate(yesterday, false).ifPresentOrElse(
                     d -> log.info("일기 초안 생성 {}", yesterday),

@@ -357,3 +357,88 @@ a.diary-link {
     font-size: 13px;
     color: #1b2236;
 }
+
+/* 강연 요약 */
+.lecture-head {
+    margin-top: 22px;
+}
+.diary-entry.lecture {
+    border-left: 4px solid #a78bfa;
+}
+.diary-entry.lecture.published {
+    border-left-color: #22c55e;
+}
+.lecture-speaker {
+    font-size: 14px;
+    color: #4b5563;
+    margin: -4px 0 8px;
+}
+.diary-note-head .lecture-badge {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+.lecture-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0 4px;
+}
+.lecture-tag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: #f3f0ff;
+    border: 1px solid #ddd6fe;
+    font-size: 13px;
+}
+.lecture-tag.on {
+    background: #5b21b6;
+    border-color: #5b21b6;
+}
+.lecture-tag.on .tag-name {
+    color: #fff;
+}
+.diary-page .lecture-tag button,
+.lecture-tag .tag-name {
+    border: none;
+    background: none;
+    padding: 2px 4px 2px 10px;
+    font-size: 13px;
+    color: #5b21b6;
+}
+.diary-page .lecture-tag button.tag-x {
+    padding: 2px 8px 2px 2px;
+    color: #9ca3af;
+}
+.lecture-tag-cloud .lecture-tag button.tag-name {
+    padding: 2px 10px;
+}
+.lecture-tag-input {
+    font: inherit;
+    font-size: 13px;
+    padding: 3px 8px;
+    border: 1px dashed #c4b5fd;
+    border-radius: 999px;
+    min-width: 200px;
+}
+.lecture-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+.lecture-filter label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.lecture-filter input {
+    font: inherit;
+    font-size: 14px;
+    padding: 5px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+}

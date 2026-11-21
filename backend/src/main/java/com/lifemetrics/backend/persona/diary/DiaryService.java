@@ -56,24 +56,59 @@ public class DiaryService {
     public record Note(long id, String noteDate, String source, String fileName, String content, String createdAt) {}
     public record Entry(long id, String entryDate, String kind, String title, String content, List<String> warnings,
                         String status, boolean edited, Long postId, String generatedAt, String publishedAt) {}
-    public record Day(String date, List<Note> notes, Entry diary, Entry book, Map<String, Object> records) {}
+    public record Day(String date, List<Note> notes, Entry diary, Entry book, Map<String, Object> records,
+                      List<LectureService.Lecture> lectures) {}
     public record SubMenu(long id, String category, String name) {}
-    public record SubMenus(List<SubMenu> subs, long diaryDefault) {}
+    /** lectureDefault: 강연 요약을 올릴 '강연' 소메뉴. 아직 없으면 null(첫 게시 때 '일상' 아래 만든다). */
+    public record SubMenus(List<SubMenu> subs, long diaryDefault, Long lectureDefault) {}
 
     private final NamedParameterJdbcTemplate jdbc;
     private final ClaudeChatClient claude;
     private final DailyAnalysisService dailyAnalysis;
     private final ObjectMapper objectMapper;
     private final Path inboxDir;
+    private final LectureService lectures;
+    /** NAS inbox 에 만든 파일·폴더의 소유자(uid:gid). 컨테이너가 root 로 돌아 root 소유로 생기는 것을 호스트 계정으로 돌린다. 비우면 그대로. */
+    private final int[] inboxOwner;
 
     public DiaryService(@Qualifier("journalDataSource") DataSource dataSource, ClaudeChatClient claude,
-                        DailyAnalysisService dailyAnalysis, ObjectMapper objectMapper,
-                        @Value("${diary.inbox-dir:${DIARY_INBOX_DIR:/mnt/200gb/NAS/persona/diary/inbox}}") String inboxDir) {
+                        DailyAnalysisService dailyAnalysis, ObjectMapper objectMapper, LectureService lectures,
+                        @Value("${diary.inbox-dir:${DIARY_INBOX_DIR:/mnt/200gb/NAS/persona/diary/inbox}}") String inboxDir,
+                        @Value("${diary.inbox-owner:${DIARY_INBOX_OWNER:}}") String inboxOwner) {
         this.jdbc = new NamedParameterJdbcTemplate(dataSource);
         this.claude = claude;
         this.dailyAnalysis = dailyAnalysis;
         this.objectMapper = objectMapper;
+        this.lectures = lectures;
         this.inboxDir = Path.of(inboxDir);
+        this.inboxOwner = parseOwner(inboxOwner);
+    }
+
+    /** "1003:1006" → {1003, 1006}. 비었거나 형식이 틀리면 null(소유자를 바꾸지 않음). */
+    static int[] parseOwner(String s) {
+        if (s == null || !s.strip().matches("\\d+:\\d+")) return null;
+        String[] p = s.strip().split(":");
+        return new int[]{Integer.parseInt(p[0]), Integer.parseInt(p[1])};
+    }
+
+    /** 새로 만든 파일·폴더를 호스트 계정 소유로. 실패해도(권한 없음 등) 로그만 남긴다. */
+    private void chown(Path p) {
+        if (inboxOwner == null) return;
+        try {
+            Files.setAttribute(p, "unix:uid", inboxOwner[0], java.nio.file.LinkOption.NOFOLLOW_LINKS);
+            Files.setAttribute(p, "unix:gid", inboxOwner[1], java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        } catch (Exception e) {
+            log.debug("일기 inbox 소유자 변경 실패 {}: {}", p, e.getMessage());
+        }
+    }
+
+    /** dir 을 만들고, 이번에 새로 생긴 폴더(inboxDir 포함, 그 위는 제외)는 소유자를 바꾼다. */
+    private Path createInboxDirs(Path dir) throws IOException {
+        List<Path> created = new ArrayList<>();
+        for (Path d = dir; d != null && d.startsWith(inboxDir) && !Files.exists(d); d = d.getParent()) created.add(d);
+        Files.createDirectories(dir);
+        for (Path d : created) chown(d);
+        return dir;
     }
 
     // ── 하루 화면 ────────────────────────────────────
@@ -81,7 +116,7 @@ public class DiaryService {
     public Day day(LocalDate date) {
         importFolder(date);
         return new Day(date.toString(), notes(date), entry(date, "diary").orElse(null), entry(date, "book").orElse(null),
-                records(date));
+                records(date), lectures.forDate(date));
     }
 
     /** 최근 날짜별 메모 수·초안 상태 (달력 대신 쓰는 목록). */
@@ -136,6 +171,7 @@ public class DiaryService {
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT note_date, file_name FROM diary_note WHERE id = :id",
                 new MapSqlParameterSource("id", id));
         jdbc.update("DELETE FROM diary_note WHERE id = :id", new MapSqlParameterSource("id", id));
+        lectures.onNoteDeleted(id);
         if (rows.isEmpty() || rows.get(0).get("file_name") == null) return;
         // 폴더에 원본이 남아 있으면 다음 화면 열기 때 다시 가져온다 → deleted/ 로 옮겨 보관만 한다(지우지 않음).
         LocalDate date = ((java.sql.Date) rows.get(0).get("note_date")).toLocalDate();
@@ -144,7 +180,7 @@ public class DiaryService {
         Path src = dir.resolve(name).normalize();
         if (!src.startsWith(dir) || !Files.isRegularFile(src)) return;
         try {
-            Path trash = Files.createDirectories(dir.resolve(DELETED_DIR));
+            Path trash = createInboxDirs(dir.resolve(DELETED_DIR));
             Files.move(src, trash.resolve(System.currentTimeMillis() + "-" + name));
         } catch (IOException e) {
             log.warn("일기 메모 원본 옮기기 실패 {}: {}", src, e.getMessage());
@@ -175,10 +211,11 @@ public class DiaryService {
     /** 업로드 원본을 NAS inbox/날짜/ 에 보관. 실패해도 메모(DB)는 이미 저장됐으므로 로그만 남긴다. */
     private void saveToInbox(LocalDate date, String name, String content) {
         try {
-            Path dir = Files.createDirectories(inboxDir.resolve(date.toString()));
+            Path dir = createInboxDirs(inboxDir.resolve(date.toString()));
             Path file = dir.resolve(name).normalize();
             if (!file.startsWith(dir) || Files.exists(file)) return;
             Files.writeString(file, content, StandardCharsets.UTF_8);
+            chown(file);
         } catch (IOException e) {
             log.warn("일기 메모 원본 NAS 보관 실패 {}/{}: {}", date, name, e.getMessage());
         }
@@ -233,15 +270,16 @@ public class DiaryService {
             if (force) throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 게시한 일기입니다.");
             return Optional.empty();
         }
-        String hash = hash(notes, records);
+        Set<Long> lectureNotes = lectures.lectureNoteIds(date);
+        String hash = hash(notes, records, lectureNotes);
         if (!force && current.isPresent() && (current.get().edited() || hash.equals(currentHash(date)))) {
             return Optional.empty();
         }
 
         // 한국어 일기 + 독서 글이 JSON 문자열로 들어가면 4000 토큰을 넘을 수 있다(첫 시험에서 잘림). 클라이언트 읽기 제한(90초) 안에 끝나도록 8000.
-        String raw = claude.chat(systemPrompt(), List.of(new ClaudeChatClient.Message("user", userPrompt(date, notes, records))), 8000)
+        String raw = claude.chat(systemPrompt(), List.of(new ClaudeChatClient.Message("user", userPrompt(date, notes, records, lectureNotes))), 8000)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답을 받지 못했습니다."));
-        JsonNode out = parseJson(raw);
+        JsonNode out = parseJson(objectMapper, raw);
         List<String> warnings = new ArrayList<>();
         for (JsonNode w : out.path("warnings")) warnings.add(w.asText());
 
@@ -256,6 +294,12 @@ public class DiaryService {
             upsert(date, "book", book.path("title").asText("독서 기록"), book.path("content").asText(), List.of(), hash);
         }
         return Optional.of(day(date));
+    }
+
+    /** 그날 메모에서 강연 필기를 찾아 강연 요약 초안을 만든다(일기보다 먼저 — 일기는 강연을 한두 줄만 쓰도록). */
+    public LectureService.ScanResult generateLectures(LocalDate date) {
+        importFolder(date);
+        return lectures.scanDate(date);
     }
 
     public Entry update(long id, String title, String content) {
@@ -278,7 +322,12 @@ public class DiaryService {
     /** 게시할 수 있는 휴먼 소메뉴와 일기의 기본 소메뉴. */
     public SubMenus subMenus() {
         long diaryDefault = diarySubId();
-        return new SubMenus(humanSubs(), diaryDefault);
+        List<SubMenu> subs = humanSubs();
+        return new SubMenus(subs, diaryDefault, lectures.existingLectureSubId(subs));
+    }
+
+    public LectureService.Lecture publishLecture(long id, Long subId, String visibility) {
+        return lectures.publish(id, subId, visibility, humanSubs());
     }
 
     private List<SubMenu> humanSubs() {
@@ -388,10 +437,12 @@ public class DiaryService {
                 - book 은 그날 메모에 읽은 내용(읽은 범위, 인상 깊은 문장, 생각)이 있을 때만 쓴다. 책 이름이 언급됐다는 것만으로는 쓰지 않고 null.
                 - content 안의 줄바꿈은 \\n 으로 이스케이프한다.
                 - 메모끼리 내용이 겹치면 한 번만 쓴다. 메모 사이에 시간 순서가 보이면 그 순서를 따른다.
+                - 머리에 [강연 필기]가 붙은 메모는 강연 요약을 따로 만든다. 일기에는 어떤 강연을 들었고 무엇이 남았는지 한두 줄만 쓰고,
+                  강연 내용(주장·목차·인용)을 옮기지 않는다. 그 메모로 book 을 쓰지 않는다.
                 """;
     }
 
-    private String userPrompt(LocalDate date, List<Note> notes, Map<String, Object> records) {
+    private String userPrompt(LocalDate date, List<Note> notes, Map<String, Object> records, Set<Long> lectureNotes) {
         StringBuilder sb = new StringBuilder();
         sb.append("날짜: ").append(date).append(" (")
                 .append(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN)).append(")\n\n");
@@ -399,6 +450,7 @@ public class DiaryService {
         for (Note n : notes) {
             sb.append("\n## 메모 ").append(n.id()).append(" · ").append(sourceLabel(n.source()));
             if (n.fileName() != null) sb.append(" · ").append(n.fileName());
+            if (lectureNotes.contains(n.id())) sb.append(" · [강연 필기]");
             sb.append('\n').append(n.content()).append('\n');
         }
         Map<String, Object> app = new LinkedHashMap<>(records);
@@ -464,9 +516,11 @@ public class DiaryService {
                 pub == null ? null : pub.toLocalDateTime().toString());
     }
 
-    private String hash(List<Note> notes, Map<String, Object> records) {
+    private String hash(List<Note> notes, Map<String, Object> records, Set<Long> lectureNotes) {
         StringBuilder sb = new StringBuilder();
-        for (Note n : notes) sb.append(n.id()).append('\u0000').append(n.content()).append('\u0001');
+        for (Note n : notes) {
+            sb.append(n.id()).append('\u0000').append(n.content()).append(lectureNotes.contains(n.id()) ? "L" : "").append('\u0001');
+        }
         sb.append(toJson(records));
         try {
             byte[] d = MessageDigest.getInstance("SHA-256").digest(sb.toString().getBytes(StandardCharsets.UTF_8));
@@ -477,7 +531,7 @@ public class DiaryService {
     }
 
     /** 모델이 문자열 안에 줄바꿈을 그대로 넣는 경우가 있어 제어 문자를 허용해 읽는다. */
-    private JsonNode parseJson(String raw) {
+    static JsonNode parseJson(ObjectMapper objectMapper, String raw) {
         String s = raw.trim();
         int a = s.indexOf('{'), b = s.lastIndexOf('}');
         try {

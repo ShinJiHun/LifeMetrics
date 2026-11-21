@@ -29,16 +29,17 @@ class DiaryControllerTest {
     private static final String NOTE_JSON = "{\"source\":\"manual\",\"content\":\"메모\"}";
 
     private final DiaryService service = mock(DiaryService.class);
+    private final LectureService lectures = mock(LectureService.class);
     private final AdminWriteFilter adminWriteFilter = mock(AdminWriteFilter.class);
     private DiaryController controller;
     private MockMvc mvc;
 
     @BeforeEach
     void setUp() {
-        controller = new DiaryController(service, adminWriteFilter);
+        controller = new DiaryController(service, lectures, adminWriteFilter);
         ReflectionTestUtils.setField(controller, "appToken", "secret");
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
-        when(service.day(DAY)).thenReturn(new DiaryService.Day(DAY.toString(), List.of(), null, null, Map.of()));
+        when(service.day(DAY)).thenReturn(new DiaryService.Day(DAY.toString(), List.of(), null, null, Map.of(), List.of()));
         when(service.addNote(eq(DAY), any(), any(), any())).thenReturn(
                 new DiaryService.Note(1L, DAY.toString(), "manual", null, "메모", "2026-11-18T21:00:00"));
     }
@@ -87,5 +88,21 @@ class DiaryControllerTest {
         mvc.perform(get("/api/diary/2026-11-18").header("Authorization", "Bearer secret"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void 강연_API도_관리자만_되고_필터를_넘긴다() throws Exception {
+        mvc.perform(get("/api/diary/lectures")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/diary/notes/3/lecture")).andExpect(status().isForbidden());
+        verifyNoInteractions(lectures);
+
+        when(lectures.list(any(), any(), any(), any())).thenReturn(List.of());
+        mvc.perform(get("/api/diary/lectures").param("tag", "AI").param("speaker", "김")
+                        .param("from", "2026-11-01").param("to", "2026-11-30").header("Authorization", "Bearer secret"))
+                .andExpect(status().isOk());
+        verify(lectures).list("AI", "김", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 30));
+
+        mvc.perform(get("/api/diary/lectures").param("from", "11월").header("Authorization", "Bearer secret"))
+                .andExpect(status().isBadRequest());
     }
 }

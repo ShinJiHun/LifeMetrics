@@ -14,6 +14,7 @@ interface ToolLink {
 const HUMAN_TOOLS: Record<string, ToolLink> = {
     일기: { to: "/human/diary", label: "✍️ 일기 쓰기" },
     독서: { to: "/human/reading-notes", label: "📤 독서 노트 올리기" },
+    강연: { to: "/human/lectures", label: "🎤 강연 목록" },
 };
 
 const linkStyle = (accent: string) => ({ isActive }: { isActive: boolean }) => ({

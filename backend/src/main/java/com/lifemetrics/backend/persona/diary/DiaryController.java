@@ -27,11 +27,14 @@ import java.util.Map;
 public class DiaryController {
 
     private final DiaryService service;
+    private final LectureService lectures;
     private final AdminWriteFilter adminWriteFilter;
 
     @Value("${HEALTH_SYNC_TOKEN:}")
     private String appToken;
 
+    public record LectureRequest(String title, String speaker, String content) {}
+    public record TagsRequest(List<String> tags) {}
     public record NoteRequest(String source, String fileName, String content) {}
     public record EntryRequest(String title, String content) {}
     public record PublishRequest(Long subId, String visibility) {}
@@ -90,6 +93,71 @@ public class DiaryController {
     public DiaryService.Entry publish(@PathVariable long id, @RequestBody PublishRequest body, HttpServletRequest req) {
         requireAdmin(req);
         return service.publish(id, body.subId(), body.visibility());
+    }
+
+    // ── 강연 요약 ────────────────────────────────────
+
+    /** 그날 메모에서 강연 필기를 찾아 요약 초안을 만든다. 일기 [지금 만들기] 전에 화면이 먼저 부른다. */
+    @PostMapping("/{date}/lectures/generate")
+    public LectureService.ScanResult generateLectures(@PathVariable String date, HttpServletRequest req) {
+        requireAdmin(req);
+        return service.generateLectures(LocalDate.parse(date));
+    }
+
+    /** 메모 하나를 강연 필기로 보고 요약을 (다시) 만든다. */
+    @PostMapping("/notes/{id}/lecture")
+    public LectureService.Lecture summarizeNote(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.summarizeNote(id);
+    }
+
+    @GetMapping("/lectures")
+    public List<LectureService.Lecture> lectures(@RequestParam(required = false) String tag,
+                                                 @RequestParam(required = false) String speaker,
+                                                 @RequestParam(required = false) String from,
+                                                 @RequestParam(required = false) String to,
+                                                 HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.list(tag, speaker, parseDate(from), parseDate(to));
+    }
+
+    @GetMapping("/lectures/facets")
+    public LectureService.Facets lectureFacets(HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.facets();
+    }
+
+    @PutMapping("/lectures/{id}")
+    public LectureService.Lecture updateLecture(@PathVariable long id, @RequestBody LectureRequest body, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.update(id, body.title(), body.speaker(), body.content());
+    }
+
+    @PutMapping("/lectures/{id}/tags")
+    public LectureService.Lecture setLectureTags(@PathVariable long id, @RequestBody TagsRequest body, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.setTags(id, body.tags());
+    }
+
+    @DeleteMapping("/lectures/{id}")
+    public void discardLecture(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        lectures.discard(id);
+    }
+
+    @PostMapping("/lectures/{id}/publish")
+    public LectureService.Lecture publishLecture(@PathVariable long id, @RequestBody PublishRequest body, HttpServletRequest req) {
+        requireAdmin(req);
+        return service.publishLecture(id, body.subId(), body.visibility());
+    }
+
+    private static LocalDate parseDate(String s) {
+        if (s == null || s.isBlank()) return null;
+        try {
+            return LocalDate.parse(s.strip());
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "날짜 형식이 올바르지 않습니다: " + s);
+        }
     }
 
     @ExceptionHandler(ResponseStatusException.class)

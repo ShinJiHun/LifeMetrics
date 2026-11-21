@@ -31,7 +31,62 @@ export interface DiaryDay {
     diary: DiaryEntry | null;
     book: DiaryEntry | null;
     records: Record<string, unknown>;
+    lectures: Lecture[];
 }
+
+/** 강연 요약 (lecture_entry). 원본 메모 하나와 1:1, 메모를 지웠으면 sourceNoteId 는 null. */
+export interface Lecture {
+    id: number;
+    sourceNoteId: number | null;
+    noteFileName: string | null;
+    lectureDate: string;
+    title: string;
+    speaker: string | null;
+    content: string;
+    tags: string[];
+    warnings: string[];
+    status: "draft" | "published";
+    edited: boolean;
+    postId: number | null;
+    generatedAt: string;
+    publishedAt: string | null;
+}
+
+export interface LectureScanResult {
+    scanned: number;
+    created: number;
+    errors: string[];
+}
+
+export interface LectureFacets {
+    tags: { name: string; count: number }[];
+    speakers: { name: string; count: number }[];
+}
+
+export interface LectureFilter {
+    tag?: string;
+    speaker?: string;
+    from?: string;
+    to?: string;
+}
+
+/** 메모마다 AI 를 부를 수 있어 오래 걸린다. */
+export const generateLectures = (date: string) =>
+    api.post<LectureScanResult>(`/diary/${date}/lectures/generate`, null, { timeout: 300_000 }).then((r) => r.data);
+export const summarizeNoteAsLecture = (noteId: number) =>
+    api.post<Lecture>(`/diary/notes/${noteId}/lecture`, null, { timeout: 180_000 }).then((r) => r.data);
+export const fetchLectures = (f: LectureFilter) => {
+    const params = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
+    return api.get<Lecture[]>("/diary/lectures", { params }).then((r) => r.data);
+};
+export const fetchLectureFacets = () => api.get<LectureFacets>("/diary/lectures/facets").then((r) => r.data);
+export const updateLecture = (id: number, title: string, speaker: string, content: string) =>
+    api.put<Lecture>(`/diary/lectures/${id}`, { title, speaker, content }).then((r) => r.data);
+export const setLectureTags = (id: number, tags: string[]) =>
+    api.put<Lecture>(`/diary/lectures/${id}/tags`, { tags }).then((r) => r.data);
+export const discardLecture = (id: number) => api.delete(`/diary/lectures/${id}`);
+export const publishLecture = (id: number, visibility: "public" | "private", subId?: number) =>
+    api.post<Lecture>(`/diary/lectures/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => r.data);
 
 export interface DiarySubMenu {
     id: number;
@@ -48,7 +103,7 @@ export interface DiaryRecent {
 export const fetchDiaryDay = (date: string) => api.get<DiaryDay>(`/diary/${date}`).then((r) => r.data);
 export const fetchDiaryRecent = () => api.get<DiaryRecent[]>("/diary/recent").then((r) => r.data);
 export const fetchDiarySubMenus = () =>
-    api.get<{ subs: DiarySubMenu[]; diaryDefault: number }>("/diary/sub-menus").then((r) => r.data);
+    api.get<{ subs: DiarySubMenu[]; diaryDefault: number; lectureDefault: number | null }>("/diary/sub-menus").then((r) => r.data);
 
 export const addDiaryNote = (date: string, source: NoteSource, content: string, fileName?: string) =>
     api.post<DiaryNote>(`/diary/${date}/notes`, { source, content, fileName: fileName ?? null }).then((r) => r.data);

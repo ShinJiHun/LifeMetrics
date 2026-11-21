@@ -14,6 +14,7 @@ import HandlerSettlementPage from "@/pages/human/HandlerSettlementPage";
 import HandlerTripsPage from "@/pages/human/HandlerTripsPage";
 import ReadingNotesPage from "@/pages/human/ReadingNotesPage";
 import DiaryPage from "@/pages/human/DiaryPage";
+import LecturesPage from "@/pages/human/LecturesPage";
 import DevRequestsPage from "@/pages/DevRequestsPage";
 import DocsPage from "@/pages/DocsPage";
 import BodyGoalPage from "@/pages/ride/plan/BodyGoalPage";
@@ -127,6 +128,8 @@ export default function App() {
                 <Route path="/human/reading-notes" element={<RequireAdmin><ReadingNotesPage /></RequireAdmin>} />
                 {/* 인간 페르소나 - 일기 (메모 → 새벽 초안 → 확인 후 블로그 게시, 관리자 전용) */}
                 <Route path="/human/diary" element={<RequireAdmin><DiaryPage /></RequireAdmin>} />
+                {/* 인간 페르소나 - 강연 요약 목록 (일기 메모의 강연 필기 → 요약, 태그·연사·기간 필터, 관리자 전용) */}
+                <Route path="/human/lectures" element={<RequireAdmin><LecturesPage /></RequireAdmin>} />
 
                 {/* 개발 요청함 (관리자 전용) — 서버 워커가 Claude 로 작업해 개발 서버에 배포 */}
                 <Route path="/dev-requests" element={<RequireAdmin><DevRequestsPage /></RequireAdmin>} />

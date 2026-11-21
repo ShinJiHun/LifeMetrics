@@ -54,6 +54,7 @@ run_container() {   # $1 = 이미지 태그
         -v /mnt/200gb/NAS/lotto:/mnt/200gb/NAS/lotto
         -v /mnt/200gb/NAS/health/exercise-gifs:/mnt/200gb/NAS/health/exercise-gifs   # 운동 GIF (/api/exercise/gif/** 가 여기서 읽음, 업로드도 여기로)
         -v /mnt/200gb/NAS/persona/diary:/mnt/200gb/NAS/persona/diary   # 휴먼 일기 메모 폴더 (inbox/YYYY-MM-DD/*.md — 서버 Claude Code 저장 + 화면 업로드 원본 보관)
+        -e DIARY_INBOX_OWNER=1003:1006   # 컨테이너(root)가 inbox 에 만든 파일·폴더를 호스트 jihoon(uid 1003, gid 1006) 소유로 돌린다
         --restart unless-stopped
     )
 

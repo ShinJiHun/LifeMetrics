@@ -16,14 +16,18 @@ import {
     fetchDiaryRecent,
     fetchDiarySubMenus,
     generateDiary,
+    generateLectures,
     publishDiaryEntry,
+    summarizeNoteAsLecture,
     updateDiaryEntry,
+    type LectureScanResult,
     type DiaryDay,
     type DiaryEntry,
     type DiaryRecent,
     type DiarySubMenu,
     type NoteSource,
 } from "@/api/diary";
+import LectureCard from "./LectureCard";
 import "@/styles/markdown.css";
 import "@/styles/diary.css";
 
@@ -43,6 +47,7 @@ const APP_PROJECT_GUIDE = `이 프로젝트는 하루 일기 메모를 모으는
 - 파일 이름: app-YYYY-MM-DD-주제.md (날짜는 오늘)
 - 내용: 일어난 일을 시간 순으로 개조식. 내 말투와 느낌을 살리고, 대화에 없는 내용은 지어내지 않는다.
 - 책 내용이 있으면 "## 책" 아래에 제목, 읽은 범위, 인상 깊은 문장, 내 생각을 따로 정리.
+- 강연을 듣고 필기한 내용은 일기 메모와 섞지 말고 강연마다 파일을 따로 만든다(app-YYYY-MM-DD-강연-주제.md): 제목, 연사, 필기, 내 생각.
 - 일기 문장으로 다듬지 않는다(일기는 사이트가 문체 가이드대로 쓴다).`;
 
 export default function DiaryPage() {
@@ -54,6 +59,8 @@ export default function DiaryPage() {
     const [recent, setRecent] = useState<DiaryRecent[]>([]);
     const [subs, setSubs] = useState<DiarySubMenu[]>([]);
     const [diaryDefault, setDiaryDefault] = useState<number | undefined>(undefined);
+    const [lectureDefault, setLectureDefault] = useState<number | null>(null);
+    const [lectureMsg, setLectureMsg] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState<string | null>(null);
     const [showGuide, setShowGuide] = useState(false);
@@ -71,17 +78,21 @@ export default function DiaryPage() {
 
     useEffect(() => {
         setDay(null);
+        setLectureMsg(null);
         load();
     }, [load]);
 
-    useEffect(() => {
+    const loadSubs = useCallback(() => {
         fetchDiarySubMenus()
             .then((r) => {
                 setSubs(r.subs);
                 setDiaryDefault(r.diaryDefault);
+                setLectureDefault(r.lectureDefault);
             })
             .catch(() => setSubs([]));
     }, []);
+
+    useEffect(loadSubs, [loadSubs]);
 
     const run = async (label: string, fn: () => Promise<unknown>) => {
         setBusy(label);
@@ -99,8 +110,29 @@ export default function DiaryPage() {
     const onGenerate = () => {
         const edited = day?.diary?.edited || day?.book?.edited;
         if (edited && !window.confirm("직접 고친 초안이 있습니다. 다시 만들면 고친 내용이 사라집니다. 계속할까요?")) return;
-        run("generate", () => generateDiary(date));
+        // 강연 요약을 먼저 만들어야 일기가 강연을 한두 줄로만 쓴다. 강연 쪽이 실패해도 일기는 만든다.
+        run("generate", async () => {
+            await scanLectures();
+            await generateDiary(date);
+        });
     };
+
+    const scanLectures = async () => {
+        let r: LectureScanResult;
+        try {
+            r = await generateLectures(date);
+        } catch (e) {
+            setLectureMsg(`강연 찾기 실패: ${errorMessage(e)}`);
+            return;
+        }
+        const parts = [];
+        if (r.scanned === 0) parts.push("새로 확인할 메모 없음");
+        else parts.push(`메모 ${r.scanned}건 확인 · 강연 요약 ${r.created}건`);
+        if (r.errors.length) parts.push(`실패: ${r.errors.join(" / ")}`);
+        setLectureMsg(parts.join(" · "));
+    };
+
+    const lectureNoteIds = useMemo(() => new Set(day?.lectures.map((l) => l.sourceNoteId) ?? []), [day]);
 
     const recordSummary = useMemo(() => summarizeRecords(day?.records), [day]);
 
@@ -115,6 +147,9 @@ export default function DiaryPage() {
                     <button onClick={() => setDate(shiftDate(date, 1))} disabled={date >= kstToday()} aria-label="다음날">▶</button>
                     {date !== kstToday() && <button onClick={() => setDate(kstToday())}>오늘</button>}
                 </div>
+                <Link className="diary-link" to="/human/lectures">
+                    🎤 강연 목록
+                </Link>
                 <button className="diary-link" onClick={() => setShowGuide((v) => !v)}>
                     {showGuide ? "사용법 닫기" : "사용법"}
                 </button>
@@ -146,7 +181,14 @@ export default function DiaryPage() {
                         <UploadZone date={date} busy={busy === "note"} onAdd={(fn) => run("note", fn)} />
                         {day.notes.length === 0 && <p className="diary-muted">아직 메모가 없습니다. 위에 .md 파일을 올리거나 아래에 붙여넣으세요.</p>}
                         {day.notes.map((n) => (
-                            <NoteCard key={n.id} note={n} onDelete={() => run("note", () => deleteDiaryNote(n.id))} />
+                            <NoteCard
+                                key={n.id}
+                                note={n}
+                                isLecture={lectureNoteIds.has(n.id)}
+                                busy={!!busy}
+                                onDelete={() => run("note", () => deleteDiaryNote(n.id))}
+                                onLecture={() => run("lecture", () => summarizeNoteAsLecture(n.id))}
+                            />
                         ))}
                         <NoteForm date={date} busy={busy === "note"} onAdd={(fn) => run("note", fn)} />
                     </section>
@@ -167,6 +209,37 @@ export default function DiaryPage() {
                         )}
                         {day.diary && <EntryCard entry={day.diary} subs={subs} defaultSub={diaryDefault} busy={!!busy} run={run} />}
                         {day.book && <EntryCard entry={day.book} subs={subs} busy={!!busy} run={run} />}
+
+                        <div className="diary-entry-head lecture-head">
+                            <h2>
+                                강연 요약 <span className="diary-count">{day.lectures.length}</span>
+                            </h2>
+                            <button onClick={() => run("lectures", scanLectures)} disabled={!!busy || day.notes.length === 0}>
+                                {busy === "lectures" ? "찾는 중…" : "🎤 강연 찾기"}
+                            </button>
+                        </div>
+                        {lectureMsg && <div className="diary-drop-result">{lectureMsg}</div>}
+                        {busy === "lecture" && <div className="diary-muted">강연 요약 쓰는 중… (1분 정도)</div>}
+                        {day.lectures.length === 0 && (
+                            <p className="diary-muted">
+                                메모에 강연 필기가 있으면 일기와 따로 강연 요약을 만듭니다(메모 하나 = 강연 하나). [지금 만들기]·[강연 찾기]가 확인하고, 못 찾으면 메모의 [🎤 강연으로 요약]을 누르세요.
+                            </p>
+                        )}
+                        {day.lectures.map((l) => (
+                            <LectureCard
+                                key={l.id}
+                                lecture={l}
+                                subs={subs}
+                                defaultSub={lectureDefault}
+                                busy={!!busy}
+                                run={(label, fn) =>
+                                    run(label, async () => {
+                                        await fn();
+                                        if (label === "publish") loadSubs();
+                                    })
+                                }
+                            />
+                        ))}
                     </section>
                 </div>
             )}
@@ -192,6 +265,9 @@ function Guide() {
                     <b>[기록 불러오기]</b>: 운동 시트(PT·유산소)를 바로 가져온 뒤 그날 운동·식단·걸음 수·업무 일지를 메모 칸에 틀로 채웁니다. 느낌을 덧붙여 [메모 추가] → [지금 만들기].
                 </li>
                 <li>
+                    <b>강연</b>: 강연 필기는 강연마다 메모 하나(.md)로 올리세요. 초안을 만들 때 강연 필기를 찾아 일기와 따로 <b>강연 요약</b>(제목·연사·핵심 주장·구조·인상 깊은 문장·내 생각·태그)을 만들고, 일기에는 한두 줄만 씁니다. 게시하면 휴먼 '강연' 소메뉴로 갑니다. 모아 보기는 [🎤 강연 목록].
+                </li>
+                <li>
                     <b>새벽 1시</b>: 운동 시트 자동 동기화 → <b>1시 10분</b>: 전날 메모 + 운동·식단·걸음 수 기록 + 업무 일지(금일 실적·이슈)로 전날 일기 초안이 만들어집니다. 아침에 확인·수정하고 [게시]하세요. 게시 전에는 블로그에 나가지 않습니다.
                 </li>
             </ol>
@@ -212,14 +288,37 @@ function Guide() {
     );
 }
 
-function NoteCard({ note, onDelete }: { note: DiaryDay["notes"][number]; onDelete: () => void }) {
+function NoteCard({
+    note,
+    isLecture,
+    busy,
+    onDelete,
+    onLecture,
+}: {
+    note: DiaryDay["notes"][number];
+    isLecture: boolean;
+    busy: boolean;
+    onDelete: () => void;
+    onLecture: () => void;
+}) {
     const [open, setOpen] = useState(note.content.length < 400);
     return (
         <div className="diary-note">
             <div className="diary-note-head">
                 <span className={`src src-${note.source}`}>{SOURCE_LABEL[note.source]}</span>
+                {isLecture && <span className="src lecture-badge">🎤 강연</span>}
                 {note.fileName && <span className="fname">{note.fileName}</span>}
                 <span className="time">{note.createdAt.slice(11, 16)}</span>
+                {!isLecture && (
+                    <button
+                        className="diary-link"
+                        disabled={busy}
+                        title="이 메모를 강연 필기로 보고 강연 요약을 만듭니다"
+                        onClick={() => window.confirm("이 메모로 강연 요약을 만들까요?") && onLecture()}
+                    >
+                        🎤 강연으로 요약
+                    </button>
+                )}
                 <button className="diary-link" onClick={() => setOpen((v) => !v)}>
                     {open ? "접기" : "펼치기"}
                 </button>
