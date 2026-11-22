@@ -8,6 +8,7 @@ import {
     lectureInfoOf,
     publishLecture,
     regenerateLecture,
+    republishLecture,
     setLectureTags,
     summarizeLecture,
     updateLecture,
@@ -122,6 +123,19 @@ export default function LectureCard({
                     <Link className="diary-link" to={`/human/post/${lecture.postId}`}>
                         블로그에서 보기
                     </Link>
+                )}
+                {published && lecture.postId && (
+                    <button
+                        className="diary-link"
+                        disabled={busy}
+                        title="블로그 글을 지금 요약·강연 정보로 덮어씁니다(소메뉴·공개 여부는 그대로)"
+                        onClick={() =>
+                            window.confirm("블로그 글을 지금 요약·강연 정보로 다시 게시할까요? 블로그에서 직접 고친 내용은 사라집니다.") &&
+                            run("publish", () => republishLecture(lecture.id))
+                        }
+                    >
+                        다시 게시
+                    </button>
                 )}
                 {collapsed && (
                     <button className="diary-link" onClick={() => setOpen((v) => !v)}>

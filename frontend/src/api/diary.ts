@@ -161,7 +161,9 @@ export const updateLecture = (id: number, title: string, speaker: string, conten
     api.put<Lecture>(`/diary/lectures/${id}`, { title, speaker, content }).then((r) => r.data);
 export const setLectureTags = (id: number, tags: string[]) =>
     api.put<Lecture>(`/diary/lectures/${id}/tags`, { tags }).then((r) => r.data);
-export const discardLecture = (id: number) => api.delete(`/diary/lectures/${id}`);
+/** 이미 게시한 강연의 블로그 글을 지금 요약·강연 정보로 덮어쓴다(소메뉴·공개 여부는 그대로). */
+export const republishLecture = (id: number) => api.post<Lecture>(`/diary/lectures/${id}/republish`).then((r) => r.data);
+export const discardLecture =(id: number) => api.delete(`/diary/lectures/${id}`);
 export const publishLecture = (id: number, visibility: "public" | "private", subId?: number) =>
     api.post<Lecture>(`/diary/lectures/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => r.data);
 

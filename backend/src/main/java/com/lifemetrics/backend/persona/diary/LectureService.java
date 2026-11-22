@@ -255,7 +255,7 @@ public class LectureService {
         String raw = claude.chat(SUMMARY_PROMPT, List.of(new ClaudeChatClient.Message("user", summaryUserPrompt(n, target, total, existingTags))), 4000)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답을 받지 못했습니다."));
         JsonNode out = DiaryService.parseJson(objectMapper, raw);
-        String content = out.path("content").asText("").strip();
+        String content = removeEmptyThoughts(out.path("content").asText("").strip());
         if (content.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 가 강연 요약을 쓰지 못했습니다.");
         String title = Optional.ofNullable(text(out, "title")).orElse(Optional.ofNullable(target.title()).orElse(n.date() + " 강연"));
         String speaker = Optional.ofNullable(text(out, "speaker")).orElse(target.speaker());
@@ -514,13 +514,21 @@ public class LectureService {
         user.append("\n# 기존 태그\n");
         List<String> tags = allTagNames();
         user.append(tags.isEmpty() ? "(아직 없음)" : String.join(", ", tags)).append('\n');
-        user.append("\n# 내 메모 (관리자가 직접 쓴 글 — '내 생각' 절의 근거)\n").append(notBlank(e.memo()) ? e.memo().strip() : "(없음)").append('\n');
+        boolean hasMemo = notBlank(e.memo());
+        if (hasMemo) {
+            user.append("\n# 내 메모 (관리자가 직접 쓴 글 — '내 생각' 절의 근거)\n").append(e.memo().strip()).append('\n');
+        } else {
+            // "(없음)" 같은 자리표시를 넘기면 AI 가 '## 내 생각 / (메모 없음)' 을 써 버린다 → 칸 자체를 빼고 쓰지 말라고 못박는다.
+            user.append("\n# 내 메모가 없다. '## 내 생각' 절은 쓰지 않는다(제목도, 빈 칸 표시도 쓰지 않는다).\n");
+        }
         user.append("\n# 강연 자료 (받아쓰기·강연 자료 글 — 연사가 한 말의 근거)").append(src.isEmpty() ? "\n(없음)\n" : src);
 
         String raw = claude.chat(MANUAL_PROMPT, List.of(new ClaudeChatClient.Message("user", user.toString())), 4000)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 응답을 받지 못했습니다."));
         JsonNode out = DiaryService.parseJson(objectMapper, raw);
         String content = out.path("content").asText("").strip();
+        // 메모가 없으면 AI 가 그래도 쓴 '내 생각' 절은 통째로 뺀다(내 생각은 메모에서만 나온다). 메모가 있으면 빈 자리표시 절만 뺀다.
+        content = hasMemo ? removeEmptyThoughts(content) : removeThoughts(content);
         if (content.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI 가 강연 요약을 쓰지 못했습니다.");
         for (JsonNode w : out.path("warnings")) warnings.add(w.asText());
         List<String> newTags = new ArrayList<>(e.tags());   // 직접 붙인 태그는 남기고 AI 제안을 더한다
@@ -609,7 +617,65 @@ public class LectureService {
         List<String> books = e.books() == null ? List.of() : e.books().stream().filter(LectureService::notBlank)
                 .map(s -> s.strip().startsWith("『") ? s.strip() : "『" + s.strip() + "』").toList();
         if (!books.isEmpty()) rows.add("- **관련 책**: " + String.join(", ", books));
-        return String.join("\n", rows) + "\n\n" + e.content();
+        // 예전에 저장된 요약에 '## 내 생각 / (메모 없음)' 같은 빈 절이 있으면 다시 요약하지 않아도 게시본에서는 뺀다.
+        return String.join("\n", rows) + "\n\n" + removeEmptyThoughts(e.content());
+    }
+
+    /**
+     * 이미 게시한 강연을 지금 요약·강연 정보로 블로그 글을 덮어쓴다(소메뉴·공개 여부는 그대로).
+     * 게시 형식을 고친 뒤 예전 게시본을 바로잡는 용도.
+     */
+    public Lecture republish(long id) {
+        Lecture e = byId(id);
+        if (!"published".equals(e.status()) || e.postId() == null) throw bad("아직 게시하지 않은 강연입니다. [게시]를 눌러 주세요.");
+        if (!notBlank(e.content())) throw bad("요약이 없습니다.");
+        int n = jdbc.update("UPDATE journal_post SET title = :title, content = :c, updated_at = :t WHERE id = :p",
+                new MapSqlParameterSource("title", e.title()).addValue("c", DiaryMarkdown.toHtml(postMarkdown(e)))
+                        .addValue("t", now()).addValue("p", e.postId()));
+        if (n == 0) throw new ResponseStatusException(HttpStatus.CONFLICT, "블로그 글(" + e.postId() + ")이 지워져 다시 게시할 수 없습니다.");
+        return byId(id);
+    }
+
+    private static final java.util.regex.Pattern THOUGHTS_HEADING = java.util.regex.Pattern.compile("^#{1,6}\\s*내\\s*생각\\s*$");
+    /** '(메모 없음)', '없음', '- 해당 없음', '(필기에 없음)' 처럼 내용 없이 빈 칸만 알리는 줄. */
+    private static final java.util.regex.Pattern PLACEHOLDER = java.util.regex.Pattern.compile(
+            "^[(\\[]?\\s*(내\\s*)?(메모|필기|생각|내용)?\\s*(에|가|이|는)?\\s*(없음|없습니다|없다|해당\\s*없음|n/?a|-|—)\\s*\\.?\\s*[)\\]]?\\.?$",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /** '## 내 생각' 절의 본문이 비었거나 자리표시뿐이면 그 절(제목 포함)을 뺀다. 내용이 있으면 그대로 둔다. */
+    static String removeEmptyThoughts(String md) {
+        return dropThoughts(md, false);
+    }
+
+    /** '## 내 생각' 절을 내용과 상관없이 뺀다(내 메모가 없을 때 — 내 생각은 메모에서만 나온다). */
+    static String removeThoughts(String md) {
+        return dropThoughts(md, true);
+    }
+
+    private static String dropThoughts(String md, boolean always) {
+        if (md == null || md.isEmpty()) return md;
+        String[] lines = md.replace("\r\n", "\n").split("\n", -1);
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < lines.length; ) {
+            if (THOUGHTS_HEADING.matcher(lines[i].strip()).matches()) {
+                int j = i + 1;
+                while (j < lines.length && !lines[j].strip().startsWith("#")) j++;
+                if (always || isPlaceholder(Arrays.asList(lines).subList(i + 1, j))) {
+                    i = j;
+                    continue;
+                }
+            }
+            out.add(lines[i++]);
+        }
+        return String.join("\n", out).strip();
+    }
+
+    private static boolean isPlaceholder(List<String> body) {
+        for (String raw : body) {
+            String s = raw.strip().replaceFirst("^([-*>]|\\d+\\.)\\s*", "").strip();
+            if (!s.isEmpty() && !PLACEHOLDER.matcher(s).matches()) return false;
+        }
+        return true;
     }
 
     private static boolean notBlank(String s) {
@@ -702,7 +768,8 @@ public class LectureService {
               ## 핵심 주장 — 2~4문장
               ## 구조 — 강연 흐름을 번호 목록 목차로
               ## 인상 깊은 문장 — 받아쓰기·자료·메모에 있는 문장을 그대로 인용(> 인용). 받아쓰기에서 고르면 말투만 다듬는다
-              ## 내 생각 — "내 메모"에 내 생각·느낌이 있을 때만. 받아쓰기·자료로 내 생각을 지어내지 않는다
+              ## 내 생각 — "내 메모"에 내 생각·느낌이 있을 때만. 받아쓰기·자료로 내 생각을 지어내지 않는다.
+                내 메모가 없으면 이 절은 제목까지 통째로 쓰지 않는다("(메모 없음)" 같은 빈 칸 표시도 쓰지 않는다)
             - speaker: 강연 정보에 연사가 없을 때만 근거에서 찾은 연사 이름, 없으면 null.
             - tags: 3~7개. 주제·분야·키워드(예: AI, 인간다움, 자기결정이론). 연사 이름과 강연 제목은 태그로 쓰지 않는다.
               "기존 태그"에 뜻이 같은 태그가 있으면 표기를 그대로 재사용한다. 짧은 명사형, '#' 없이.
@@ -724,7 +791,7 @@ public class LectureService {
                   ## 핵심 주장 — 2~4문장
                   ## 구조 — 강연 흐름을 번호 목록 목차로
                   ## 인상 깊은 문장 — 필기에 적힌 문장을 그대로 인용(> 인용)
-                  ## 내 생각 — 필기에 내 생각·느낌이 적혀 있을 때만. 없으면 이 절을 쓰지 않는다
+                  ## 내 생각 — 필기에 내 생각·느낌이 적혀 있을 때만. 없으면 제목까지 이 절을 쓰지 않는다("(없음)" 같은 빈 칸 표시도 쓰지 않는다)
                 - title: 강연 제목. 필기에 제목이 없으면 핵심 주제로 짧게 짓고 warnings 에 "제목은 추정"이라고 적는다.
                 - speaker: 연사 이름(여럿이면 쉼표로). 필기에 없으면 null.
                 - tags: 3~7개. 주제·분야·키워드(예: AI, 인간다움, 자기결정이론). 연사 이름과 강연 제목은 태그로 쓰지 않는다.

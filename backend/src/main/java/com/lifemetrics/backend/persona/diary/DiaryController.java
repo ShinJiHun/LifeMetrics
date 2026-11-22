@@ -230,6 +230,13 @@ public class DiaryController {
         lectureFiles.delete(fileId);
     }
 
+    /** 이미 게시한 강연의 블로그 글을 지금 요약·강연 정보로 덮어쓴다. */
+    @PostMapping("/lectures/{id}/republish")
+    public LectureService.Lecture republishLecture(@PathVariable long id, HttpServletRequest req) {
+        requireAdmin(req);
+        return lectures.republish(id);
+    }
+
     private static LocalDate parseDate(String s) {
         if (s == null || s.isBlank()) return null;
         try {

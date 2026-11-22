@@ -40,6 +40,28 @@ class LectureTagTest {
                 .isEqualTo("- **일시**: 2026-03-09\n\n## 핵심 주장\n내용");
     }
 
+    @Test
+    void 빈_내생각_절은_게시본에서_뺀다() {
+        String stored = "## 핵심 주장\n내용\n\n## 인상 깊은 문장\n> 인용\n\n## 내 생각\n(메모 없음)";
+        assertThat(LectureService.removeEmptyThoughts(stored)).isEqualTo("## 핵심 주장\n내용\n\n## 인상 깊은 문장\n> 인용");
+        for (String body : List.of("", "없음", "- 해당 없음", "(필기에 없음)", "메모 없음.", "N/A")) {
+            assertThat(LectureService.removeEmptyThoughts("## 핵심 주장\nA\n## 내 생각\n" + body + "\n## 구조\n1. B"))
+                    .as(body).isEqualTo("## 핵심 주장\nA\n## 구조\n1. B");
+        }
+        var l = new LectureService.Lecture(5, null, null, "manual", "2026-03-09", null, "제목", "구본권", null, null, null, List.of(),
+                null, stored, List.of(), List.of(), "published", false, 37L, "2026-11-22T10:00:00", null, List.of());
+        assertThat(LectureService.postMarkdown(l)).doesNotContain("내 생각").doesNotContain("메모 없음").endsWith("> 인용");
+        assertThat(DiaryMarkdown.toHtml(LectureService.postMarkdown(l))).doesNotContain("내 생각");
+    }
+
+    @Test
+    void 메모가_있으면_내생각_절은_그대로() {
+        String md = "## 핵심 주장\nA\n\n## 내 생각\n메모가 없어도 질문하는 힘은 남는다는 말이 남았다.";
+        assertThat(LectureService.removeEmptyThoughts(md)).isEqualTo(md);
+        // 메모가 없을 때(요약 생성 직후)는 AI 가 무엇을 썼든 절을 뺀다
+        assertThat(LectureService.removeThoughts(md)).isEqualTo("## 핵심 주장\nA");
+    }
+
     private static LectureService.Lecture lecture(String speaker, String time, String venue, String host, String series, List<String> books) {
         return new LectureService.Lecture(1, null, null, "manual", "2026-03-09", time, "제목", speaker, venue, host, series, books,
                 null, "## 핵심 주장\n내용", List.of(), List.of(), "draft", false, null, "2026-11-22T10:00:00", null, List.of());
