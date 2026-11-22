@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import WindParticles from "./WindParticles";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
@@ -67,6 +68,7 @@ export default function RideLivePage() {
     const [speedMult, setSpeedMult] = useState(1); // 분/초
     const [elapsedSec, setElapsedSec] = useState(0);
     const [currentIdx, setCurrentIdx] = useState(0);
+    const [showParticles, setShowParticles] = useState(true);
 
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -300,8 +302,17 @@ export default function RideLivePage() {
             <div style={S.mapWrap}>
                 <div ref={mapContainer} style={{width: "100%", height: "100%"}}/>
 
+                {hasWind && showParticles && (
+                    <WindParticles windDeg={weather!.windDeg!} windSpeed={weather!.windSpeed!} mapRef={mapRef}/>
+                )}
+
                 {hasWind && (
-                    <div style={S.windCard}>
+                    <button
+                        type="button"
+                        style={{...S.windCard, opacity: showParticles ? 1 : 0.7}}
+                        onClick={() => setShowParticles((v) => !v)}
+                        title={showParticles ? "바람 흐름 끄기" : "바람 흐름 켜기"}
+                    >
                         <div
                             style={{
                                 ...S.windArrow,
@@ -310,14 +321,15 @@ export default function RideLivePage() {
                         >
                             ↑
                         </div>
-                        <div>
+                        <div style={{textAlign: "left"}}>
                             <div style={S.windSpeed}>{weather!.windSpeed!.toFixed(1)} m/s</div>
                             <div style={S.windMeta}>
                                 {compassOf(weather!.windDeg!)}풍
                                 {weather!.temperature != null ? ` · ${weather!.temperature.toFixed(1)}°C` : ""}
                             </div>
+                            <div style={S.windMeta}>바람 흐름 {showParticles ? "켜짐" : "꺼짐"}</div>
                         </div>
-                    </div>
+                    </button>
                 )}
 
                 <div style={S.statsCard}>
@@ -413,6 +425,9 @@ const S: Record<string, React.CSSProperties> = {
         border: "1px solid #334155",
         borderRadius: 10,
         backdropFilter: "blur(4px)",
+        color: "inherit",
+        font: "inherit",
+        cursor: "pointer",
     },
     windArrow: {fontSize: 22, color: "#38bdf8", transition: "transform 0.3s"},
     windSpeed: {fontSize: 14, fontWeight: 700, color: "#f1f5f9"},
