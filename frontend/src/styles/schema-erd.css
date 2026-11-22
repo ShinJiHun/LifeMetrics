@@ -1,0 +1,70 @@
+/* 구조·ERD (/docs/erd) */
+.erd { display: flex; flex-direction: column; gap: 14px; }
+.erd-msg { padding: 24px; color: #6b7280; }
+.erd-error { padding: 10px 14px; border-radius: 8px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
+.erd-note { font-size: 12px; color: #9ca3af; margin: 8px 0 0; }
+
+.erd-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.erd-dbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.erd-dbs button {
+    display: flex; flex-direction: column; align-items: flex-start;
+    padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff;
+    font-size: 14px; font-weight: 600; color: #374151; cursor: pointer;
+}
+.erd-dbs button small { font-size: 11px; font-weight: 400; color: #9ca3af; }
+.erd-dbs button.on { border-color: #1b2236; background: #1b2236; color: #fff; }
+.erd-dbs button.on small { color: #cbd5e1; }
+.erd-search { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; }
+.erd-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #4b5563; }
+
+.erd-main { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .erd-main { grid-template-columns: 1fr; } .erd-list { max-height: 260px; } }
+
+.erd-list {
+    position: sticky; top: 70px; max-height: calc(100vh - 110px); overflow-y: auto;
+    border: 1px solid #eceef3; border-radius: 10px; padding: 6px;
+}
+.erd-group { margin-bottom: 6px; }
+.erd-group-name {
+    width: 100%; text-align: left; padding: 4px 8px; border: 0; background: none; cursor: pointer;
+    font-size: 12px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .02em;
+}
+.erd-group-name span { font-weight: 400; color: #9ca3af; }
+.erd-group-name.on, .erd-group-name:hover { color: #1b2236; }
+.erd-item {
+    display: flex; justify-content: space-between; gap: 6px; width: 100%;
+    padding: 4px 8px 4px 16px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+    font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #374151; text-align: left;
+}
+.erd-item:hover { background: #f3f4f6; }
+.erd-item.on { background: #1b2236; color: #fff; }
+.erd-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.erd-item em, .erd-table h3 em {
+    font-style: normal; font-size: 10px; padding: 0 4px; margin-right: 4px; border-radius: 4px; background: #e0e7ff; color: #3730a3;
+}
+.erd-rows { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+.erd-item.on .erd-rows { color: #cbd5e1; }
+
+.erd-detail { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.erd-detail h3 { margin: 0; font-size: 17px; }
+.erd-detail h3 small { font-size: 13px; font-weight: 400; color: #9ca3af; }
+.erd-hint { padding: 20px; border: 1px dashed #d1d5db; border-radius: 10px; color: #4b5563; font-size: 14px; }
+.erd-hint p { margin: 0 0 6px; }
+.erd-comment { margin: 4px 0 0; color: #4b5563; font-size: 14px; }
+
+.erd-table table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+.erd-table th { text-align: left; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; padding: 6px 8px; }
+.erd-table td { border-bottom: 1px solid #f3f4f6; padding: 5px 8px; vertical-align: top; }
+.erd-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.erd-table .dim { color: #6b7280; }
+.erd-incoming { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 13px; color: #4b5563; }
+
+.badge { display: inline-block; padding: 1px 6px; margin: 0 4px 2px 0; border-radius: 4px; font-size: 11px; font-weight: 600; border: 0; }
+.badge.pk { background: #fef3c7; color: #92400e; }
+.badge.uni { background: #dcfce7; color: #166534; }
+.badge.idx { background: #f3f4f6; color: #4b5563; }
+.badge.fk { background: #dbeafe; color: #1e40af; cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.badge.fk.guess { background: #fff; color: #1e40af; outline: 1px dashed #93c5fd; }
+
+.erd-diagram { overflow: auto; border: 1px solid #eceef3; border-radius: 10px; padding: 12px; background: #fff; max-height: 75vh; }
+.erd-diagram svg { max-width: none; height: auto; }

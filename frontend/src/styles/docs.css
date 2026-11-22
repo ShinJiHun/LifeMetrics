@@ -75,3 +75,7 @@
     overflow-x: auto;
     white-space: pre;
 }
+
+.docs-page.docs-page--wide {
+    max-width: 1280px;
+}
