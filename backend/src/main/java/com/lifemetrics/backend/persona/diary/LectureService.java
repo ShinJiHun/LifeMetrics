@@ -596,11 +596,13 @@ public class LectureService {
 
         LocalDateTime t = now();
         GeneratedKeyHolder key = new GeneratedKeyHolder();
+        // 글 날짜는 게시한 때가 아니라 강연을 들은 때. 게시 시각은 lecture_entry.published_at 에 남는다
         jdbc.update("""
                 INSERT INTO journal_post (sub_id, title, content, visibility, created_at, updated_at)
-                VALUES (:s, :title, :c, :v, :t, :t)
+                VALUES (:s, :title, :c, :v, :pt, :t)
                 """, new MapSqlParameterSource("s", sub).addValue("title", e.title())
-                .addValue("c", DiaryMarkdown.toHtml(postMarkdown(e))).addValue("v", vis).addValue("t", t), key, new String[]{"id"});
+                .addValue("c", DiaryMarkdown.toHtml(postMarkdown(e))).addValue("v", vis).addValue("t", t)
+                .addValue("pt", postTime(e.lectureDate(), e.lectureTime())), key, new String[]{"id"});
         jdbc.update("UPDATE lecture_entry SET status = 'published', post_id = :p, published_at = :t WHERE id = :id",
                 new MapSqlParameterSource("p", key.getKey().longValue()).addValue("t", t).addValue("id", id));
         return byId(id);
@@ -927,6 +929,21 @@ public class LectureService {
 
     private static String cut(String s, int max) {
         return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    private static final java.util.regex.Pattern LEADING_TIME = java.util.regex.Pattern.compile("^\\s*(\\d{1,2}):(\\d{2})");
+
+    /** 블로그 글 날짜: 강연 날짜 + 시작 시각("19:00", "19:00~21:00" 등 앞의 HH:mm). 시각이 없거나 못 읽으면 정오. */
+    static LocalDateTime postTime(String lectureDate, String lectureTime) {
+        LocalDate d = LocalDate.parse(lectureDate);
+        if (lectureTime != null) {
+            java.util.regex.Matcher m = LEADING_TIME.matcher(lectureTime);
+            if (m.find()) {
+                int h = Integer.parseInt(m.group(1)), min = Integer.parseInt(m.group(2));
+                if (h < 24 && min < 60) return d.atTime(h, min);
+            }
+        }
+        return d.atTime(12, 0);
     }
 
     private static LocalDateTime now() {

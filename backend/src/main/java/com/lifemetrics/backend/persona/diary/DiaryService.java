@@ -348,11 +348,13 @@ public class DiaryService {
 
         LocalDateTime t = now();
         GeneratedKeyHolder key = new GeneratedKeyHolder();
+        // 글 날짜는 일기의 날짜. 다음 날 이후에 게시해도 그날 글로 남는다(게시 시각은 diary_entry.published_at)
         jdbc.update("""
                 INSERT INTO journal_post (sub_id, title, content, visibility, created_at, updated_at)
-                VALUES (:s, :title, :c, :v, :t, :t)
+                VALUES (:s, :title, :c, :v, :pt, :t)
                 """, new MapSqlParameterSource("s", sub).addValue("title", e.title())
-                .addValue("c", DiaryMarkdown.toHtml(e.content())).addValue("v", vis).addValue("t", t), key, new String[]{"id"});
+                .addValue("c", DiaryMarkdown.toHtml(e.content())).addValue("v", vis).addValue("t", t)
+                .addValue("pt", postTime(e.entryDate(), t)), key, new String[]{"id"});
         jdbc.update("UPDATE diary_entry SET status = 'published', post_id = :p, published_at = :t WHERE id = :id",
                 new MapSqlParameterSource("p", key.getKey().longValue()).addValue("t", t).addValue("id", id));
         return entryById(id);
@@ -566,6 +568,12 @@ public class DiaryService {
     }
 
     /** DB 기본값은 UTC 라서 앱 시각(KST)을 직접 넣는다. */
+    /** 블로그 글 날짜: 그날 게시하면 게시 시각, 다른 날 게시하면 일기 날짜의 23:59(그날 마지막 글). */
+    static LocalDateTime postTime(String entryDate, LocalDateTime now) {
+        LocalDate d = LocalDate.parse(entryDate);
+        return d.equals(now.toLocalDate()) ? now : d.atTime(23, 59);
+    }
+
     private static LocalDateTime now() {
         return LocalDateTime.now(DailyAnalysisService.KST).withNano(0);
     }
