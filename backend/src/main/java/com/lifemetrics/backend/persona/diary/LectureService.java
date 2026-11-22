@@ -625,14 +625,16 @@ public class LectureService {
 
     /**
      * 이미 게시한 강연을 지금 요약·강연 정보로 블로그 글을 덮어쓴다(소메뉴·공개 여부는 그대로).
-     * 게시 형식을 고친 뒤 예전 게시본을 바로잡는 용도.
+     * 게시 형식을 고친 뒤 예전 게시본을 바로잡는 용도. 글 날짜(created_at)도 강연 일시로 다시 맞춘다.
      */
     public Lecture republish(long id) {
         Lecture e = byId(id);
         if (!"published".equals(e.status()) || e.postId() == null) throw bad("아직 게시하지 않은 강연입니다. [게시]를 눌러 주세요.");
         if (!notBlank(e.content())) throw bad("요약이 없습니다.");
-        int n = jdbc.update("UPDATE journal_post SET title = :title, content = :c, updated_at = :t WHERE id = :p",
+        // 강연 일시를 고친 뒤 다시 게시하면 글 날짜도 따라간다(updated_at 은 실제 수정 시각)
+        int n = jdbc.update("UPDATE journal_post SET title = :title, content = :c, created_at = :pt, updated_at = :t WHERE id = :p",
                 new MapSqlParameterSource("title", e.title()).addValue("c", DiaryMarkdown.toHtml(postMarkdown(e)))
+                        .addValue("pt", postTime(e.lectureDate(), e.lectureTime()))
                         .addValue("t", now()).addValue("p", e.postId()));
         if (n == 0) throw new ResponseStatusException(HttpStatus.CONFLICT, "블로그 글(" + e.postId() + ")이 지워져 다시 게시할 수 없습니다.");
         return byId(id);
