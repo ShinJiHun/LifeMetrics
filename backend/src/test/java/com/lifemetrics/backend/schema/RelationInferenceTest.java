@@ -32,16 +32,34 @@ class RelationInferenceTest {
     }
 
     @Test
-    void 접미사가_하나뿐인_테이블로_잇고_여럿이면_추정하지_않는다() {
+    void 접미사_후보가_여럿이면_접두어가_같은_테이블로_잇는다() {
         List<Table> tables = List.of(
-                table("lecture_entry", "id", "post_id", "entry_id"),
+                table("lecture_entry", "id", "post_id"),
                 table("journal_post", "id"),
+                table("blog_post", "id"),
                 table("diary_entry", "id"),
-                table("lecture_file", "id", "entry_id"));
-        // post → journal_post 하나뿐이라 잇는다. entry → lecture_entry·diary_entry 둘이라 lecture_file 쪽은 추정 안 함.
-        // lecture_entry.entry_id 는 자기 자신을 빼면 diary_entry 하나라 잇는다.
+                table("lecture_file", "id", "entry_id"),
+                table("misc_file", "id", "entry_id"));
+        // lecture_file.entry_id: lecture_entry·diary_entry 중 접두어가 같은 lecture_entry.
+        // lecture_entry.post_id: journal_post·blog_post 둘이고 접두어 같은 게 없어 추정 안 함.
+        // misc_file.entry_id: 접두어 같은 후보가 없어 추정 안 함.
         assertThat(edges(RelationInference.infer(tables, List.of())))
-                .containsExactlyInAnyOrder("lecture_entry.post_id->journal_post", "lecture_entry.entry_id->diary_entry");
+                .containsExactly("lecture_file.entry_id->lecture_entry");
+    }
+
+    @Test
+    void 앞_토큰을_떼거나_접두어로_시작하는_테이블을_찾는다() {
+        List<Table> tables = List.of(
+                table("lecture_entry", "id", "source_note_id"),
+                table("diary_note", "id"),
+                table("journal_post", "id", "sub_id"),
+                table("journal_sub_menu", "id", "category_id"),
+                table("journal_category", "id"));
+        assertThat(edges(RelationInference.infer(tables, List.of())))
+                .containsExactlyInAnyOrder(
+                        "lecture_entry.source_note_id->diary_note",
+                        "journal_post.sub_id->journal_sub_menu",
+                        "journal_sub_menu.category_id->journal_category");
     }
 
     @Test
