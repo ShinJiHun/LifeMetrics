@@ -482,6 +482,16 @@ public class DiaryService {
                 .addValue("w", toJson(warnings)).addValue("h", hash).addValue("t", now()));
     }
 
+    /** 그날 일기 초안·게시본. 종합 분석 재료. */
+    public Optional<Entry> diaryOf(LocalDate date) {
+        return entry(date, "diary");
+    }
+
+    /** 그날 업무 일지(today_done·tomorrow_plan·issues 중 값 있는 것). 종합 분석 재료. 없으면 빈 맵. */
+    public Map<String, Object> workLogOf(LocalDate date) {
+        return workLog(date);
+    }
+
     private Optional<Entry> entry(LocalDate date, String kind) {
         return jdbc.query("SELECT * FROM diary_entry WHERE entry_date = :d AND kind = :k",
                 new MapSqlParameterSource("d", date).addValue("k", kind), this::mapEntry).stream().findFirst();
