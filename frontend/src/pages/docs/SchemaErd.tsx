@@ -79,6 +79,7 @@ let renderSeq = 0;
 function Diagram({ text }: { text: string }) {
     const ref = useRef<HTMLDivElement>(null);
     const [err, setErr] = useState<string | null>(null);
+    const [fit, setFit] = useState(true);
     useEffect(() => {
         let alive = true;
         setErr(null);
@@ -93,7 +94,14 @@ function Diagram({ text }: { text: string }) {
         };
     }, [text]);
     if (err) return <div className="erd-error">관계도를 그리지 못했습니다: {err}</div>;
-    return <div ref={ref} className="erd-diagram" />;
+    return (
+        <div
+            ref={ref}
+            className={`erd-diagram${fit ? " fit" : ""}`}
+            onClick={() => setFit((v) => !v)}
+            title={fit ? "눌러서 원래 크기로 보기" : "눌러서 화면 폭에 맞추기"}
+        />
+    );
 }
 
 export default function SchemaErd() {
