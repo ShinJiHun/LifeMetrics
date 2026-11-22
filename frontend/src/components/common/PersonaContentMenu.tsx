@@ -116,19 +116,48 @@ export default function PersonaContentMenu({
                 ))
             )}
 
-            {orphanTools.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                    <div style={{ padding: "8px 6px", fontWeight: 700, color: "#1b2236" }}>🛠 작성 도구</div>
-                    <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        {orphanTools.map((t) => (
-                            <NavLink key={t.to} to={t.to} style={linkStyle(accent)}>
-                                {t.label}
-                            </NavLink>
-                        ))}
-                    </nav>
-                </div>
-            )}
+            {orphanTools.length > 0 && <ToolsBlock tools={orphanTools} accent={accent} />}
         </>
+    );
+}
+
+/** 카테고리에 붙지 못한 관리자 작성 도구 묶음 — 제목을 누르면 접고 편다. */
+function ToolsBlock({ tools, accent }: { tools: ToolLink[]; accent: string }) {
+    const [open, setOpen] = useState(true);
+    return (
+        <div style={{ marginBottom: 10 }}>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    width: "100%",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "8px 6px",
+                    font: "inherit",
+                    fontWeight: 700,
+                    color: "#1b2236",
+                    textAlign: "left",
+                }}
+            >
+                <span style={{ fontSize: 11, color: "#9aa0b2" }}>{open ? "▾" : "▸"}</span>
+                <span>🛠 작성 도구</span>
+            </button>
+            {open && (
+                <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {tools.map((t) => (
+                        <NavLink key={t.to} to={t.to} style={linkStyle(accent)}>
+                            {t.label}
+                        </NavLink>
+                    ))}
+                </nav>
+            )}
+        </div>
     );
 }
 

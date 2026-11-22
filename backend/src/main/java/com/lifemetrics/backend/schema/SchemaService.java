@@ -86,7 +86,7 @@ public class SchemaService {
                     """, (rs, i) -> new Relation(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), true));
 
             List<Relation> relations = new ArrayList<>(declared);
-            relations.addAll(RelationInference.infer(tables, declared));
+            relations.addAll(RelationInference.infer(tables, declared, db));
             return new Database(key, db, tables, relations, null);
         } catch (Exception e) {
             log.warn("스키마 읽기 실패 ({}): {}", key, e.getMessage());

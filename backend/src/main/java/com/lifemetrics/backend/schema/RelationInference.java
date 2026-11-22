@@ -18,6 +18,8 @@ import java.util.function.Predicate;
  *   <li>원래 테이블 접두어 + {@code _xxx} 로 시작하는 테이블 하나(journal_post.sub_id → journal_sub_menu)</li>
  *   <li>그래도 없으면 {@code xxx} 앞 토큰을 떼고 다시(source_note_id → note → diary_note)</li>
  * </ol>
+ * 2·3 에서 후보가 여럿이고 접두어로도 못 고르면, DB 이름 접두어(journal_db → journal_)로 시작하는 것 하나를 고른다
+ * (lecture_entry.post_id → journal_post·blog_post 중 journal_post — 강연 게시는 journal_post 에 쓴다).
  * {@code parent_id} 는 자기 자신. 이미 선언된 외래 키, 뷰, 자기 자신(parent 제외)은 건너뛴다. 애매하면 추정하지 않는다.
  */
 final class RelationInference {
@@ -26,6 +28,12 @@ final class RelationInference {
     }
 
     static List<Relation> infer(List<Table> tables, List<Relation> declared) {
+        return infer(tables, declared, null);
+    }
+
+    /** dbName: 지금 DB 이름(journal_db, journal_db_dev …). 후보가 여럿일 때 마지막 기준으로 쓴다. null 이면 안 씀. */
+    static List<Relation> infer(List<Table> tables, List<Relation> declared, String dbName) {
+        String dbPrefix = dbName == null ? null : dbName.split("_")[0];
         Set<String> names = new HashSet<>();
         for (Table t : tables) if (!t.view()) names.add(t.name());
         Set<String> declaredKeys = new HashSet<>();
@@ -38,19 +46,19 @@ final class RelationInference {
                 String col = c.name().toLowerCase();
                 if (!col.endsWith("_id") || col.equals("id")) continue;
                 if (declaredKeys.contains(t.name() + "." + c.name())) continue;
-                String target = target(t.name(), col.substring(0, col.length() - 3), names);
+                String target = target(t.name(), col.substring(0, col.length() - 3), names, dbPrefix);
                 if (target != null) out.add(new Relation(t.name(), c.name(), target, "id", false));
             }
         }
         return out;
     }
 
-    private static String target(String self, String base, Set<String> names) {
+    private static String target(String self, String base, Set<String> names, String dbPrefix) {
         if (base.equals("parent")) return self;
         String prefix = self.split("_")[0];
         String b = base;
         while (!b.isEmpty()) {
-            String found = match(self, prefix, b, names);
+            String found = match(self, prefix, b, names, dbPrefix);
             if (found != null) return found;
             int cut = b.indexOf('_');
             if (cut < 0) break;
@@ -59,21 +67,23 @@ final class RelationInference {
         return null;
     }
 
-    private static String match(String self, String prefix, String base, Set<String> names) {
+    private static String match(String self, String prefix, String base, Set<String> names, String dbPrefix) {
         for (String cand : List.of(base, base + "s", base + "es")) {
             if (names.contains(cand) && !cand.equals(self)) return cand;
         }
-        String bySuffix = unique(names, n -> !n.equals(self) && n.endsWith("_" + base), prefix);
+        String bySuffix = unique(names, n -> !n.equals(self) && n.endsWith("_" + base), prefix, dbPrefix);
         if (bySuffix != null) return bySuffix;
-        return unique(names, n -> !n.equals(self) && n.startsWith(prefix + "_" + base), null);
+        return unique(names, n -> !n.equals(self) && n.startsWith(prefix + "_" + base), null, null);
     }
 
-    /** 조건에 맞는 테이블이 하나면 그것, 여럿이면 접두어가 같은 것이 하나일 때만 그것. */
-    private static String unique(Set<String> names, Predicate<String> ok, String prefix) {
+    /** 조건에 맞는 테이블이 하나면 그것, 여럿이면 접두어 → DB 접두어 순으로 같은 것이 하나일 때만 그것. */
+    private static String unique(Set<String> names, Predicate<String> ok, String prefix, String dbPrefix) {
         List<String> hits = names.stream().filter(ok).sorted().toList();
         if (hits.size() == 1) return hits.get(0);
-        if (hits.size() > 1 && prefix != null) {
-            List<String> same = hits.stream().filter(n -> n.startsWith(prefix + "_")).toList();
+        if (hits.size() < 2) return null;
+        for (String p : new String[]{prefix, dbPrefix}) {
+            if (p == null) continue;
+            List<String> same = hits.stream().filter(n -> n.startsWith(p + "_")).toList();
             if (same.size() == 1) return same.get(0);
         }
         return null;

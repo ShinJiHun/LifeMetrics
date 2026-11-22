@@ -48,6 +48,17 @@ class RelationInferenceTest {
     }
 
     @Test
+    void 그래도_여럿이면_DB_이름_접두어로_고른다() {
+        List<Table> tables = List.of(
+                table("lecture_entry", "id", "post_id"),
+                table("journal_post", "id"),
+                table("blog_post", "id"));
+        assertThat(edges(RelationInference.infer(tables, List.of(), "journal_db_dev")))
+                .containsExactly("lecture_entry.post_id->journal_post");
+        assertThat(edges(RelationInference.infer(tables, List.of(), "riding_db"))).isEmpty();
+    }
+
+    @Test
     void 앞_토큰을_떼거나_접두어로_시작하는_테이블을_찾는다() {
         List<Table> tables = List.of(
                 table("lecture_entry", "id", "source_note_id"),

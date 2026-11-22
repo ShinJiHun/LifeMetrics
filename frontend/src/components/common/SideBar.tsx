@@ -130,12 +130,40 @@ export default function SideBar({ open = false }: { open?: boolean }) {
     );
 }
 
+/** 휴먼 사이드바의 관리자 묶음(핸들러·로또) 제목 — 누르면 하위 메뉴를 접고 편다. */
+function ToggleTitle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                width: "100%",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "10px 14px",
+                font: "inherit",
+                fontWeight: "bold",
+                color: "#111",
+                textAlign: "left",
+            }}
+        >
+            <span style={{ fontSize: 11, color: "#9aa0b2" }}>{open ? "▾" : "▸"}</span>
+            <span>{label}</span>
+        </button>
+    );
+}
+
 function HumanHandlerMenu({ accent }: { accent: string }) {
+    const [open, setOpen] = useState(true);
     return (
         <div style={{ marginTop: 24 }}>
-            <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
-                💼 핸들러
-            </div>
+            <ToggleTitle open={open} onToggle={() => setOpen((v) => !v)} label="💼 핸들러" />
+            {open && (
             <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <NavLink to="/human/handler-settlement" style={subLinkStyle(accent)}>
                     📄 월별 정산
@@ -144,16 +172,17 @@ function HumanHandlerMenu({ accent }: { accent: string }) {
                     🚗 핸들 기록
                 </NavLink>
             </nav>
+            )}
         </div>
     );
 }
 
 function HumanLottoMenu({ accent }: { accent: string }) {
+    const [open, setOpen] = useState(true);
     return (
         <div style={{ marginTop: 24 }}>
-            <div style={{ padding: "10px 14px", color: "#111", fontWeight: "bold" }}>
-                🎱 로또
-            </div>
+            <ToggleTitle open={open} onToggle={() => setOpen((v) => !v)} label="🎱 로또" />
+            {open && (
             <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <NavLink to="/lottery/lotto/stats" style={subLinkStyle(accent)} end>
                     📊 통계·기록
@@ -162,6 +191,7 @@ function HumanLottoMenu({ accent }: { accent: string }) {
                     ➕ 생성
                 </NavLink>
             </nav>
+            )}
         </div>
     );
 }
