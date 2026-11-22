@@ -1,4 +1,14 @@
 import api from "@/lib/axios";
+import { refresh as refreshContent } from "@/lib/contentStore";
+
+/**
+ * 게시하면 서버가 블로그 글을 만들고, 소메뉴('일상 > 일기', '일상 > 강연')가 없으면 새로 만든다.
+ * 왼쪽 메뉴·글 목록은 contentStore 캐시라 다시 불러와야 새로고침 없이 보인다. 실패해도 게시 결과는 그대로 돌려준다.
+ */
+const afterPublish = <T,>(data: T): T => {
+    refreshContent().catch((e) => console.warn("[diary] 게시 후 메뉴 새로고침 실패", e));
+    return data;
+};
 
 export type NoteSource = "app" | "cli" | "manual";
 
@@ -162,10 +172,11 @@ export const updateLecture = (id: number, title: string, speaker: string, conten
 export const setLectureTags = (id: number, tags: string[]) =>
     api.put<Lecture>(`/diary/lectures/${id}/tags`, { tags }).then((r) => r.data);
 /** 이미 게시한 강연의 블로그 글을 지금 요약·강연 정보로 덮어쓴다(소메뉴·공개 여부는 그대로). */
-export const republishLecture = (id: number) => api.post<Lecture>(`/diary/lectures/${id}/republish`).then((r) => r.data);
+export const republishLecture = (id: number) =>
+    api.post<Lecture>(`/diary/lectures/${id}/republish`).then((r) => afterPublish(r.data));
 export const discardLecture =(id: number) => api.delete(`/diary/lectures/${id}`);
 export const publishLecture = (id: number, visibility: "public" | "private", subId?: number) =>
-    api.post<Lecture>(`/diary/lectures/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => r.data);
+    api.post<Lecture>(`/diary/lectures/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => afterPublish(r.data));
 
 export interface DiarySubMenu {
     id: number;
@@ -195,7 +206,7 @@ export const updateDiaryEntry = (id: number, title: string, content: string) =>
     api.put<DiaryEntry>(`/diary/entries/${id}`, { title, content }).then((r) => r.data);
 export const discardDiaryEntry = (id: number) => api.delete(`/diary/entries/${id}`);
 export const publishDiaryEntry = (id: number, visibility: "public" | "private", subId?: number) =>
-    api.post<DiaryEntry>(`/diary/entries/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => r.data);
+    api.post<DiaryEntry>(`/diary/entries/${id}/publish`, { visibility, subId: subId ?? null }).then((r) => afterPublish(r.data));
 
 /** PT 운동일지 구글 시트 → 운동 기록 동기화 결과 (PtSheetSyncService.Result). */
 export interface PtSheetSyncResult {
