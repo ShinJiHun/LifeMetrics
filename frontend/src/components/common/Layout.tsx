@@ -4,6 +4,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import SideBar from "@/components/common/SideBar.tsx";
 import AdminBadge from "@/components/common/AdminBadge";
 import LotteryButton from "@/components/common/LotteryButton";
+import { PERSONA_META, resolvePersonaFromPath } from "@/lib/persona";
 import "@/styles/sidebar.css";
 
 export default function Layout() {
@@ -14,6 +15,13 @@ export default function Layout() {
     useEffect(() => {
         setSidebarOpen(false);
     }, [pathname]);
+
+    // 브라우저 탭 이름을 지금 페르소나에 맞춘다 (예: "📈 증권 신지훈 · LifeMetrics")
+    const persona = resolvePersonaFromPath(pathname);
+    useEffect(() => {
+        const meta = PERSONA_META[persona];
+        document.title = `${meta.emoji} ${meta.title} · LifeMetrics`;
+    }, [persona]);
 
     return (
         <div style={{display: "flex", height: "100vh"}}>
