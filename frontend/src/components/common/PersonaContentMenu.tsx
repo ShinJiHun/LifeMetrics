@@ -88,9 +88,17 @@ export default function PersonaContentMenu({
                         <PensionCategory accent={accent} />
                     </>
                 ) : (
-                    <NavLink to={`${base}/manage`} style={linkRoot(accent)}>
-                        ✏️ 메뉴·글 관리
-                    </NavLink>
+                    <>
+                        {/* 본인 전용 — 토스증권 계좌·거래내역 */}
+                        {persona === "stock" && isAdmin && (
+                            <NavLink to="/stock/toss" style={linkRoot(accent)}>
+                                💹 토스증권 계좌
+                            </NavLink>
+                        )}
+                        <NavLink to={`${base}/manage`} style={linkRoot(accent)}>
+                            ✏️ 메뉴·글 관리
+                        </NavLink>
+                    </>
                 )}
             </nav>
 

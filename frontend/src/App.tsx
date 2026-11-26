@@ -41,6 +41,7 @@ import DevExperiencePage from "@/pages/persona/DevExperiencePage";
 import PersonaChatPage from "@/pages/persona/PersonaChatPage";
 import PersonaGate from "@/pages/persona/PersonaGate";
 import LottoStatsPage from "@/pages/lottery/lotto/LottoStatsPage";
+import TossAccountPage from "@/pages/stock/TossAccountPage";
 import LottoCreatePage from "@/pages/lottery/lotto/LottoCreatePage";
 import PensionStatsPage from "@/pages/lottery/pension/PensionStatsPage";
 import LottoRecordsPage from "@/pages/lottery/lotto/LottoRecordsPage";
@@ -120,6 +121,9 @@ export default function App() {
                         <Route path={`/${p}/post/:postId/edit`} element={<RequireAdmin><PostEditorPage /></RequireAdmin>} />
                     </Route>
                 ))}
+
+                {/* 증권 페르소나 - 토스증권 계좌·보유 종목·거래내역 (관리자 전용, 읽기만) */}
+                <Route path="/stock/toss" element={<RequireAdmin><TossAccountPage /></RequireAdmin>} />
 
                 {/* 인간 페르소나 - 핸들러 월별 정산 PDF (관리자 전용) */}
                 <Route path="/human/handler-settlement" element={<RequireAdmin><HandlerSettlementPage /></RequireAdmin>} />
