@@ -68,6 +68,48 @@ export interface StockTransaction {
     exchangeRate: number | null;
 }
 
+export interface CurrencyFlow {
+    currency: string;
+    deposit: number;
+    withdrawal: number;
+    buy: number;
+    sell: number;
+    exchangeIn: number;
+    exchangeOut: number;
+    income: number;
+    fee: number;
+    cash: number;
+}
+
+/** 총 수익 = (보유 평가 + 추정 현금) − (입금 − 출금). 원화 환산 값은 모두 원 단위 정수. */
+export interface StockProfit {
+    firstDate: string | null;
+    lastDate: string | null;
+    txCount: number;
+    flows: CurrencyFlow[];
+    holdingsKrw: number | null;
+    holdingsUsd: number | null;
+    holdingsAt: string | null;
+    usdKrw: number | null;
+    usdKrwDate: string | null;
+    depositKrw: number;
+    withdrawalKrw: number;
+    netDepositKrw: number;
+    cashKrw: number;
+    holdingsTotalKrw: number;
+    currentAssetKrw: number;
+    totalProfitKrw: number;
+    profitRateOnDeposit: number | null;
+    incomeKrw: number;
+    feeKrw: number;
+    unknownTypes: string[];
+}
+
+export async function fetchStockProfit(): Promise<StockProfit> {
+    const { data } = await api.get<StockProfit>("/stock/profit");
+    return data;
+}
+
 export interface TxFilter {
     from?: string;
     to?: string;

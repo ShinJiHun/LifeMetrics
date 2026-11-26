@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
+    fetchStockProfit,
     fetchStockSummary,
     fetchStockTransactions,
+    type StockProfit,
     type StockSummary,
     type StockTransaction,
     type TxFilter,
@@ -70,6 +72,7 @@ function ymd(d: Date): string {
 
 export default function TossAccountPage() {
     const [summary, setSummary] = useState<StockSummary | null>(null);
+    const [profit, setProfit] = useState<StockProfit | null>(null);
     const [txs, setTxs] = useState<StockTransaction[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -81,6 +84,9 @@ export default function TossAccountPage() {
     useEffect(() => {
         fetchStockSummary()
             .then(setSummary)
+            .catch((e) => setError(errorMessage(e)));
+        fetchStockProfit()
+            .then(setProfit)
             .catch((e) => setError(errorMessage(e)));
     }, []);
 
@@ -125,6 +131,8 @@ export default function TossAccountPage() {
             </p>
 
             {error && <div style={S.error}>{error}</div>}
+
+            {profit && <ProfitSection p={profit} />}
 
             <section style={S.card}>
                 <h2 style={S.h2}>
@@ -321,6 +329,106 @@ export default function TossAccountPage() {
     );
 }
 
+/** 입금·출금·매수·매도·환전·이자를 모두 합친 총 수익. */
+function ProfitSection({ p }: { p: StockProfit }) {
+    const row = (label: string, value: string, style?: CSSProperties, hint?: string) => (
+        <div style={S.calcRow}>
+            <span>
+                {label}
+                {hint && <span style={S.mini}> {hint}</span>}
+            </span>
+            <span style={{ fontWeight: 600, ...style }}>{value}</span>
+        </div>
+    );
+    return (
+        <section style={{ ...S.card, borderTop: `4px solid ${ACCENT}` }}>
+            <h2 style={S.h2}>
+                💰 총 수익
+                <span style={S.sub}>
+                    {p.firstDate ?? "-"} ~ {p.lastDate ?? "-"} · 거래 {p.txCount.toLocaleString("ko-KR")}건 전부 합산
+                </span>
+            </h2>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
+                <span style={{ fontSize: 30, fontWeight: 800, ...tone(p.totalProfitKrw) }}>
+                    {signed(p.totalProfitKrw, "KRW")}
+                </span>
+                {p.profitRateOnDeposit != null && (
+                    <span style={{ fontSize: 15, ...tone(p.profitRateOnDeposit) }}>
+                        총 입금액 대비 {pct(p.profitRateOnDeposit)}
+                    </span>
+                )}
+            </div>
+
+            <div style={S.calc}>
+                {row("지금 자산", money(p.currentAssetKrw, "KRW"), undefined, "= 보유 평가 + 현금")}
+                {row(
+                    "　보유 종목 평가",
+                    money(p.holdingsTotalKrw, "KRW"),
+                    { fontWeight: 400 },
+                    p.holdingsUsd ? `(원화 ${money(p.holdingsKrw, "KRW")} + ${money(p.holdingsUsd, "USD")})` : undefined,
+                )}
+                {row("　현금(추정)", money(p.cashKrw, "KRW"), { fontWeight: 400 }, "거래내역으로 다시 계산")}
+                {row("− 넣은 돈(입금 − 출금)", money(p.netDepositKrw, "KRW"), undefined,
+                    `입금 ${money(p.depositKrw, "KRW")} − 출금 ${money(p.withdrawalKrw, "KRW")}`)}
+                <div style={{ ...S.calcRow, borderTop: `2px solid ${INK}`, paddingTop: 8 }}>
+                    <b>= 총 수익</b>
+                    <b style={tone(p.totalProfitKrw)}>{signed(p.totalProfitKrw, "KRW")}</b>
+                </div>
+            </div>
+
+            <div style={S.scroll}>
+                <table style={{ ...S.table, marginTop: 14 }}>
+                    <thead>
+                        <tr>
+                            <th style={S.th}>통화</th>
+                            <th style={S.thR}>입금</th>
+                            <th style={S.thR}>출금</th>
+                            <th style={S.thR}>매수</th>
+                            <th style={S.thR}>매도</th>
+                            <th style={S.thR}>환전 입금</th>
+                            <th style={S.thR}>환전 출금</th>
+                            <th style={S.thR}>이자·배당</th>
+                            <th style={S.thR}>수수료·세금</th>
+                            <th style={S.thR}>남은 현금</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {p.flows.map((f) => (
+                            <tr key={f.currency}>
+                                <td style={S.td}>{f.currency === "USD" ? "🇺🇸 달러" : "🇰🇷 원화"}</td>
+                                <td style={S.tdR}>{money(f.deposit, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.withdrawal, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.buy, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.sell, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.exchangeIn, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.exchangeOut, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.income, f.currency)}</td>
+                                <td style={S.tdR}>{money(f.fee, f.currency)}</td>
+                                <td style={{ ...S.tdR, fontWeight: 700 }}>{money(f.cash, f.currency)}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <div style={{ ...S.mini, marginTop: 10, lineHeight: 1.7 }}>
+                매수·매도·환전·이자·수수료는 모두 현금 잔고에 반영되므로, "지금 자산 − 넣은 돈" 하나로 전체 수익이 나와요.
+                {p.usdKrw != null && (
+                    <>
+                        {" "}달러는 최근 환전 환율 {p.usdKrw.toLocaleString("ko-KR")}원({p.usdKrwDate})으로 환산했어요.
+                    </>
+                )}
+                {" "}현금은 토스 앱의 주문가능금액과 비교해 보세요. 다르면 거래내역이 덜 받아진 거예요.
+                {p.unknownTypes.length > 0 && (
+                    <div style={{ color: "#b91c1c" }}>
+                        ⚠️ 계산에서 뺀 거래 유형: {p.unknownTypes.join(", ")}
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+}
+
 function typeBadge(type: string): CSSProperties {
     const color =
         type === "BUY" ? UP : type === "SELL" ? DOWN : type === "DIVIDEND" || type === "INTEREST" ? "#059669" : MUTED;
@@ -363,6 +471,8 @@ const S: Record<string, CSSProperties> = {
     tileValue: { fontSize: 22, fontWeight: 800, color: INK, marginBottom: 6 },
     tileMeta: { fontSize: 13, color: MUTED, lineHeight: 1.6 },
     scroll: { overflowX: "auto" },
+    calc: { maxWidth: 520, display: "flex", flexDirection: "column", gap: 6, fontSize: 14, color: INK },
+    calcRow: { display: "flex", justifyContent: "space-between", gap: 12, fontVariantNumeric: "tabular-nums" },
     table: { width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums" },
     th: thBase,
     thR: { ...thBase, textAlign: "right" },

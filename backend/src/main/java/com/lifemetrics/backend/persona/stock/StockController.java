@@ -32,6 +32,13 @@ public class StockController {
         return service.summary();
     }
 
+    /** 입금·출금·매수·매도·환전·이자를 모두 합친 총 수익 */
+    @GetMapping("/profit")
+    public StockService.Profit profit(HttpServletRequest request) {
+        requireAdmin(request);
+        return service.profit();
+    }
+
     @GetMapping("/transactions")
     public List<StockService.Transaction> transactions(
             HttpServletRequest request,
