@@ -83,6 +83,15 @@ public class StockService {
         return new Summary(latest, holdings, history);
     }
 
+    /** 가장 최근 계좌 스냅샷의 보유 종목 코드. 스냅샷이 없으면 빈 목록. */
+    public List<String> currentHoldingSymbols() {
+        return jdbc.queryForList("""
+                        SELECT DISTINCT s.symbol FROM invest_snapshot s
+                        WHERE s.account_snapshot_id = (
+                            SELECT id FROM invest_account_snapshot ORDER BY snapshot_at DESC, id DESC LIMIT 1)""",
+                new MapSqlParameterSource(), String.class);
+    }
+
     /**
      * 결제일 기준 기간 거래내역(최신순). type/market/symbol 은 비우면 전체.
      * 종목명은 거래내역에 없어서 보유 스냅샷에 한 번이라도 나온 이름을 붙인다.

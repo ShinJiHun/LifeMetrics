@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import {
+    fetchStockNews,
     fetchStockProfit,
     fetchStockSummary,
     fetchStockTransactions,
+    type Holding,
+    type StockNews,
     type StockProfit,
     type StockSummary,
     type StockTransaction,
@@ -76,6 +79,7 @@ export default function TossAccountPage() {
     const [txs, setTxs] = useState<StockTransaction[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [picked, setPicked] = useState<Holding | null>(null);
     const [filter, setFilter] = useState<TxFilter>(() => {
         const now = new Date();
         return { from: `${now.getFullYear()}-01-01`, to: ymd(now), type: "", market: "", symbol: "" };
@@ -183,7 +187,9 @@ export default function TossAccountPage() {
 
             {summary && summary.holdings.length > 0 && (
                 <section style={S.card}>
-                    <h2 style={S.h2}>보유 종목</h2>
+                    <h2 style={S.h2}>
+                        보유 종목<span style={S.sub}>종목을 누르면 아래에 소식(뉴스·공시)이 나와요</span>
+                    </h2>
                     <div style={S.scroll}>
                         <table style={S.table}>
                             <thead>
@@ -199,8 +205,15 @@ export default function TossAccountPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {summary.holdings.map((h) => (
-                                    <tr key={`${h.market}-${h.symbol}`}>
+                                {summary.holdings.map((h) => {
+                                    const on = picked?.market === h.market && picked?.symbol === h.symbol;
+                                    return (
+                                    <tr
+                                        key={`${h.market}-${h.symbol}`}
+                                        onClick={() => setPicked(on ? null : h)}
+                                        style={{ cursor: "pointer", background: on ? "#fffbeb" : undefined }}
+                                        title="이 종목 소식 보기"
+                                    >
                                         <td style={S.td}>
                                             <b>{h.name ?? h.symbol}</b>
                                             <div style={S.mini}>
@@ -215,10 +228,12 @@ export default function TossAccountPage() {
                                         <td style={{ ...S.tdR, ...tone(h.pnlRate) }}>{pct(h.pnlRate)}</td>
                                         <td style={{ ...S.tdR, ...tone(h.dailyPnlRate) }}>{pct(h.dailyPnlRate)}</td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
+                    {picked && <NewsPanel holding={picked} onClose={() => setPicked(null)} />}
                 </section>
             )}
 
@@ -325,6 +340,69 @@ export default function TossAccountPage() {
                 </div>
                 {txs.length >= 2000 && <div style={S.mini}>최대 2,000건까지만 보여요. 기간을 좁혀 주세요.</div>}
             </section>
+        </div>
+    );
+}
+
+const SOURCE_LABEL: Record<string, string> = { NAVER_NEWS: "뉴스", DART: "공시" };
+
+/** 보유 종목 하나의 소식(뉴스·공시) — 최근 30일, 최신순. */
+function NewsPanel({ holding, onClose }: { holding: Holding; onClose: () => void }) {
+    const [source, setSource] = useState("");
+    const [items, setItems] = useState<StockNews[] | null>(null);
+    const [err, setErr] = useState<string | null>(null);
+
+    useEffect(() => {
+        let alive = true;
+        setItems(null);
+        setErr(null);
+        fetchStockNews({ symbol: holding.symbol, source, days: 30, limit: 50 })
+            .then((list) => alive && setItems(list))
+            .catch((e) => alive && setErr(errorMessage(e)));
+        return () => {
+            alive = false;
+        };
+    }, [holding.symbol, source]);
+
+    return (
+        <div style={S.news}>
+            <div style={{ ...S.h2, fontSize: 15, marginBottom: 8 }}>
+                📰 {holding.name ?? holding.symbol} 소식
+                <span style={S.sub}>최근 30일</span>
+                <select value={source} onChange={(e) => setSource(e.target.value)} style={{ ...S.input, marginLeft: "auto" }}>
+                    <option value="">뉴스+공시</option>
+                    <option value="NAVER_NEWS">뉴스</option>
+                    <option value="DART">공시</option>
+                </select>
+                <button type="button" onClick={onClose} style={S.input}>
+                    닫기
+                </button>
+            </div>
+            {err ? (
+                <div style={S.error}>{err}</div>
+            ) : items == null ? (
+                <div style={S.empty}>불러오는 중…</div>
+            ) : items.length === 0 ? (
+                <div style={S.empty}>최근 30일 동안 모은 소식이 없어요.</div>
+            ) : (
+                <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+                    {items.map((n) => (
+                        <li key={n.id} style={S.newsItem}>
+                            <a href={n.url} target="_blank" rel="noopener noreferrer" style={S.newsTitle}>
+                                {n.title}
+                            </a>
+                            <div style={S.mini}>
+                                <span style={typeBadge(n.source === "DART" ? "DIVIDEND" : "")}>
+                                    {SOURCE_LABEL[n.source] ?? n.source}
+                                </span>{" "}
+                                {n.publisher && <>{n.publisher} · </>}
+                                {n.publishedAt.replace("T", " ").slice(0, 16)}
+                            </div>
+                            {n.summary && <div style={S.newsSummary}>{n.summary}</div>}
+                        </li>
+                    ))}
+                </ul>
+            )}
         </div>
     );
 }
@@ -482,5 +560,9 @@ const S: Record<string, CSSProperties> = {
     filters: { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 },
     input: { padding: "6px 8px", border: `1px solid ${LINE}`, borderRadius: 6, fontSize: 13, background: "#fff" },
     totals: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 },
+    news: { marginTop: 14, paddingTop: 14, borderTop: `2px dashed ${LINE}` },
+    newsItem: { padding: "10px 2px", borderBottom: `1px solid ${LINE}` },
+    newsTitle: { color: INK, fontWeight: 600, fontSize: 14, textDecoration: "none", lineHeight: 1.5 },
+    newsSummary: { fontSize: 13, color: "#374151", marginTop: 4, lineHeight: 1.6, whiteSpace: "pre-wrap" },
     chip: { fontSize: 12, padding: "4px 10px", borderRadius: 999, background: "#fffbeb", border: "1px solid #fde68a", color: INK },
 };

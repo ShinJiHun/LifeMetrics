@@ -123,6 +123,35 @@ export async function fetchStockSummary(): Promise<StockSummary> {
     return data;
 }
 
+/** 보유 종목 소식(뉴스·공시). data_pipeline 이 수집한 journal_db.stock_news. 날짜는 KST. */
+export interface StockNews {
+    id: number;
+    market: string;
+    symbol: string;
+    name: string | null;
+    source: string; // NAVER_NEWS / DART
+    title: string;
+    summary: string | null;
+    url: string;
+    publisher: string | null;
+    publishedAt: string;
+    collectedAt: string | null;
+    dartRceptNo: string | null;
+}
+
+export interface NewsFilter {
+    symbol?: string; // 비우면 지금 보유 종목 전체
+    source?: string;
+    days?: number;
+    limit?: number;
+}
+
+export async function fetchStockNews(f: NewsFilter): Promise<StockNews[]> {
+    const params = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
+    const { data } = await api.get<StockNews[]>("/stock/news", { params });
+    return data;
+}
+
 export async function fetchStockTransactions(f: TxFilter): Promise<StockTransaction[]> {
     const params = Object.fromEntries(Object.entries(f).filter(([, v]) => v));
     const { data } = await api.get<StockTransaction[]>("/stock/transactions", { params });

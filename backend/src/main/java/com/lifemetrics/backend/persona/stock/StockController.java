@@ -24,6 +24,7 @@ import java.util.List;
 public class StockController {
 
     private final StockService service;
+    private final StockNewsService newsService;
     private final AdminWriteFilter adminWriteFilter;
 
     @GetMapping("/summary")
@@ -49,6 +50,18 @@ public class StockController {
             @RequestParam(required = false) String symbol) {
         requireAdmin(request);
         return service.transactions(from, to, type, market, symbol);
+    }
+
+    /** 보유 종목 소식(뉴스·공시). symbol 을 비우면 지금 보유 종목 전체. */
+    @GetMapping("/news")
+    public List<StockNewsService.News> news(
+            HttpServletRequest request,
+            @RequestParam(required = false) String symbol,
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) Integer days,
+            @RequestParam(required = false) Integer limit) {
+        requireAdmin(request);
+        return newsService.news(symbol, source, days, limit);
     }
 
     private void requireAdmin(HttpServletRequest request) {
